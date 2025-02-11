@@ -17,13 +17,13 @@
 # DO NOT EXPORT "INTEL_ROOT" !
 
 GMSH_VERSION="3.0.6"
-BOOST_VERSION="1.67"
+BOOST_VERSION="1_80_0"
 
 export NEXTSIMDIR=`pwd`
 
 # AeroBulk turbulent air-sea flux computation
 #--------------------------------------------
-l_aerobulk=true ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
+l_aerobulk=false ; # Call AeroBulk to compute air-sea fluxes ? If true, give the appropriate value for "AEROBULK_DIR" in the arch CASE block...
 if ${l_aerobulk}; then
     export USE_AEROBULK=true
     # => then, later before launching neXtSIM, pick an algorithm by setting `ocean_bulk_formula=<algo>` of the `thermo` block in the config file
@@ -54,25 +54,26 @@ fi
 # Defaults before host-specific adjustment #
 ############################################
 ### Linux / GNU / OpenMPI specific part:
-export CC=mpicc.openmpi
-export CXX=mpicxx.openmpi
-export FC=mpifort.openmpi
+export CC=mpicc
+export CXX=mpicxx
+export FC=mpifort
 #
 export CFLAGS="-O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
 export CCFLAGS="${CFLAGS}";                     # only for `mapx` ???
 export CXXFLAGS="-O3 -pthread -fPIC -fopenmp "  # NOTE: many other flags are still hard-coded in the Makefiles!
+
 export LDFLAGS=""
 export FFLAGS="-O2 -fopenmp -lstdc++ -fPIC"
 #
 export MPI_DIR="/usr" ; # default OpenMPI
 #
-export NETCDF_DIR="/usr"
-export NETCDF_CXX_DIR="/usr"
+export NETCDF_DIR="${HOME}/opt/netcdf"
+export NETCDF_CXX_DIR="${HOME}/opt/netcdf-cxx"
 #
 export AEROBULK_DIR="${HOME}/DEV/aerobulk"
 export OASIS_DIR="${HOME}/src/oasis3-mct"
 #
-NXTSM_DEP_DIR="/opt/nextsim_gnu" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
+NXTSM_DEP_DIR="${HOME}/opt/nextsim_gnu/" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
 #
 #############################################
 
@@ -103,11 +104,11 @@ export MPI_LIB_DIR=${MPI_DIR}/lib
 export MPI_INC_DIR=${MPI_DIR}/include
 
 # Third-party software dependencies, compiled with relevant compiler!
-export GMSH_DIR=${NXTSM_DEP_DIR}/gmsh-${GMSH_VERSION}
+export GMSH_DIR=${NXTSM_DEP_DIR} #/gmsh-${GMSH_VERSION}
 
-export PARMMG_DIR=${NEXTSIMDIR}/deps/parmmg2d/build
+export PARMMG_DIR=${NEXTSIMDIR}/deps/parmmg2d/build/
 
-export BOOST_DIR=${NXTSM_DEP_DIR}/boost-${BOOST_VERSION}
+export BOOST_DIR=${HOME}/opt/boost/
 export BOOST_INCDIR=${BOOST_DIR}/include
 export BOOST_LIBDIR=${BOOST_DIR}/lib
 

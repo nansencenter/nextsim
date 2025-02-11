@@ -31,10 +31,13 @@ class Metric
 {
 public:
 
-    double quality_threshold = 0.15; // Limit of quality that triggers the remeshing process
-    int p = 1; // p of norm L^p
+    double quality_threshold = 0.; // Limit of quality that triggers the remeshing process
+    int p = 2; // p of norm L^p
     int Nst = 1; // Number of points 
-    bool is_vtk_written = true; // Set to true to write a vtk file containing the mesh and the metric. It is true when the debug option for MMG is activated
+    bool is_vtk_written = false; // Set to true to write a vtk file containing the mesh and the metric. It is true when the debug option for MMG is activated
+    bool isotropic = true; // Set to true to have an isotropic metric (Salmon's metric), set to false to have an anisotropic metric (Loseille's metric)
+    double scale_factor_min = 0.1; // Scale factor for the minimum size of the elements (scale_factor * size of the smallest initial element)
+    double scale_factor_max = 0.26; // Scale factor for the maximum size of the elements (scale_factor * size of the greatest initial element)
     int process;
 
     // Edge length in the non-euclidean geometry defined by the metric
@@ -61,6 +64,13 @@ public:
     // Metric solution of the minimization problem
     void compute_optimal_metric(GmshMesh const& mesh, std::vector<double> const& field, double hmin, double hmax); 
     void compute_optimal_metric(GmshMeshSeq const& mesh, std::vector<double> const& field, double hmin, double hmax);
+
+    double error_min_max(std::vector<double> const& areas_vertex, std::vector<int> const& order_number,
+                         std::vector<double> const& sum_gamma, int nb_vertices, double d_min, double d_max, double alpha, double z1);
+    double error_max(std::vector<double> const& areas_vertex, std::vector<int> const& order_number,
+                     std::vector<double> const& sum_gamma, int nb_vertices, double d_max, double alpha, double z2);
+    void compute_optimal_bounded_isotropic_metric(GmshMesh const& mesh, std::vector<double> const& field, double hmin, double hmax, Communicator const & comm);
+    void compute_optimal_bounded_isotropic_metric(GmshMeshSeq const& mesh, std::vector<double> const& field, double hmin, double hmax, Communicator const & comm);
 
     // Compute the areas of each triangle of the mesh
     template<typename FEMeshType>

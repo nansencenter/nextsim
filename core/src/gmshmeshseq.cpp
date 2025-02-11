@@ -518,7 +518,7 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
     CTX::instance()->mesh.binary = 1;
 
     std::ostringstream gmshstr;
-    gmshstr << BOOST_PP_STRINGIZE( gmsh )
+    gmshstr << "/gpfs/home/fsalmon/nextsim_official/deps/gmsh-3.0.6/lib/gmsh" //BOOST_PP_STRINGIZE( gmsh )
             << " -" << 2
             << " -part " << Environment::comm().size()
             << " -format " << "msh2";

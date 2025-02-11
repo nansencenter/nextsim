@@ -69,13 +69,13 @@ export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux";  #     "           
 #
 export MPI_DIR="${INTEL_ROOT}/mpi/latest"
 #
-export NETCDF_DIR="/opt/netcdf_intel"
-export NETCDF_CXX_DIR="/opt/netcdf_intel"
+export NETCDF_DIR="/home/fsalmon/usr/netcdf"
+export NETCDF_CXX_DIR="/home/fsalmon/usr/netcdf-cxx"
 #
 export AEROBULK_DIR="${HOME}/DEV/aerobulk"
 export OASIS_DIR="${HOME}/src/oasis3-mct"
 #
-NXTSM_DEP_DIR="/opt/nextsim_intel" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
+NXTSM_DEP_DIR="${HOME}/usr/nextsim_gnu" ; # path to directory containing compiled BOOST and GMSH (with the relevant compiler!)
 #
 #############################################
 

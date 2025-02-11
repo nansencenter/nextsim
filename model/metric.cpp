@@ -144,7 +144,6 @@ Metric::check_triangle_quality(GmshMesh const& mesh) const
     {
         if (quality[n] < this->quality_threshold)
         {
-//std::cout << "MAUVAISE QUALITE " << n << " " << quality[n] << std::endl;
             res.push_back(n);
         }
     }
@@ -163,7 +162,6 @@ Metric::check_triangle_quality(GmshMeshSeq const& mesh) const
     {
         if (quality[n] < this->quality_threshold)
         {
-//std::cout << "MAUVAISE QUALITE " << n << " " << quality[n] << std::endl;
             res.push_back(n);
         }
     }
@@ -172,8 +170,7 @@ Metric::check_triangle_quality(GmshMeshSeq const& mesh) const
 
 } // check_triangle_quality
 
-// Metric solution of the minimization problem
-//template<typename FEMeshType>
+// Metric Loseille solution of the minimization problem
 void
 Metric::compute_optimal_metric(GmshMesh const& mesh, std::vector<double> const& field, double hmin, double hmax)
 {
@@ -279,6 +276,472 @@ Metric::compute_optimal_metric(GmshMeshSeq const& mesh, std::vector<double> cons
 
 } // compute_optimal_metric
 
+// Metric Salmon solution of the minimization problem
+double 
+Metric::error_min_max(std::vector<double> const& areas_vertex, std::vector<int> const& order_number, 
+                      std::vector<double> const& sum_gamma, int nb_vertices, double d_min, double d_max, double alpha, double z1)
+{
+    double z2 = z1 * pow(d_max/d_min, 1./alpha);
+
+    double area_A = 0.;
+    double area_B = 0.;
+    double integral = 0.;
+
+    for (int k = 0; k < nb_vertices; k++) 
+    {
+        int n = order_number[k];
+        if (sum_gamma[n] < z1)
+        {
+            area_A += areas_vertex[n];
+        }
+        else if (sum_gamma[n] < z2)
+        {
+            integral += pow(sum_gamma[n],alpha) * areas_vertex[n];
+        }
+        else
+        {
+            area_B += areas_vertex[n];
+        }
+    }
+
+    return (this->Nst - area_A*d_min - area_B*d_max) * pow(z1, alpha) / integral - d_min;
+
+} // error_min_max
+
+double
+Metric::error_max(std::vector<double> const& areas_vertex, std::vector<int> const& order_number, 
+                  std::vector<double> const& sum_gamma, int nb_vertices, double d_max, double alpha, double z2)
+{
+
+    double area_B = 0.;
+    double integral = 0.;
+
+    for (int k = 0; k < nb_vertices; k++)
+    {
+        int n = order_number[k];
+        if (sum_gamma[n] < z2)
+        {
+            integral += pow(sum_gamma[n],alpha) * areas_vertex[n];
+        }
+        else
+        {
+            area_B += areas_vertex[n];
+        }
+    }
+
+    return (this->Nst - area_B*d_max) * pow(z2, alpha) / integral - d_max;
+
+} // error_max
+
+void
+Metric::compute_optimal_bounded_isotropic_metric(GmshMesh const& mesh, std::vector<double> const& field, double hmin, double hmax, Communicator const & comm)
+{
+    double d_max = 1./(hmin*hmin);
+    double d_min = 1./(hmax*hmax);
+    double alpha = 1./(1.+this->p);
+
+    // First step: compute triangle areas
+    std::vector<double> areas_triangle = compute_triangle_euclidean_areas(mesh);
+
+    // Second step: compute the area associated to each vertex. 
+    // This area corresponds to the sum of one third of the area of each triangle contaning the vertex.
+    std::vector<double> areas_vertex(mesh.numNodes(),0.);
+    int id;
+
+    for (int n = 0; n < mesh.numTriangles(); n++)
+    {
+        for (int i = 0; i <= 2; i++)
+        {
+            id = mesh.triangles()[n].indices[i] - 1;
+            areas_vertex[id] += areas_triangle[n]/3.;
+        }
+    }
+
+    // Third step: compute the Hessian
+    std::vector<std::vector<double>> hessian_components = compute_hessian_field(mesh, field);
+
+    // Fourth step: compute the second term in the integral error and order it
+    std::vector<double> sum_gamma(mesh.numNodes());
+    for (int n = 0; n < mesh.numNodes(); n++) 
+    {
+        sum_gamma[n] = pow(hessian_components[n][0] + hessian_components[n][2], this->p);
+    }
+
+    std::vector<int> sizes(comm.size());
+    boost::mpi::all_gather(comm, mesh.numNodes(), sizes);
+
+    int total_size = std::accumulate(sizes.begin(), sizes.end(), 0);
+
+    std::vector<double> global_sum_gamma(total_size);
+    boost::mpi::gatherv(comm, sum_gamma, &global_sum_gamma[0], sizes, 0);
+    boost::mpi::broadcast(comm, &global_sum_gamma[0], total_size, 0);
+
+    std::vector<int> order_number(total_size);
+    std::iota(order_number.begin(), order_number.end(), 0); 
+    std::sort(order_number.begin(), order_number.end(), [&global_sum_gamma](int i, int j) {
+              return global_sum_gamma[i] < global_sum_gamma[j];}
+             );
+
+    std::vector<double> global_areas_vertex(total_size);
+    boost::mpi::gatherv(comm, areas_vertex, &global_areas_vertex[0], sizes, 0);
+    boost::mpi::broadcast(comm, &global_areas_vertex[0], total_size, 0);
+
+    // Fifth step: find z1 and z2 by dichotomy 
+    // NOTE: the method might be improved but error_min_max and error_max are constant piecewise functions
+    double z1,z2;
+    int n = 0;
+    int N_ITER = 100;
+    auto a = *std::min_element(global_sum_gamma.begin(), global_sum_gamma.end());
+    auto b = *std::max_element(std::begin(global_sum_gamma), std::end(global_sum_gamma));
+    double TOL = 1.e-15;
+    double c;
+    if (error_min_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_min, d_max, alpha, a) *
+        error_min_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_min, d_max, alpha, b) > 0.)
+    {
+        // d_min is smaller than the smallest element using Loseille solution
+        a += (b-a)/10000.;
+        if (error_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_max, alpha, a) *
+            error_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_max, alpha, b) > 0.)
+        {
+            // d_max is greater than the greatest element using Loseille solution
+            z1 = 0.;
+            z2 = 1.e40;
+        }
+        else
+        {
+            while (fabs(error_min_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_min, d_max, alpha, a) - 
+                        error_min_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_min, d_max, alpha, b)) > TOL && 
+                   n < N_ITER)
+            {
+                double c = (a+b) / 2.;
+                if (error_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_max, alpha, a) *
+                    error_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_max, alpha, c) < 0.)
+                {
+                    b = c;
+                }
+                else 
+                {
+                    a = c;
+                }
+                n += 1;
+            }
+
+            z2 = (a+b) / 2.;
+            z1 = 0.;
+        }
+    }
+    else
+    {
+        while (fabs(error_min_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_min, d_max, alpha, a) - 
+                    error_min_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_min, d_max, alpha, b)) > TOL &&
+               n < N_ITER)
+        {
+            double c = (a+b) / 2.;
+            if (error_min_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_min, d_max, alpha, a) *
+                error_min_max(global_areas_vertex, order_number, global_sum_gamma, total_size, d_min, d_max, alpha, c) < 0.)
+            {
+                b = c;
+            }
+            else
+            {
+                a = c;
+            }
+            n += 1;
+        }
+
+        z1 = (a+b) / 2.;
+        z2 = z1 * pow(d_max/d_min, 1./alpha);
+    }
+
+    // Sixth step: compute the eigenvalue that minimize the integral error
+    double area_A = 0.;
+    double area_B = 0.;
+    double integral = 0.;
+    double error = 0.;
+    double constraint = 0.;
+    std::vector<double> lambda(total_size);
+    for (int k = 0; k < total_size; k++) 
+    {
+        n = order_number[k];
+        if (global_sum_gamma[n] < z1)
+        {
+            area_A += global_areas_vertex[n];
+        }
+        else if (global_sum_gamma[n] < z2)
+        {
+            integral += pow(global_sum_gamma[n], alpha) * global_areas_vertex[n];
+        }
+        else
+        {
+            area_B += global_areas_vertex[n];
+        }
+    }
+
+    std::vector<int> displs(comm.size(), 0);
+    for (int k = 1; k < comm.size(); ++k) {
+        displs[k] = displs[k - 1] + sizes[k - 1];
+    }
+    for (int k = 0; k < total_size; k++)
+    {
+        n = order_number[k];
+        if (global_sum_gamma[n] < z1)
+        {
+            lambda[n] = d_min;
+        }
+        else if (global_sum_gamma[n] < z2)
+        {
+            lambda[n] = (this->Nst - area_A*d_min -area_B*d_max) * pow(global_sum_gamma[n], alpha) / integral;
+        }
+        else
+        {
+            lambda[n] = d_max;
+        }
+        //constraint += lambda[n]*global_areas_vertex[n];
+        //error += sum_gamma[n]*pow(lambda[n],-this->p)*areas_vertex[n];
+    }
+
+    //double result = 0.;
+    //boost::mpi::reduce(comm, constraint, result, std::plus<double>(), 0);
+    //if (comm.rank() == 0) std::cout << "Both should be equal " << constraint << " " << this->Nst << std::endl;
+
+    // Last step: compute the metric based on the eigenvalue lambda
+    std::vector<double> v1(2);
+    std::vector<double> v2(2);
+    std::vector<std::vector<double>> res(mesh.numNodes(), std::vector<double>(3));
+    for (n = 0; n < mesh.numNodes(); n++)
+    {
+        // Eigen vectors of the Hessian matrix
+        a = hessian_components[n][0];
+        b = hessian_components[n][1];
+        c = hessian_components[n][2];
+
+        // Check whether the hessian is diagonal
+        if (fabs(b) < 1e-12)
+        {
+            v1[0] = 1.;
+            v1[1] = 0.;
+            v2[1] = 1.;
+            v2[0] = 0.;
+        }
+        else
+        {
+            // Eigen vectors
+            double delta = sqrt((a-c)*(a-c) + 4*b*b);
+            double m = (-a+c+delta)/(2*b);
+            double inv_det = 1./sqrt(1+m*m);
+            v1[0] = inv_det;
+            v1[1] = m*inv_det;
+            v2[0] = -m*inv_det;
+            v2[1] = inv_det;
+        }
+
+        int l = n + displs[comm.rank()];
+        res[n][0] = lambda[l]*pow(v1[0],2) + lambda[l]*pow(v1[1],2);
+        res[n][2] = lambda[l]*pow(v2[0],2) + lambda[l]*pow(v2[1],2);
+        res[n][1] = lambda[l]*v1[0]*v2[0] + lambda[l]*v1[1]*v2[1];
+
+    }
+
+    this->components = res;
+
+    // Write a vtk file containing the mesh and the metric
+    if (this->is_vtk_written) write_metric_vtk(mesh);
+
+} // compute_optimal_bounded_metric
+
+void
+Metric::compute_optimal_bounded_isotropic_metric(GmshMeshSeq const& mesh, std::vector<double> const& field, double hmin, double hmax, Communicator const & comm)
+{
+    double d_max = 1./(hmin*hmin);
+    double d_min = 1./(hmax*hmax);
+    double alpha = 1./(1.+this->p);
+
+    // First step: compute triangle areas
+    std::vector<double> areas_triangle = compute_triangle_euclidean_areas(mesh);
+
+    // Second step: compute the area associated to each vertex. 
+    // This area corresponds to the sum of one third of the area of each triangle contaning the vertex.
+    std::vector<double> areas_vertex(mesh.numNodes(),0.);
+    int id;
+
+    for (int n = 0; n < mesh.numTriangles(); n++)
+    {
+        for (int i = 0; i <= 2; i++)
+        {
+            id = mesh.triangles()[n].indices[i] - 1;
+            areas_vertex[id] += areas_triangle[n]/3.;
+        }
+    }
+
+    // Third step: compute the Hessian
+    std::vector<std::vector<double>> hessian_components = compute_hessian_field(mesh, field);
+
+    // Fourth step: compute the second term in the integral error and order it
+    std::vector<double> sum_gamma(mesh.numNodes());
+    for (int n = 0; n < mesh.numNodes(); n++)
+    {
+        sum_gamma[n] = pow(hessian_components[n][0] + hessian_components[n][2], this->p);
+    }
+
+    std::vector<int> order_number(mesh.numNodes());
+    std::iota(order_number.begin(), order_number.end(), 0);
+    std::sort(order_number.begin(), order_number.end(), [&sum_gamma](int i, int j) {
+              return sum_gamma[i] < sum_gamma[j];}
+             );
+
+    // Fifth step: find z1 and z2 by dichotomy 
+    // NOTE: the method might be improved but error_min_max and error_max are constant piecewise functions
+    double z1,z2;
+    int n = 0;
+    int N_ITER = 100;
+    double TOL = 1.e-15;
+    auto a = *std::min_element(sum_gamma.begin(), sum_gamma.end());
+    auto b = *std::max_element(std::begin(sum_gamma), std::end(sum_gamma));
+    double c;
+    if (error_min_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_min, d_max, alpha, a) *
+        error_min_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_min, d_max, alpha, b) > 0.)
+    {
+        // d_min is smaller than the smallest element using Loseille solution
+        a += (b-a)/10000.;
+        if (error_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_max, alpha, a) * 
+            error_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_max, alpha, b) > 0.)
+        {
+            // d_max is greater than the greatest element using Loseille solution
+            z1 = 0.;
+            z2 = 0.;
+        }
+        else
+        {
+            while (fabs(error_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_max, alpha, a) -
+                        error_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_max, alpha, b)) > TOL &&
+                   n < N_ITER)
+            {
+                double c = (a+b) / 2.;
+                if (error_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_max, alpha, a) *
+                    error_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_max, alpha, c) < 0.)
+                {
+                    b = c;
+                }
+                else
+                {
+                    a = c;
+                }
+                n += 1;
+            }
+
+            z2 = (a+b) / 2.;
+            z1 = 0.;
+        }
+    }
+    else
+    {
+        while (fabs(error_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_max, alpha, a) -
+                    error_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_max, alpha, b)) > TOL &&
+               n < N_ITER)
+        {
+            double c = (a+b) / 2.;
+            if (error_min_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_min, d_max, alpha, a) *
+                error_min_max(areas_vertex, order_number, sum_gamma, mesh.numNodes(), d_min, d_max, alpha, c) < 0.)
+            {
+                b = c;
+            }
+            else
+            {
+                a = c;
+            }
+            n += 1;
+        }
+
+        z1 = (a+b) / 2.;
+        z2 = z1 * pow(d_max/d_min, 1./alpha);
+    }
+
+    // Sixth step: compute the eigenvalue that minimize the integral error
+    double area_A = 0.;
+    double area_B = 0.;
+    double integral = 0.;
+    double error = 0.;
+    std::vector<double> lambda(mesh.numNodes());
+    for (int k = 0; k < mesh.numNodes(); k++)
+    {
+        n = order_number[k];
+        if (sum_gamma[n] < z1)
+        {
+            area_A += areas_vertex[n];
+        }
+        else if (sum_gamma[n] < z2)
+        {
+            integral += pow(sum_gamma[n], alpha) * areas_vertex[n];
+        }
+        else
+        {
+            area_B += areas_vertex[n];
+        }
+    }
+
+    for (int k = 0; k < mesh.numNodes(); k++)
+    {
+        n = order_number[k];
+        if (sum_gamma[n] < z1)
+        {
+            lambda[n] = d_min;
+        }
+        else if (sum_gamma[n] < z2)
+        {
+            lambda[n] = (this->Nst - area_A*d_min -area_B*d_max) * pow(sum_gamma[n], alpha) / integral;
+        }
+        else
+        {
+            lambda[n] = d_max;
+        }
+
+        //error += sum_gamma[n]*pow(lambda[n],-this->p)*areas_vertex[n];
+    }
+
+    // Last step: compute the metric based on the eigenvalue lambda
+    std::vector<double> v1(2);
+    std::vector<double> v2(2);
+    std::vector<std::vector<double>> res(mesh.numNodes(), std::vector<double>(3));
+    for (n = 0; n < mesh.numNodes(); n++)
+    {
+        // Eigen vectors of the Hessian matrix
+        a = hessian_components[n][0];
+        b = hessian_components[n][1];
+        c = hessian_components[n][2];
+
+        // Check whether the hessian is diagonal
+        if (fabs(b) < 1e-12)
+        {
+            v1[0] = 1.;
+            v1[1] = 0.;
+            v2[1] = 1.;
+            v2[0] = 0.;
+        }
+        else
+        {
+            // Eigen vectors
+            double delta = sqrt((a-c)*(a-c) + 4*b*b);
+            double m = (-a+c+delta)/(2*b);
+            double inv_det = 1./sqrt(1+m*m);
+            v1[0] = inv_det;
+            v1[1] = m*inv_det;
+            v2[0] = -m*inv_det;
+            v2[1] = inv_det;
+        }
+
+        res[n][0] = lambda[n]*pow(v1[0],2) + lambda[n]*pow(v1[1],2);
+        res[n][2] = lambda[n]*pow(v2[0],2) + lambda[n]*pow(v2[1],2);
+        res[n][1] = lambda[n]*v1[0]*v2[0] + lambda[n]*v1[1]*v2[1];
+
+    }
+
+    this->components = res;
+
+    // Write a vtk file containing the mesh and the metric
+    if (this->is_vtk_written) write_metric_vtk(mesh);
+
+} // compute_optimal_bounded_metric
+
 // Write the mesh vertices and the metric as a VTK file for debug
 template<typename FEMeshType>
 void
@@ -319,6 +782,8 @@ Metric::write_metric_vtk(FEMeshType const& mesh) const
             vtkfile << this->components[n][j] <<"\n";
         }
     }
+
+    vtkfile.close();
 
 } // write_metric_vtk
 

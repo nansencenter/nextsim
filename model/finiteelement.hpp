@@ -130,6 +130,10 @@ public:
     double measure(element_type const& element, FEMeshType const& mesh,
                    std::vector<double> const& um, double factor = 1.) const;
 
+    bool appear_once(const std::vector<int>& vec, int n) const
+    { return std::count(vec.begin(), vec.end(), n) == 1; }
+
+
     std::vector<double> shapeCoeff(element_type const& element) const;
     template<typename FEMeshType>
     std::vector<double> surface(FEMeshType const& mesh);
@@ -145,19 +149,20 @@ public:
 
 #ifdef MMG
     template<typename FEMeshType>
-    void adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field);
+    void adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field, int partitioned);
 
     template<typename FEMeshType>
-    void convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh);
-
-    void compute_list_boundary_nodes(std::vector<int> &list_boundary_nodes);
+    void convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh, int partitioned);
 
     template<typename FEMeshType>
-    void anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh, std::vector<std::vector<double>> const& metric_components);
+    void anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh, std::vector<std::vector<double>> const& metric_components, int partitioned);
     void write_vtk_file(PMMG2D_pParMesh parmesh);
 
-    void updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_nodes, std::vector<int> &Neumann_nodes);
+    void boundary_flags(std::vector<std::vector<int>> list_edges, std::vector<int> Dirichlet_nodes, std::vector<int> Neumann_nodes, std::vector<int> Mask_Dirichlet, std::vector<int> Mask_Neumann);
+    void updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_nodes, std::vector<int> &Neumann_nodes, int restart);
 #endif
+
+    size_t getMemoryUsage();
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
@@ -179,6 +184,11 @@ public:
 
     void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 
+    void interpFields_parallel(std::vector<double> coordX_prv, std::vector<double> coordY_prv, std::vector<int> triangles_prv, 
+                               std::vector<int> list_global_nodes_prv_local, std::vector<double> interp_elt_in_local);
+
+    std::vector<std::vector<std::vector<int>>> cartesian_discretization(int num, std::vector<double> const &coordX, std::vector<double> const &coordY,
+                                                                        std::vector<int> const &triangles, int GRID_SIZE, double xmax, double xmin, double ymax, double ymin);
     void init();
     void step();
     void run();
@@ -336,7 +346,7 @@ public:
 
     bool use_MMG;
     int MG_DIRICHLET = 22;
-    int MG_NEUMANN = 44;
+    int MG_NEUMANN = 43;
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -354,6 +364,8 @@ public:
     void collectNodesRestart(std::vector<double>& interp_nd_out);
     void collectElementsRestart(std::vector<double>& interp_elt_out,
             std::vector<std::vector<double>*> &data_elements_root);
+
+    void build_mesh_mmg(std::vector<double>& coordX, std::vector<double>& coordY, std::vector<int>& triangles);
 
     void rootMeshProcessing();
 
@@ -446,8 +458,10 @@ private:
 
     std::vector<int> M_boundary_flags;
     std::vector<int> M_dirichlet_flags;
+    std::vector<int> M_dirichlet_flags_ordered;
     std::vector<int> M_dirichlet_nodes;
     std::vector<int> M_neumann_flags;
+    std::vector<int> M_neumann_flags_ordered;
     std::vector<int> M_neumann_nodes;
 
     boost::mpi::timer chrono, chrono_tot;
@@ -683,6 +697,8 @@ private: // only on root process (rank 0)
     std::vector<int> M_connectivity_root;
     std::vector<int> M_dirichlet_flags_root;
     std::vector<int> M_neumann_flags_root;
+    std::vector<int> M_dirichlet_flags_root_ordered;
+    std::vector<int> M_neumann_flags_root_ordered;
 
     std::vector<int> M_dirichlet_nodes_root;
     std::vector<int> M_neumann_nodes_root;

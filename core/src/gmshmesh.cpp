@@ -797,6 +797,23 @@ GmshMesh::move(std::vector<double> const& um, double factor)
 }
 
 void
+GmshMesh::update(std::vector<point_type> const& nodes,
+                 std::vector<element_type> const& triangles,
+                 int numElements)
+{
+    std::vector<point_type>().swap(M_nodes_vec);
+    std::vector<element_type>().swap(M_triangles);
+
+    M_nodes_vec = nodes;
+    M_triangles = triangles;
+    M_num_nodes = nodes.size();
+    M_num_triangles = triangles.size();
+    M_global_num_elements_from_serial = numElements;
+    M_global_num_nodes_from_serial = M_num_nodes;
+}
+
+
+void
 GmshMesh::stereographicProjection()
 {
     // polar stereographic projection
@@ -863,6 +880,7 @@ GmshMesh::nodalGrid()
     {
         if (it->is_ghost)
         {
+
             for (int const& index : it->indices)
             {
                 // if ((std::find(ghosts_nodes_f.begin(),ghosts_nodes_f.end(),index) == ghosts_nodes_f.end()))
@@ -1060,31 +1078,19 @@ GmshMesh::nodalGrid()
         {
             for (int ii=0; ii<renumbering.size(); ++ii)
             {
-                for (int jj=0; jj<renumbering.size(); ++jj)
+                for (int jj=0; jj<ii; ++jj)
                 {
-                    if (ii != jj)
+                    std::vector<int> duplicated_dofs;
+                    std::set_intersection(renumbering[ii].begin(),renumbering[ii].end(),
+                                            renumbering[jj].begin(),renumbering[jj].end(),
+                                            std::back_inserter(duplicated_dofs));
+                    for (int kk=0; kk<duplicated_dofs.size(); ++kk)
                     {
-                        std::vector<int> duplicated_dofs;
-
-                        std::set_intersection(renumbering[ii].begin(),renumbering[ii].end(),
-                                              renumbering[jj].begin(),renumbering[jj].end(),
-                                              std::back_inserter(duplicated_dofs));
-
-                        if (duplicated_dofs.size() == 0)
-                            continue;
-
-                        for (int kk=0; kk<duplicated_dofs.size(); ++kk)
+                        renumbering[ii].erase(std::remove(renumbering[ii].begin(), renumbering[ii].end(), duplicated_dofs[kk]),
+                                                renumbering[ii].end());
+                        if (M_comm.rank() == ii)
                         {
-                            if (jj < ii)
-                            {
-                                renumbering[ii].erase(std::remove(renumbering[ii].begin(), renumbering[ii].end(), duplicated_dofs[kk]),
-                                                      renumbering[ii].end());
-
-                                if (M_comm.rank() == ii)
-                                {
-                                    M_local_ghost.push_back(duplicated_dofs[kk]);
-                                }
-                            }
+                            M_local_ghost.push_back(duplicated_dofs[kk]);
                         }
                     }
                 }
@@ -1218,8 +1224,8 @@ GmshMesh::nodalGrid()
 
         cpts_dom += renumbering[ii].size();
     }
-
-
+//M_comm.barrier();
+//fprintf(stdout,"MLLL\n");
 
     M_local_dof_with_ghost_init = M_local_dof_with_ghost;
     auto local_dof_with_ghost = M_local_dof_with_ghost;

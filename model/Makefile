@@ -7,6 +7,7 @@ CXXFLAGS += -std=c++14
 # add g++ option flags
 CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
 		-DHAVE_CONFIG_H -D_MULTITHREADING_
+
 ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
@@ -73,8 +74,11 @@ else
 endif
 
 # gmsh
+#ifndef USE_MMG
 CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
+#endif
 
+#LDFLAGS += -L/cm/shared/modules/generic/mpi/openmpi/4.0.2/lib -liomp5
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
@@ -99,8 +103,10 @@ endif
 
 ifdef USE_MMG
     CXXFLAGS += -DMMG
-    CXXFLAGS += -I$(PARMMG_DIR)/Mmg-prefix/src/Mmg-build/include/mmg/mmg2d/
+    CXXFLAGS += -I$(PARMMG_DIR)/Mmg-prefix/src/Mmg-build/include/ #mmg/mmg2d/
     LDFLAGS += -L$(PARMMG_DIR)/Mmg-prefix/src/Mmg-build/lib -lmmg
+    #CXXFLAGS += -I$(HOME)/mmg/build/include/mmg/mmg2d/
+    #LDFLAGS += -L$(HOME)/mmg/build/lib -lmmg
     CXXFLAGS += -I$(PARMMG_DIR)/include/pmmg2d/
     LDFLAGS += -L$(PARMMG_DIR)/lib -lparmmg2d
     CXXFLAGS += -I$(PARMMG_DIR)/Metis-prefix/src/Metis/include/
@@ -115,7 +121,7 @@ ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 endif
 endif
 
-LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim
+LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim -lgfortran -llapack -lgmp #-lsvml -lirc -limf -liomp5
 
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
