@@ -54,9 +54,9 @@ export FC=mpiifort
 #
 export CFLAGS="-I/usr/local/ifort/include -O3 -fPIC";                      # NOTE: many other flags are still hard-coded in the Makefiles!
 export CCFLAGS="${CFLAGS}";                     # only for `mapx` ???
-export CXXFLAGS="-diag-disable=10441 -O3 -pthread -fPIC -qopenmp";  # NOTE: many other flags are still hard-coded in the Makefiles!
+export CXXFLAGS="-diag-disable=10441 -O3 -fPIC";  # NOTE: many other flags are still hard-coded in the Makefiles!
 export LDFLAGS=""
-export FFLAGS="-diag-disable=10441 -O2 -qopenmp -lstdc++ -fPIC"
+export FFLAGS="-diag-disable=10441 -O2 -lstdc++ -fPIC"
 #
 INTEL_ROOT="/opt/intel/oneapi";                        # root directory of the Intel suite (compiler and MPI)
 export INTEL_COMP_DIR="${INTEL_ROOT}/compiler/latest/linux";  #     "              " compiler
