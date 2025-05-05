@@ -85,13 +85,12 @@ FiniteElement::distributedMeshProcessing(bool start)
     M_nodes = M_mesh.nodes();
 
     M_num_elements = M_mesh.numTriangles();
-    M_ndof = M_mesh.numGlobalNodes();
-
-    M_local_ndof = M_mesh.numLocalNodesWithoutGhost();
-    M_local_ndof_ghost = M_mesh.numLocalNodesWithGhost();
-
     M_local_nelements = M_mesh.numTrianglesWithoutGhost();
-    M_num_nodes = M_local_ndof_ghost;
+
+    M_num_nodes = M_mesh.numLocalNodesWithGhost();
+    M_local_ndof = M_mesh.numLocalNodesWithoutGhost();
+    M_ndof = M_mesh.numGlobalNodes();
+    //M_num_nodes = M_local_ndof_ghost;
 
     chrono.restart();
     this->bcMarkedNodes();
@@ -110,8 +109,71 @@ FiniteElement::distributedMeshProcessing(bool start)
     LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
 
     chrono.restart();
-    this->initUpdateGhosts();
-    LOG(DEBUG)<<"-------------------INITUPDATEGHOSTS done in "<< chrono.elapsed() <<"s\n";
+    this->initUpdateGhostNodes();
+    LOG(DEBUG)<<"-------------------INITUPDATEGHOSTNODES done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+    this->initUpdateGhostElements();
+    LOG(DEBUG)<<"-------------------INITUPDATEGHOSTELEMENTS done in "<< chrono.elapsed() <<"s\n";
+
+#if 1
+    //std::vector<double> contnr(M_num_elements,0.);
+    ModelVariable contnr;//(M_num_elements,0.);
+    contnr.resize(M_num_elements);
+    boost::minstd_rand intgen;
+    boost::uniform_01<boost::minstd_rand> gen(intgen);
+    int ghstsize = M_mesh.localGhostElt().size();
+
+    for (int i=0; i<M_num_elements; i++)
+    {
+        contnr[i] = gen();
+    }
+
+
+    M_comm.barrier();
+
+    std::string fileoutn = (boost::format( "zvalue_%1%.txt" ) % M_rank).str();
+	//std::fstream out(fileout, std::ios::out | std::ios::trunc, std::ofstream::app);
+    std::ofstream fileout(fileoutn);
+    //fileout.open(fileoutn);//,std::ofstream::app);
+
+    fileout<<"----------------------------F0----------------------------\n";
+    fileout<<"            ["<< M_rank <<"]" <<"\n";
+    for (int i=0; i<M_num_elements; i++)
+    {
+        fileout<<"   ["<< i <<"]: "<< contnr[i] <<"\n";
+    }
+
+    M_comm.barrier();
+    if (ghstsize != 0)
+        fileout<<"----------------------------F1----------------------------\n";
+    if (ghstsize != 0)
+        fileout<<"            ["<< M_rank <<"]" <<"\n";
+
+    for (int i=0; i<ghstsize; i++)
+    {
+        fileout << i + M_local_nelements
+                << " -----> " << contnr[i + M_local_nelements]
+                <<"\n";
+    }
+    //fileout.close();
+
+    this->updateGhostElements(contnr);
+
+    M_comm.barrier();
+    if (ghstsize != 0)
+        fileout<<"----------------------------F2----------------------------\n";
+    if (ghstsize != 0)
+        fileout<<"            ["<< M_rank <<"]" <<"\n";
+
+    for (int i=0; i<ghstsize; i++)
+    {
+        fileout << i + M_local_nelements
+                  << " -----> " << contnr[i + M_local_nelements]
+                  <<"\n";
+    }
+    fileout.close();
+#endif
 
 #if 0
     // LOG(DEBUG) << NODES   = "<< M_mesh.numGlobalNodes() << " --- "<< M_local_ndof <<"\n";
@@ -149,21 +211,6 @@ FiniteElement::distributedMeshProcessing(bool start)
 void
 FiniteElement::bcMarkedNodes()
 {
-#if 0
-    M_dirichlet_flags_root.resize(5);
-    M_neumann_flags_root.resize(11);
-
-    M_dirichlet_flags_root = {2,3,11,12,13};
-    M_neumann_flags_root = {4,5,6,7,1,8,9,10,14,15,16};
-
-    // M_dirichlet_flags_root.resize(16);
-    // std::iota(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(), 1);
-    // M_neumann_flags_root.resize(0);
-
-#endif
-
-    //std::cout<<"["<< M_rank << "] NDOFS= "<< M_num_nodes << " --- "<< M_local_ndof <<"\n";
-
     std::vector<int> flags_size_root(2);
     if (M_rank == 0)
     {
@@ -180,23 +227,6 @@ FiniteElement::bcMarkedNodes()
     {
         std::copy(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(), std::back_inserter(flags_root));
         std::copy(M_neumann_flags_root.begin(), M_neumann_flags_root.end(), std::back_inserter(flags_root));
-
-#if 0
-        for (int i=0; i<M_dirichlet_flags_root.size(); ++i)
-        {
-            std::cout<<"M_dirichlet_flags_root["<< i <<"]= "<< M_dirichlet_flags_root[i] <<"\n";
-        }
-
-        for (int i=0; i<M_neumann_flags_root.size(); ++i)
-        {
-            std::cout<<"M_neumann_flags_root["<< i <<"]= "<< M_neumann_flags_root[i] <<"\n";
-        }
-
-        for (int i=0; i<flags_root.size(); ++i)
-        {
-            std::cout<<"flags_root["<< i <<"]= "<< flags_root[i] <<"\n";
-        }
-#endif
     }
 
     if (M_rank != 0)
@@ -207,7 +237,7 @@ FiniteElement::bcMarkedNodes()
     // broadcast the dirichlet and neumann nodes from master process to other processes
     boost::mpi::broadcast(M_comm, &flags_root[0], dir_size+nmn_size, 0);
 
-    auto transfer_bimap = M_mesh.transferMapInit();
+    auto transfer_bimap = M_mesh.transferMapDofDefault();
 
     M_dirichlet_flags.resize(0);
     M_neumann_flags.resize(0);
@@ -228,7 +258,7 @@ FiniteElement::bcMarkedNodes()
                 if (lindex < M_local_ndof)
                 {
                     M_dirichlet_flags.push_back(lindex);
-                    //std::cout<<"["<< M_comm.rank() <<"] " << "-----------------here  = "<< flags_root[i]  <<"\n";
+
                     // add mask for dirichlet nodes
                     M_mask_dirichlet[lindex] = true;
                 }
@@ -237,7 +267,6 @@ FiniteElement::bcMarkedNodes()
             {
                 // including ghost nodes
                 M_neumann_flags.push_back(lindex);
-                //std::cout<<"["<< M_comm.rank() <<"] " << "-----------------here  = "<< flags_root[i]  <<"\n";
             }
 
             // add mask for boundary nodes
@@ -2046,11 +2075,11 @@ FiniteElement::gatherSizes()
         int out_size_nodes = std::accumulate(sizes_nodes.begin(),sizes_nodes.end(),0);
         M_id_nodes.resize(out_size_nodes);
 
-        boost::mpi::gatherv(M_comm, M_mesh.localDofWithGhostInit(), &M_id_nodes[0], sizes_nodes, 0);
+        boost::mpi::gatherv(M_comm, M_mesh.localDofWithGhostDefault(), &M_id_nodes[0], sizes_nodes, 0);
     }
     else
     {
-        boost::mpi::gatherv(M_comm, M_mesh.localDofWithGhostInit(), 0);
+        boost::mpi::gatherv(M_comm, M_mesh.localDofWithGhostDefault(), 0);
     }
 
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
@@ -2060,11 +2089,11 @@ FiniteElement::gatherSizes()
         int out_size_elements = std::accumulate(sizes_elements.begin(),sizes_elements.end(),0);
         M_id_elements.resize(out_size_elements);
 
-        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), &M_id_elements[0], sizes_elements, 0);
+        boost::mpi::gatherv(M_comm, M_mesh.localEltIdWithGhostDefault(), &M_id_elements[0], sizes_elements, 0);
     }
     else
     {
-        boost::mpi::gatherv(M_comm, M_mesh.trianglesIdWithGhost(), 0);
+        boost::mpi::gatherv(M_comm, M_mesh.localEltIdWithGhostDefault(), 0);
     }
 
     // -------------------------------------------------------------
@@ -2820,7 +2849,7 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
 void
 FiniteElement::scatterElementConnectivity()
 {
-    auto transfer_map_local = M_mesh.transferMapElt();
+    auto transfer_map_default = M_mesh.transferMapEltDefault();
     std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
 
     int nb_var_element = 3;
@@ -2880,9 +2909,9 @@ FiniteElement::scatterElementConnectivity()
 
             if (neighbour_id_global_int>0)
             {
-                if (transfer_map_local.left.find(neighbour_id_global_int) != transfer_map_local.left.end())
+                if (transfer_map_default.left.find(neighbour_id_global_int) != transfer_map_default.left.end())
                 {
-                    int neighbour_id_local = transfer_map_local.left.find(neighbour_id_global_int)->second;
+                    int neighbour_id_local = transfer_map_default.left.find(neighbour_id_global_int)->second;
                     M_element_connectivity[nb_var_element*cpt+j] = neighbour_id_local;
                 }
                 else
@@ -4009,7 +4038,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 D_del_ci_ridge_myi[cpt] = 0.; // TO DO
                 // if ( M_conc[cpt] > 1. )
                 //     D_del_ci_ridge_myi[cpt] = 0.5*(1.-M_conc[cpt]);
-            } 
+            }
             else
             {
                 /* Here we conserve the area of multi-year ice:
@@ -4128,13 +4157,13 @@ FiniteElement::update(std::vector<double> const & UM_P)
         M_thick[cpt]        = ((M_thick[cpt]>0.)?(M_thick[cpt]     ):(0.)) ;
         M_thick_myi[cpt]    = ((M_thick_myi[cpt]>0.)?(M_thick_myi[cpt]  ):(0.)) ;
         M_snow_thick[cpt]   = ((M_snow_thick[cpt]>0.)?(M_snow_thick[cpt]):(0.)) ;
-        /* This del_ci_ridge only works for ridge_myi_and_fyi=false*/ 
-        D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt]; 
-        if (newice_type == 4 && use_young_ice_in_myi_reset == true) 
+        /* This del_ci_ridge only works for ridge_myi_and_fyi=false*/
+        D_del_ci_ridge_myi[cpt] = -M_conc_myi[cpt];
+        if (newice_type == 4 && use_young_ice_in_myi_reset == true)
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt]+M_conc_young[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
         else
             M_conc_myi[cpt] = std::max(0.,std::min(M_conc_myi[cpt],M_conc[cpt])); // Ensure M_conc_myi doesn't exceed total ice conc
-        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt]; 
+        D_del_ci_ridge_myi[cpt]+=M_conc_myi[cpt];
     }//loop over elements
 }//update
 
@@ -5208,7 +5237,7 @@ FiniteElement::thermo(int dt)
     double const I_0 = vm["thermo.I_0"].as<double>(); //! \param I_0 (double) Shortwave penetration into ice [fraction of total shortwave]
 
     bool use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
-    const std::string date_string_reset_myi_md = vm["age.reset_date"].as<std::string>(); //! \param date_string_reset_myi_md is the date (mmdd) of each year that the myi concentration should be reset to M_conc or M_conc+M_conc_young (this depends on use_young_ice_in_myi_reset) 
+    const std::string date_string_reset_myi_md = vm["age.reset_date"].as<std::string>(); //! \param date_string_reset_myi_md is the date (mmdd) of each year that the myi concentration should be reset to M_conc or M_conc+M_conc_young (this depends on use_young_ice_in_myi_reset)
     bool const reset_by_date = vm["age.reset_by_date"].as<bool>(); //! \param reset_by_date determines whether to reset myi on a certain date or by melt days
     double const freeze_days_threshold = vm["age.reset_freeze_days"].as<double>(); //! \param freeze_days_threshold determines after how many days of freezing to reset myi, if reset_by_date is false
     bool equal_melting = vm["age.equal_melting"].as<bool>(); // decides if melting should affect myi and fyi the same or just fyi
@@ -5651,8 +5680,8 @@ FiniteElement::thermo(int dt)
                     throw std::logic_error("Wrong melt_type");
             }
         }
-        
-        // ICE AGE 
+
+        // ICE AGE
         if ( reset_by_date == false )
             use_young_ice_in_myi_reset = false;
 
@@ -5667,11 +5696,11 @@ FiniteElement::thermo(int dt)
         // Update M_freeze_days on last time step of the day
         if (step_in_day == num_steps_in_day)
         {
-            if (M_del_vi_tend[i] > 0.) // It's freezing 
-            {   
+            if (M_del_vi_tend[i] > 0.) // It's freezing
+            {
                 M_freeze_days[i] += 1.;
             }
-            else if (M_del_vi_tend[i] < 0.) // It's melting    
+            else if (M_del_vi_tend[i] < 0.) // It's melting
             {
                 // melting occurring, so need to adjust to new onset
                 M_freeze_days[i] = 0.;
@@ -5775,7 +5804,7 @@ FiniteElement::thermo(int dt)
 #ifdef OASIS
             /* In case there is an FSD and M_conc>0: */
             if ( (M_num_fsd_bins>0) && (melt_type==3) )
-            { 
+            {
                 this->redistributeThermoFSD(i,ddt,lat_melt_rate,young_ice_growth,old_conc,old_conc_young);
             }
             /* In case there is melt_type!=3 (no FSD dependent lateral melting), FSD shape is unchanged.
@@ -6047,7 +6076,7 @@ FiniteElement::thermo(int dt)
                 }
             }
 
-            // Only reset if we have not already reset this season. So need to check if this is the case 
+            // Only reset if we have not already reset this season. So need to check if this is the case
             if (date_string_md == "0801" && std::fmod(M_current_time, 1.) == 0.)
             {
                 M_freeze_onset[i] = 0.;
@@ -6071,7 +6100,7 @@ FiniteElement::thermo(int dt)
             // Now ensure that freeze and melt onsets are 0 or 1
             M_freeze_onset[i] = std::round(M_freeze_onset[i]);
 
-            double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new 
+            double old_conc_myi  =  M_conc_myi[i]; // delta= -old + new
             double old_thick_myi =  M_thick_myi[i];
             double c_myi_max = M_conc[i];
             double v_myi_max = M_thick[i];
@@ -6082,7 +6111,7 @@ FiniteElement::thermo(int dt)
                 v_myi_max += M_h_young[i];
             }
 
-            if (reset_myi) // 
+            if (reset_myi) //
             {
                 if (reset_by_date == false)
                 {
@@ -6100,7 +6129,7 @@ FiniteElement::thermo(int dt)
                 }
                 M_conc_myi[i]  = std::max(0.,std::min(1.,M_conc_myi[i])); //make sure it doesn't exceed 1 (it shouldn't)
                 M_thick_myi[i] = std::max(0.,M_thick_myi[i]);             //make sure volume is positive
-                del_ci_rplnt_myi =M_conc_myi[i]  - old_conc_myi; 
+                del_ci_rplnt_myi =M_conc_myi[i]  - old_conc_myi;
                 del_vi_rplnt_myi =M_thick_myi[i] - old_thick_myi;
             }
             else // on a non-reset day, myi is only modified by melting, not freezing
@@ -6109,21 +6138,21 @@ FiniteElement::thermo(int dt)
                 double del_c_ratio = std::min(M_conc[i]/old_conc,1.);
                 double del_v_ratio = std::min(M_thick[i]/old_vol,1.);
                 if  (del_v_ratio < 1.) // if there is some melt of old ice
-                {   
+                {
                     if (equal_melting)
-                    {    
-                        del_ci_mlt_myi  = std::min(0.,M_conc_myi[i]*(del_c_ratio-1.));  // <0 
+                    {
+                        del_ci_mlt_myi  = std::min(0.,M_conc_myi[i]*(del_c_ratio-1.));  // <0
                         del_vi_mlt_myi  = std::min(0.,M_thick_myi[i]*(del_v_ratio-1.)); // <0
                     }
                     // Check it does not get crazy
                     M_conc_myi[i]  = std::max(0.,std::min(c_myi_max, M_conc_myi[i] +del_ci_mlt_myi));
                     M_thick_myi[i] = std::max(0.,std::min(v_myi_max, M_thick_myi[i]+del_vi_mlt_myi));
                     //If del_c removes all fyi, take some from myi. Preferentially removes fyi. Include young ice in total ice conc
-                    //M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));                  
-                    // Same logic for the volume 
+                    //M_conc_myi[i]  = std::max(0.,std::min(M_conc[i], M_conc_myi[i]*conc_loss_ratio));
+                    // Same logic for the volume
                     //M_thick_myi[i] = std::max(0.,std::min(M_thick[i], M_thick_myi[i]*thick_loss_ratio)); //
                     // Recompute effective change
-                    del_ci_mlt_myi = M_conc_myi[i] - old_conc_myi; 
+                    del_ci_mlt_myi = M_conc_myi[i] - old_conc_myi;
                     del_vi_mlt_myi = M_thick_myi[i]- old_thick_myi;
                 }
             }
@@ -7091,6 +7120,7 @@ FiniteElement::init()
 
     //! - 10) Initialise timers
     M_timer = Timer();
+
 }//init
 
 // ==============================================================================
@@ -7687,7 +7717,7 @@ FiniteElement::initOASIS()
                 + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
     M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-        cpl_time_step*days_in_sec, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        cpl_time_step*days_in_sec, true, bamgmesh_root, M_mesh.transferMapEltDefault(), M_comm);
 
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
@@ -8031,14 +8061,14 @@ FiniteElement::step()
             M_timer.tock("regrid");
 
 #ifdef OASIS
-            /* Only M_cpl_out needs to provide M_mesh.transferMapElt and bamgmesh_root because these
+            /* Only M_cpl_out needs to provide M_mesh.transferMapEltDefault and bamgmesh_root because these
              * are needed iff we do conservative remapping and this is only supported in the coupled
              * case (so far). */
             M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapEltDefault(), bamgmesh_root);
             else
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
+                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapEltDefault());
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
             {
@@ -8067,7 +8097,7 @@ FiniteElement::step()
                 else
 #endif
                 if ( vm["moorings.use_conservative_remapping"].as<bool>() )
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapEltDefault(), bamgmesh_root);
                 else
                     M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
 
@@ -8276,7 +8306,7 @@ FiniteElement::step()
     //======================================================================
     ++pcpt;
     M_current_time = time_init + pcpt*dtime_step/(24*3600.0);
- 
+
     //======================================================================
     //! 8) Does the post-processing, checks the output and updates moorings.
     //======================================================================
@@ -8512,6 +8542,7 @@ FiniteElement::run()
     // **********************************************************************
 
     this->finalise(current_time_system);
+
 }//run
 
 
@@ -9342,7 +9373,7 @@ FiniteElement::initMoorings()
                     "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
             M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapEltDefault(), M_comm);
         } else {
             // don't use conservative remapping
             GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
@@ -9363,7 +9394,7 @@ FiniteElement::initMoorings()
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
         M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+                M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapEltDefault(), M_comm);
     }
 #endif
     else
@@ -10535,10 +10566,10 @@ FiniteElement::explicitSolve()
         }
         M_timer.tock("sub-solve");
 
-        M_timer.tick("updateGhosts");
-        // Update the ghosts and leave!
-        this->updateGhosts(M_VT);
-        M_timer.tock("updateGhosts");
+        M_timer.tick("updateGhostNodes");
+        // Update the ghost nodes and leave!
+        this->updateGhostNodes(M_VT);
+        M_timer.tock("updateGhostNodes");
 
         // Move the mesh and update total displacement
         // For EVP and BBM we move the mesh every sub-time step
@@ -10613,7 +10644,7 @@ FiniteElement::explicitSolve()
             M_VT[v_indx] /= num_neighbours;
         }
 
-        this->updateGhosts(M_VT);
+        this->updateGhostNodes(M_VT);
     }
 
     // Move the mesh in the open water part
@@ -11523,7 +11554,7 @@ FiniteElement::initIce()
     boost::mpi::broadcast(M_comm, &random_number_root[0], M_mesh.numGlobalElements(), 0);
 
     // - now set on each processor
-    auto id_elements = M_mesh.trianglesIdWithGhost();
+    auto id_elements = M_mesh.localEltIdWithGhostDefault();
     for (int i=0; i<M_random_number.size(); ++i)
         M_random_number[i] = random_number_root[id_elements[i]-1];
 
@@ -13428,14 +13459,14 @@ FiniteElement::smosIce()
 void
 FiniteElement::glorys12Ice()
 {
-    // Initialize the sea ice conc. and thick. from GLORYS12 reanalysis or forecast. 
+    // Initialize the sea ice conc. and thick. from GLORYS12 reanalysis or forecast.
     // Snow thickness is 0 by default (used in southern ocean, with no equivalent of Warren Climatology)
     Dataset ice_glorys12_elements_dataset = DataSet("glorys12_elements");
     external_data M_init_conc   = ExternalData(&ice_glorys12_elements_dataset,M_mesh,3,false,time_init);
     external_data M_init_thick  = ExternalData(&ice_glorys12_elements_dataset,M_mesh,4,false,time_init);
 
     boost::gregorian::date dt = Nextsim::parse_date(time_init);
-    
+
 
     external_data_vec external_data_tmp;
     external_data_tmp.push_back(&M_init_conc);
@@ -13450,11 +13481,11 @@ FiniteElement::glorys12Ice()
     for (int i=0; i<M_num_elements; ++i)
     {
         tmp_var=std::min(1.,M_init_conc[i]);
-        M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.; 
+        M_conc[i] = (tmp_var>1e-14) ? tmp_var : 0.;
         tmp_var=M_init_thick[i];
         M_thick[i] = tmp_var ;
         tmp_var=0.;//This is a test for the southern ocean
-        M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.; 
+        M_snow_thick[i] = (tmp_var>1e-14) ? tmp_var : 0.;
 
         //if either c or h equal zero, we set the others to zero as well
         if(M_conc[i]<=0.)
@@ -13910,8 +13941,8 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 void
 FiniteElement::createGraph()
 {
-    auto M_local_ghost = M_mesh.localGhost();
-    auto M_transfer_map = M_mesh.transferMap();
+    auto local_ghost = M_mesh.localGhost();
+    auto transfer_map_dof = M_mesh.transferMapDof();
 
     int Nd = bamgmesh->NodalConnectivitySize[1];
     std::vector<int> dz;
@@ -13928,17 +13959,17 @@ FiniteElement::createGraph()
         int counter_onnz = 0;
 
         int Ncc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
-        int gid = M_transfer_map.right.find(i+1)->second;
-        //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
-        if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),gid))
+        int gid = transfer_map_dof.right.find(i+1)->second;
+        //if (std::find(local_ghost.begin(),local_ghost.end(),gid) == local_ghost.end())
+        if (!std::binary_search(local_ghost.begin(),local_ghost.end(),gid))
         {
             for (int j=0; j<Ncc; ++j)
             {
                 int currentr = bamgmesh->NodalConnectivity[Nd*i+j];
 
-                int gid2 = M_transfer_map.right.find(currentr)->second;
-                //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid2) == M_local_ghost.end())
-                if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),gid2))
+                int gid2 = transfer_map_dof.right.find(currentr)->second;
+                //if (std::find(local_ghost.begin(),local_ghost.end(),gid2) == local_ghost.end())
+                if (!std::binary_search(local_ghost.begin(),local_ghost.end(),gid2))
                 {
                     ++counter_dnnz;
                 }
@@ -13947,7 +13978,7 @@ FiniteElement::createGraph()
                     ++counter_onnz;
                 }
 
-                //std::cout<<"Connect["<< j <<"]= "<< currentr << " or "<< M_transfer_map.right.find(currentr)->second <<"\n";
+                //std::cout<<"Connect["<< j <<"]= "<< currentr << " or "<< transfer_map_dof.right.find(currentr)->second <<"\n";
             }
 
             d_nnz.push_back(2*(counter_dnnz+1));
@@ -14002,7 +14033,7 @@ FiniteElement::createGraph()
             std::cout<<"WITH GHOST    "<< index+1 <<"\n";
 
         std::cout<<"************02************\n";
-        for (int const& index : M_local_ghost)
+        for (int const& index : local_ghost)
             std::cout<<"GHOST         "<< index <<"\n";
     }
 #endif
@@ -14013,149 +14044,292 @@ FiniteElement::createGraph()
 //! Updates the ghost nodes
 //! Called by the explicit solver
 void
-FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
+FiniteElement::updateGhostNodes(std::vector<double>& mesh_nodal_vec)
 {
     std::vector<std::vector<double>> extract_local_values(M_comm.size());
 
-    for (int i=0; i<M_extract_local_index.size(); i++)
+    for (int i=0; i<M_extract_local_node_indices.size(); i++)
     {
-        int const srl = M_extract_local_index[i].size();
+        int const srl = M_extract_local_node_indices[i].size();
         extract_local_values[i].resize(2*srl);
 
-        for (int j=0; j<M_extract_local_index[i].size(); j++)
+        for (int j=0; j<M_extract_local_node_indices[i].size(); j++)
         {
-            extract_local_values[i][j] = mesh_nodal_vec[M_extract_local_index[i][j]];
-            extract_local_values[i][j+srl] = mesh_nodal_vec[M_extract_local_index[i][j]+M_num_nodes];
+            extract_local_values[i][j] = mesh_nodal_vec[M_extract_local_node_indices[i][j]];
+            extract_local_values[i][j+srl] = mesh_nodal_vec[M_extract_local_node_indices[i][j]+M_num_nodes];
         }
     }
 
     std::vector<std::vector<double>> ghost_update_values(M_comm.size());
 
-    for (int const& proc : M_recipients_proc_id)
+    for (int const& proc : M_recipients_node_procid)
         M_comm.send(proc, M_rank, extract_local_values[proc]);
 
-    for (int const& proc : M_local_ghosts_proc_id)
+    for (int const& proc : M_ghost_node_procid)
         M_comm.recv(proc, proc, ghost_update_values[proc]);
 
-    for (int i=0; i<M_local_ghosts_local_index.size(); i++)
+    for (int i=0; i<M_ghost_node_local_indices.size(); i++)
     {
-        for (int j=0; j<M_local_ghosts_local_index[i].size(); j++)
+        for (int j=0; j<M_ghost_node_local_indices[i].size(); j++)
         {
-            int const srl = M_local_ghosts_local_index[i].size();
-            mesh_nodal_vec[M_local_ghosts_local_index[i][j]] = ghost_update_values[i][j];
-            mesh_nodal_vec[M_local_ghosts_local_index[i][j]+M_num_nodes] = ghost_update_values[i][j+srl];
+            int const srl = M_ghost_node_local_indices[i].size();
+            mesh_nodal_vec[M_ghost_node_local_indices[i][j]] = ghost_update_values[i][j];
+            mesh_nodal_vec[M_ghost_node_local_indices[i][j]+M_num_nodes] = ghost_update_values[i][j+srl];
         }
     }
-} //updateGhosts
+} //updateGhostNodes
 
 
 // -------------------------------------------------------------------------------------
 //! Initialise maps to update ghost nodes
 //! Called after remeshing and at init by distributedMeshProcessing
 void
-FiniteElement::initUpdateGhosts()
+FiniteElement::initUpdateGhostNodes()
 {
-    auto M_transfer_map = M_mesh.transferMap();
-    auto M_local_ghost = M_mesh.localGhost();
+    auto transfer_map_dof = M_mesh.transferMapDof();
+    auto local_ghost = M_mesh.localGhost();
 
-    std::vector<std::vector<int>> local_ghosts_global_index(M_comm.size());
+    std::vector<std::vector<int>> ghost_global_indices(M_comm.size());
 
-    for (int i=0; i<M_local_ghost.size(); i++)
+    for (int i=0; i<local_ghost.size(); i++)
     {
-        int currentid = M_local_ghost[i];
+        int currentid = local_ghost[i];
 
         // std::cout<<"["<< M_comm.rank() <<"]: Global id= "
         //          << currentid
-        //          << " <-----> " << M_transfer_map.left.find(currentid)->second
-        //          <<" true ghost= "<< globalNumToprocId(currentid) <<"\n";
+        //          << " <-----> " << transfer_map_dof.left.find(currentid)->second
+        //          <<" true ghost= "<< globalDofToProcId(currentid) <<"\n";
 
-        local_ghosts_global_index[globalNumToprocId(currentid)].push_back(currentid);
+        ghost_global_indices[globalDofToProcId(currentid)].push_back(currentid);
     }
 
-    M_local_ghosts_proc_id.resize(0);
-    M_local_ghosts_local_index.resize(M_comm.size());
+    M_ghost_node_procid.resize(0);
+    M_ghost_node_local_indices.resize(M_comm.size());
 
     for (int i=0; i<M_comm.size(); i++)
     {
-        if (local_ghosts_global_index[i].size() != 0)
+        if (ghost_global_indices[i].size() != 0)
         {
-            M_local_ghosts_proc_id.push_back(i);
+            M_ghost_node_procid.push_back(i);
         }
 
-        M_local_ghosts_local_index[i].resize(local_ghosts_global_index[i].size());
+        M_ghost_node_local_indices[i].resize(ghost_global_indices[i].size());
 
-        // std::cout<<"            ["<< M_rank <<"] <---> "<< i <<"             \n";
-
-        for (int j=0; j<local_ghosts_global_index[i].size(); j++)
+        for (int j=0; j<ghost_global_indices[i].size(); j++)
         {
-            int currentindex = local_ghosts_global_index[i][j];
-            M_local_ghosts_local_index[i][j] = M_transfer_map.left.find(currentindex)->second-1;
-            // std::cout<<" "<< M_local_ghosts_local_index[i][j] <<"  ";
+            int currentindex = ghost_global_indices[i][j];
+            M_ghost_node_local_indices[i][j] = transfer_map_dof.left.find(currentindex)->second-1;
         }
-        // std::cout<<"\n";
     }
 
-    std::vector<std::vector<int>> recipients_proc_id_extended;
-    boost::mpi::all_gather(M_comm, M_local_ghosts_proc_id, recipients_proc_id_extended);
+    std::vector<std::vector<int>> recipients_procid_extended;
+    boost::mpi::all_gather(M_comm, M_ghost_node_procid, recipients_procid_extended);
 
-    M_recipients_proc_id.resize(0);
+    M_recipients_node_procid.resize(0);
 
     for (int i=0; i<M_comm.size(); i++)
     {
         if (M_rank == 0)
         {
             LOG(DEBUG) << "["<< i <<"]  ";
-            for (int j=0; j<recipients_proc_id_extended[i].size(); j++)
-                LOG(DEBUG) << recipients_proc_id_extended[i][j] <<"  ";
+            for (int j=0; j<recipients_procid_extended[i].size(); j++)
+                LOG(DEBUG) << recipients_procid_extended[i][j] <<"  ";
 
             LOG(DEBUG) << "\n";
         }
 
-        for (int j=0; j<recipients_proc_id_extended[i].size(); j++)
+        for (int j=0; j<recipients_procid_extended[i].size(); j++)
         {
-            if (recipients_proc_id_extended[i][j] == M_rank)
-                M_recipients_proc_id.push_back(i);
+            if (recipients_procid_extended[i][j] == M_rank)
+                M_recipients_node_procid.push_back(i);
         }
     }
 
     std::vector<std::vector<int>> extract_global_index(M_comm.size());
 
-    for (int const& proc : M_local_ghosts_proc_id)
-        M_comm.send(proc, M_rank, local_ghosts_global_index[proc]);
+    for (int const& proc : M_ghost_node_procid)
+        M_comm.send(proc, M_rank, ghost_global_indices[proc]);
 
-    for (int const& proc : M_recipients_proc_id)
+    for (int const& proc : M_recipients_node_procid)
         M_comm.recv(proc, proc, extract_global_index[proc]);
 
-    M_extract_local_index.resize(M_comm.size());
+    M_extract_local_node_indices.resize(M_comm.size());
 
     for (int i=0; i<extract_global_index.size(); i++)
     {
         int srl = extract_global_index[i].size();
-        M_extract_local_index[i].resize(srl);
+        M_extract_local_node_indices[i].resize(srl);
 
         for (int j=0; j<extract_global_index[i].size(); j++)
         {
-            M_extract_local_index[i][j] = M_transfer_map.left.find(extract_global_index[i][j])->second-1;
+            M_extract_local_node_indices[i][j] = transfer_map_dof.left.find(extract_global_index[i][j])->second-1;
         }
     }
-} //initUpdateGhosts
+} //initUpdateGhostNodes
 
 // -------------------------------------------------------------------------------------
-//! Called by initUpdateGhosts
+//! Called by initUpdateGhostNodes
 int
-FiniteElement::globalNumToprocId(int global_num)
+FiniteElement::globalDofToProcId(int global_dof)
 {
     int cpt = 0;
     for (int i=0; i<M_comm.size(); i++)
     {
-        if ((cpt < global_num) && (global_num <= cpt+M_sizes_nodes[i]))
+        if ((cpt < global_dof) && (global_dof <= cpt+M_sizes_nodes[i]))
             return i;
 
         cpt += 2*M_sizes_nodes[i];
     }
-    throw std::logic_error("Couldn't map global number: "
-            + std::to_string(global_num) + " to (local) proc id.\n");
-} //globalNumToprocId
+    throw std::logic_error("Couldn't map global node number: "
+            + std::to_string(global_dof) + " to (local) proc id.\n");
+} //globalDofToProcId
+
+// -------------------------------------------------------------------------------------
+//! Updates the ghost elements
+//! Called by the explicit solver
+void
+FiniteElement::updateGhostElements(std::vector<double>& mesh_elt_ctr)
+{
+    this->updateGhostElements(&mesh_elt_ctr[0]);
+}
+
+// -------------------------------------------------------------------------------------
+//! Updates the ghost elements
+//! Called by the explicit solver
+void
+FiniteElement::updateGhostElements(double* mesh_elt_ctr)
+{
+    std::vector<std::vector<double>> extract_local_values(M_comm.size());
+
+    for (int i=0; i<M_extract_local_elt_indices.size(); i++)
+    {
+        int const srl = M_extract_local_elt_indices[i].size();
+        extract_local_values[i].resize(srl);
+
+        for (int j=0; j<M_extract_local_elt_indices[i].size(); j++)
+        {
+            extract_local_values[i][j] = mesh_elt_ctr[M_extract_local_elt_indices[i][j]];
+        }
+    }
+
+    std::vector<std::vector<double>> ghost_update_values(M_comm.size());
+
+    for (int const& proc : M_recipients_elt_procid)
+        M_comm.send(proc, M_rank, extract_local_values[proc]);
+
+    for (int const& proc : M_ghost_elt_procid)
+        M_comm.recv(proc, proc, ghost_update_values[proc]);
+
+    for (int i=0; i<M_ghost_elt_local_indices.size(); i++)
+    {
+        for (int j=0; j<M_ghost_elt_local_indices[i].size(); j++)
+        {
+            mesh_elt_ctr[M_ghost_elt_local_indices[i][j]] = ghost_update_values[i][j];
+        }
+    }
+} //updateGhostElements
+
+// -------------------------------------------------------------------------------------
+//! Updates the ghost elements
+//! Called by the explicit solver
+void
+FiniteElement::updateGhostElements(ModelVariable& mesh_elt_ctr)
+{
+    this->updateGhostElements(&mesh_elt_ctr[0]);
+}
+
+// -------------------------------------------------------------------------------------
+//! Initialise maps to update ghost elements
+//! Called after remeshing and at init by distributedMeshProcessing
+void
+FiniteElement::initUpdateGhostElements()
+{
+    auto transfer_map_elt = M_mesh.transferMapElt();
+    auto local_ghost_elt = M_mesh.localGhostElt();
+
+    std::vector<std::vector<int>> ghost_global_indices(M_comm.size());
+    for (int i=0; i<local_ghost_elt.size(); i++)
+    {
+        int currentid = local_ghost_elt[i];
+        ghost_global_indices[globalEltIdToProcId(currentid)].push_back(currentid);
+    }
+
+    M_ghost_elt_procid.resize(0);
+    M_ghost_elt_local_indices.resize(M_comm.size());
+
+    for (int i=0; i<M_comm.size(); i++)
+    {
+        if (ghost_global_indices[i].size() != 0)
+        {
+            M_ghost_elt_procid.push_back(i);
+        }
+
+        M_ghost_elt_local_indices[i].resize(ghost_global_indices[i].size());
+
+        for (int j=0; j<ghost_global_indices[i].size(); j++)
+        {
+            int currentindex = ghost_global_indices[i][j];
+            M_ghost_elt_local_indices[i][j] = transfer_map_elt.left.find(currentindex)->second-1;
+        }
+    }
+
+    std::vector<std::vector<int>> recipients_procid_extended;
+    boost::mpi::all_gather(M_comm, M_ghost_elt_procid, recipients_procid_extended);
+
+    M_recipients_elt_procid.resize(0);
+
+    for (int i=0; i<M_comm.size(); i++)
+    {
+        for (int j=0; j<recipients_procid_extended[i].size(); j++)
+        {
+            if (recipients_procid_extended[i][j] == M_rank)
+                M_recipients_elt_procid.push_back(i);
+        }
+    }
+
+    std::vector<std::vector<int>> extract_global_index(M_comm.size());
+
+    for (int const& proc : M_ghost_elt_procid)
+    {
+        M_comm.send(proc, M_rank, ghost_global_indices[proc]);
+    }
+
+    for (int const& proc : M_recipients_elt_procid)
+    {
+        M_comm.recv(proc, proc, extract_global_index[proc]);
+    }
+
+    M_extract_local_elt_indices.resize(M_comm.size());
+
+    for (int i=0; i<extract_global_index.size(); i++)
+    {
+        int srl = extract_global_index[i].size();
+        M_extract_local_elt_indices[i].resize(srl);
+
+        for (int j=0; j<extract_global_index[i].size(); j++)
+        {
+            M_extract_local_elt_indices[i][j] = transfer_map_elt.left.find(extract_global_index[i][j])->second-1;
+        }
+    }
+
+} //initUpdateGhostElements
+
+// -------------------------------------------------------------------------------------
+//! Called by initUpdateGhostElements
+int
+FiniteElement::globalEltIdToProcId(int global_eltid)
+{
+    int cpt = 0;
+    for (int i=0; i<M_comm.size(); i++)
+    {
+        if ((cpt < global_eltid) && (global_eltid <= cpt+M_sizes_elements[i]))
+            return i;
+
+        cpt += M_sizes_elements[i];
+    }
+    throw std::logic_error("Couldn't map global element number: "
+            + std::to_string(global_eltid) + " to (local) proc id.\n");
+} //globalEltIdToProcId
 
 // -------------------------------------------------------------------------------------
 //! Exports the model outputs.

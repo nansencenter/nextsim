@@ -23,8 +23,6 @@
 
 #include <environment.hpp>
 #include <entities.hpp>
-//#include <MElement.h>
-//#include <GModel.h>
 #include "debug.hpp"
 
 extern "C"
@@ -50,13 +48,7 @@ public:
 
 
     GmshMesh( Communicator const& comm = Environment::comm() );
-
     GmshMesh( GmshMesh const& mesh );
-
-    // GmshMesh(std::vector<point_type> const& nodes,
-    //          std::vector<element_type> const& edges,
-    //          std::vector<element_type> const& triangles,
-    //          Communicator const& comm = Environment::comm());
 
     void readFromFile(std::string const& filename, std::string const& format="ascii");
     void readFromFileBinary(std::ifstream& ifs);
@@ -79,16 +71,18 @@ public:
     int numGlobalNodes() const {return M_global_num_nodes;}
     int numGlobalNodesFromSarialMesh() const {return M_global_num_nodes_from_serial;}
     int numNodes() const {return M_num_nodes;}
-    int numTriangles() const {return M_num_triangles;}
-    int numEdges() const {return M_num_edges;}
-
-    int numLocalNodesWithoutGhost() const {return M_nldof_without_ghost;}
     int numLocalNodesWithGhost() const {return M_nldof_with_ghost;}
+    int numLocalNodesWithoutGhost() const {return M_nldof_without_ghost;}
     int numLocalGhost() const {return M_nlghost;}
 
     int numGlobalElements() const {return M_global_num_elements;}
     int numGlobalElementsFromSarialMesh() const {return M_global_num_elements_from_serial;}
-    int numTrianglesWithoutGhost() const {return M_num_triangles_without_ghost;}
+    int numTriangles() const {return M_num_triangles;}
+    int numTrianglesWithGhost() const {return M_nlelt_with_ghost;}
+    int numTrianglesWithoutGhost() const {return M_nlelt_without_ghost;}
+    int numLocalGhostElt() const {return M_nlghost_elt;}
+
+    int numEdges() const {return M_num_edges;}
 
     void setCommunicator(Communicator const& comm) {M_comm=comm;}
     void setOrdering(std::string const& order) {M_ordering=order;}
@@ -103,23 +97,21 @@ public:
 
     void stereographicProjection();
 
-    std::vector<int> const& localDofWithoutGhost() const {return M_local_dof_without_ghost;}
     std::vector<int> const& localDofWithGhost() const {return M_local_dof_with_ghost;}
+    std::vector<int> const& localDofWithGhostDefault() const {return M_local_dof_with_ghost_default;}
+    std::vector<int> const& localDofWithoutGhost() const {return M_local_dof_without_ghost;}
     std::vector<int> const& localGhost() const {return M_local_ghost;}
 
-    std::vector<int> const& localDofWithGhostInit() const {return M_local_dof_with_ghost_init;}
-    std::vector<int> const& trianglesIdWithGhost() const {return M_triangles_id_with_ghost;}
+    std::vector<int> const& localEltIdWithGhost() const {return M_local_eltid_with_ghost;}
+    std::vector<int> const& localEltIdWithGhostDefault() const {return M_local_eltid_with_ghost_default;}
+    std::vector<int> const& localEltIdWithoutGhost() const {return M_local_eltid_without_ghost;}
+    std::vector<int> const& localGhostElt() const {return M_local_ghost_elt;}
 
-    bimap_type const& transferMapInit() const {return M_transfer_map;}
-    bimap_type const& transferMap() const {return M_transfer_map_reordered;}
+    bimap_type const& transferMapDof() const {return M_transfer_map_dof;}
+    bimap_type const& transferMapDofDefault() const {return M_transfer_map_dof_default;}
 
     bimap_type const& transferMapElt() const {return M_transfer_map_elt;}
-    //bimap_type const& transferMapReordered() const {return M_transfer_map_reordered;}
-
-    //bimap_type const& mapNodes() const {return M_reorder_map_nodes;}
-    //std::map<int,int> const& mapNodes() const {return M_reorder_map_nodes;}
-    //bimap_type const& mapElements() const {return M_reorder_map_elements;}
-    //std::map<int,int> const& mapElements() const {return M_reorder_map_elements;}
+    bimap_type const& transferMapEltDefault() const {return M_transfer_map_elt_default;}
 
     std::vector<int> const& mapNodes() const {return M_map_nodes;}
     std::vector<int> const& mapElements() const {return M_map_elements;}
@@ -172,42 +164,43 @@ private:
     std::vector<element_type> M_edges;
 
     std::vector<int> M_local_dof_with_ghost;
-    std::vector<int> M_local_dof_with_ghost_init;
+    std::vector<int> M_local_dof_with_ghost_default;
     std::vector<int> M_local_dof_without_ghost;
     std::vector<int> M_local_ghost;
-    std::vector<int> M_triangles_id_with_ghost;
+
+    std::vector<int> M_local_eltid_with_ghost;
+    std::vector<int> M_local_eltid_with_ghost_default;
+    std::vector<int> M_local_eltid_without_ghost;
+    std::vector<int> M_local_ghost_elt;
 
     int M_global_num_nodes;
     int M_global_num_nodes_from_serial;
     int M_num_nodes;
-    int M_num_triangles;
-    int M_num_edges;
-
     int M_nldof_with_ghost;
     int M_nldof_without_ghost;
     int M_nlghost;
 
     int M_global_num_elements;
     int M_global_num_elements_from_serial;
-    int M_num_triangles_without_ghost;
+    int M_num_triangles;
+    int M_nlelt_with_ghost;
+    int M_nlelt_without_ghost;
+    int M_nlghost_elt;
+    int M_num_edges;
 
+    bimap_type M_transfer_map_dof;
+    bimap_type M_transfer_map_dof_default;
 
-    bimap_type M_transfer_map;
-    bimap_type M_transfer_map_reordered;
     bimap_type M_transfer_map_elt;
+    bimap_type M_transfer_map_elt_default;
 
     // container for storing the mesh marker names
     std::map<std::string, std::vector<int> > M_marker_names;
 
-    //bimap_type M_reorder_map_nodes;
-    //std::map<int,int> M_reorder_map_nodes; (not stored in memory)
-    //bimap_type M_reorder_map_elements;
-    //std::map<int,int> M_reorder_map_elements; (not stored in memory)
-
     std::vector<int> M_map_elements;
     std::vector<int> M_map_nodes;
 
-    std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
+    std::map<std::string,std::pair<boost::mpi::timer,double> > M_timer;
 };
 
 } // Nextsim
