@@ -336,10 +336,24 @@ Metric::error_max(std::vector<double> const& areas_vertex, std::vector<int> cons
 void
 Metric::compute_optimal_bounded_isotropic_metric(GmshMesh const& mesh, std::vector<double> const& field, double hmin, double hmax, Communicator const & comm)
 {
+    std::vector<std::vector<double>> res(mesh.numNodes(), std::vector<double>(3));
     double d_max = 1./(hmin*hmin);
     double d_min = 1./(hmax*hmax);
     double alpha = 1./(1.+this->p);
+/*
+    if (fabs(hmax - hmin) < 1.e-5)
+    {
+        for (int n = 0; n < mesh.numNodes(); n++)
+        {
+            res[n][0] = d_max;
+            res[n][2] = d_max;
+            res[n][1] = 0.;
+        }
 
+        this->components = res;
+        return;
+    }
+*/
     // First step: compute triangle areas
     std::vector<double> areas_triangle = compute_triangle_euclidean_areas(mesh);
 
@@ -507,7 +521,6 @@ Metric::compute_optimal_bounded_isotropic_metric(GmshMesh const& mesh, std::vect
     // Last step: compute the metric based on the eigenvalue lambda
     std::vector<double> v1(2);
     std::vector<double> v2(2);
-    std::vector<std::vector<double>> res(mesh.numNodes(), std::vector<double>(3));
     for (n = 0; n < mesh.numNodes(); n++)
     {
         // Eigen vectors of the Hessian matrix
@@ -516,7 +529,7 @@ Metric::compute_optimal_bounded_isotropic_metric(GmshMesh const& mesh, std::vect
         c = hessian_components[n][2];
 
         // Check whether the hessian is diagonal
-        if (fabs(b) < 1e-12)
+        if (fabs(b) < 1.e-12)
         {
             v1[0] = 1.;
             v1[1] = 0.;
@@ -552,9 +565,22 @@ Metric::compute_optimal_bounded_isotropic_metric(GmshMesh const& mesh, std::vect
 void
 Metric::compute_optimal_bounded_isotropic_metric(GmshMeshSeq const& mesh, std::vector<double> const& field, double hmin, double hmax, Communicator const & comm)
 {
+    std::vector<std::vector<double>> res(mesh.numNodes(), std::vector<double>(3));
     double d_max = 1./(hmin*hmin);
     double d_min = 1./(hmax*hmax);
     double alpha = 1./(1.+this->p);
+/*    if (fabs(hmax - hmin) < 1.e-5)
+    {
+        for (int n = 0; n < mesh.numNodes(); n++)
+        {
+            res[n][0] = d_max;
+            res[n][2] = d_max;
+            res[n][1] = 0.;
+        }
+
+        this->components = res;
+        return;
+    }*/
 
     // First step: compute triangle areas
     std::vector<double> areas_triangle = compute_triangle_euclidean_areas(mesh);
@@ -701,7 +727,6 @@ Metric::compute_optimal_bounded_isotropic_metric(GmshMeshSeq const& mesh, std::v
     // Last step: compute the metric based on the eigenvalue lambda
     std::vector<double> v1(2);
     std::vector<double> v2(2);
-    std::vector<std::vector<double>> res(mesh.numNodes(), std::vector<double>(3));
     for (n = 0; n < mesh.numNodes(); n++)
     {
         // Eigen vectors of the Hessian matrix
@@ -710,7 +735,7 @@ Metric::compute_optimal_bounded_isotropic_metric(GmshMeshSeq const& mesh, std::v
         c = hessian_components[n][2];
 
         // Check whether the hessian is diagonal
-        if (fabs(b) < 1e-12)
+        if (fabs(b) < 1.e-12)
         {
             v1[0] = 1.;
             v1[1] = 0.;

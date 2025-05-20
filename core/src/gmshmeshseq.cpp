@@ -391,6 +391,41 @@ GmshMeshSeq::update(std::vector<point_type> const& nodes,
 }
 
 void
+GmshMeshSeq::update_triangle(int const& i, element_type const& triangle)
+{
+    M_triangles[i] = triangle;
+}
+
+void
+GmshMeshSeq::update_node(int const& i, point_type const& node)
+{
+    M_nodes[i] = node;
+}
+
+void
+GmshMeshSeq::resize_triangle(int const& size)
+{
+    M_triangles.resize(size);
+    M_num_triangles = size;
+}
+
+void
+GmshMeshSeq::resize_node(int const& size)
+{
+    M_nodes.resize(size);
+    M_num_nodes = size;
+}
+
+void
+GmshMeshSeq::clear_mesh()
+{
+    M_nodes.clear();
+    M_nodes.shrink_to_fit();
+    M_triangles.clear();
+    M_triangles.shrink_to_fit();
+}
+
+void
 GmshMeshSeq::initGModel()
 {
     M_gmodel = new GModel();
@@ -518,7 +553,7 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
     CTX::instance()->mesh.binary = 1;
 
     std::ostringstream gmshstr;
-    gmshstr << "/gpfs/home/fsalmon/nextsim_official/deps/gmsh-3.0.6/lib/gmsh" //BOOST_PP_STRINGIZE( gmsh )
+    gmshstr << "/home/fsalmon/nextsim/deps/gmsh-3.0.6/lib/gmsh" //BOOST_PP_STRINGIZE( gmsh )
             << " -" << 2
             << " -part " << Environment::comm().size()
             << " -format " << "msh2";

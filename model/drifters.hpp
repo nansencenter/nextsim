@@ -180,7 +180,14 @@ public:
         //main interface to FiniteElement
         void updateDrifters(GmshMeshSeq const& movedmesh_root,
                 std::vector<double> & conc_root, double const& current_time);
+        void updateDrifters(GmshMesh const& movedmesh,
+                            std::vector<double> & conc, double const& current_time);
         void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
+        void move(GmshMesh const& mesh, std::vector<double> const& UT);
+
+        int inside(std::vector<double> const& points, double xp, double yp);
+        void find_partition(GmshMesh const& mesh, std::vector<double>& M_local_drifter_X, std::vector<double>& M_local_drifter_Y, 
+                            std::vector<int>& M_triangle, std::vector<int>& M_nb_drifter);
 
 private:
         //initialising
@@ -212,10 +219,13 @@ private:
         void sortDrifterNumbers();
 
         //main ops
-        void reset(GmshMeshSeq const& moved_mesh, std::vector<double> & conc_root,
+        template<typename FEMeshType>
+        void reset(FEMeshType const& moved_mesh, std::vector<double> & conc,
                 double const& current_time);
         void updateConc( GmshMeshSeq const& moved_mesh,
                 std::vector<double> & conc, std::vector<double> & conc_drifters);
+        void updateConc(GmshMesh const& moved_mesh,
+                        std::vector<double> & conc, std::vector<double> &conc_drifters);
         bool resetting(double const& current_time)
         {
             if(!M_is_initialised)

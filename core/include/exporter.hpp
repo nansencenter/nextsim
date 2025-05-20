@@ -36,8 +36,8 @@ public:
     template<typename Type>
     void writeContainer(std::fstream& out, std::vector<Type> const& container, std::string const precision);
 
-    template<typename FEMeshType>
-    void writeMesh(std::fstream& out, FEMeshType const& Mesh);
+    void writeMesh(std::fstream& out, GmshMesh const& Mesh);
+    void writeMesh(std::fstream& out, GmshMeshSeq const& Mesh);
     template<typename Type>
 	void writeMesh(std::fstream& out, std::vector<Type> const& xnod, std::vector<Type> const& ynod,
             std::vector<int> const& idnod, std::vector<int> const& elements);

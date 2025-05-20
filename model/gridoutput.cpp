@@ -258,6 +258,9 @@ GridOutput::initArbitraryGrid(GmshMesh const& mesh, int nb_local_el, Grid& grid,
     // Read data into M_grid.gridLON & M_grid.gridLAT
     M_grid.gridLAT.resize(M_grid_size);
     M_grid.gridLON.resize(M_grid_size);
+    M_grid.gridLAT.shrink_to_fit();
+    M_grid.gridLON.shrink_to_fit();
+
     VLAT.getVar(&M_grid.gridLAT[0]);
     VLON.getVar(&M_grid.gridLON[0]);
     if ( M_grid.thetaName != "" )
@@ -284,12 +287,16 @@ GridOutput::initArbitraryGrid(GmshMesh const& mesh, int nb_local_el, Grid& grid,
 
         M_grid.gridCornerX.resize(4*M_grid_size);
         M_grid.gridCornerY.resize(4*M_grid_size);
+        M_grid.gridCornerX.shrink_to_fit();
+        M_grid.gridCornerY.shrink_to_fit();
         this->stereographicProjection(x, y, z, M_grid.gridCornerX, M_grid.gridCornerY);
     }
 
     // Calculate x and y
     M_grid.gridX.resize(M_grid_size);
     M_grid.gridY.resize(M_grid_size);
+    M_grid.gridX.shrink_to_fit();
+    M_grid.gridY.shrink_to_fit();
 
     mapx_class *map;
     char* mppfile = const_cast<char*>(Environment::nextsimMppfile().c_str());
@@ -365,7 +372,6 @@ GridOutput::setProcMask(GmshMesh const& mesh, int nb_local_el,
     // Call the worker routine using a vector of ones and give zero for missing values and gohsts
     std::vector<Variable> proc_mask_var(1);
     proc_mask_var[0] = Variable(variableID::proc_mask);
-
     proc_mask_var[0].data_grid.assign(M_grid_size,0);
     proc_mask_var[0].data_mesh.resize(mesh.numTriangles());
 
@@ -697,6 +703,9 @@ GridOutput::resetMeshMean(GmshMesh const& mesh,
             M_gridP.resize(0);
             M_triangles.resize(0);
             M_weights.resize(0);
+            M_gridP.shrink_to_fit();
+            M_triangles.shrink_to_fit();
+            M_weights.shrink_to_fit();
             for ( int i=0; i<gridP.size(); i++ )
             {
                 std::vector<int> local_triangles;
@@ -766,6 +775,13 @@ GridOutput::broadcastWeights(std::vector<int>& gridP,
         nb_weights.resize(reduced_size);
         packed_tr.resize(packed_size);
         packed_w.resize(packed_size);
+
+        gridP.shrink_to_fit();
+        triangles.shrink_to_fit();
+        weights.shrink_to_fit();
+        nb_weights.shrink_to_fit();
+        packed_tr.shrink_to_fit();
+        packed_w.shrink_to_fit();
     }
 
     // TODO: Combine the first three broadcasts into one (they're all ints)

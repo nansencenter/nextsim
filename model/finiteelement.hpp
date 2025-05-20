@@ -55,7 +55,10 @@ extern "C"
 {
 #include <mapx.h>
 }
-
+#include <malloc.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <stdlib.h>
 
 namespace Nextsim
 {
@@ -159,10 +162,11 @@ public:
     void write_vtk_file(PMMG2D_pParMesh parmesh);
 
     void boundary_flags(std::vector<std::vector<int>> list_edges, std::vector<int> Dirichlet_nodes, std::vector<int> Neumann_nodes, std::vector<int> Mask_Dirichlet, std::vector<int> Mask_Neumann);
-    void updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_nodes, std::vector<int> &Neumann_nodes, int restart);
+    void updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_nodes, std::vector<int> &Neumann_nodes, int num_nodes);
 #endif
 
     size_t getMemoryUsage();
+    size_t getMemoryUsage0();
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
@@ -184,11 +188,15 @@ public:
 
     void interpFields(std::vector<int> const& rmap_nodes, std::vector<int> sizes_nodes);
 
-    void interpFields_parallel(std::vector<double> coordX_prv, std::vector<double> coordY_prv, std::vector<int> triangles_prv, 
-                               std::vector<int> list_global_nodes_prv_local, std::vector<double> interp_elt_in_local);
+    void interpFields_parallel(std::vector<double> const& coordX_prv, std::vector<double> const& coordY_prv, std::vector<int> const& triangles_prv, 
+                               std::vector<int> const& list_global_nodes_prv_local, std::vector<double> const& interp_elt_in_local);
 
     std::vector<std::vector<std::vector<int>>> cartesian_discretization(int num, std::vector<double> const &coordX, std::vector<double> const &coordY,
                                                                         std::vector<int> const &triangles, int GRID_SIZE, double xmax, double xmin, double ymax, double ymin);
+
+    std::vector<int> check_cartesian_discretization(int num, std::vector<double> const &coordX, std::vector<double> const &coordY,
+                                                    std::vector<int> const &triangles, int GRID_SIZE, double xmax, double xmin, double ymax, double ymin);
+
     void init();
     void step();
     void run();
@@ -347,6 +355,7 @@ public:
     bool use_MMG;
     int MG_DIRICHLET = 22;
     int MG_NEUMANN = 43;
+    bool M_use_mesh_root = true;
 
     void checkOutputs(bool const& at_init_time);
     void exportResults(bool const& export_mesh,
@@ -365,7 +374,7 @@ public:
     void collectElementsRestart(std::vector<double>& interp_elt_out,
             std::vector<std::vector<double>*> &data_elements_root);
 
-    void build_mesh_mmg(std::vector<double>& coordX, std::vector<double>& coordY, std::vector<int>& triangles);
+    void build_mesh_mmg(std::vector<double>& coordX, std::vector<double>& coordY, std::vector<int>& triangles, std::vector<int>& dirichlet_flags, std::vector<int>& neumann_flags);
 
     void rootMeshProcessing();
 
@@ -389,8 +398,8 @@ private:
     void advectRoot(std::vector<double> const& interp_elt_in, std::vector<double>& interp_elt_out);
     void diffuse(std::vector<double>& variable_elt, double diffusivity_parameters, double dx);
 
-    void compute_list_element_neighbours(std::vector<std::vector<int>>& list_neighbours);
     void compute_list_node_neighbours(std::vector<std::vector<int>>& list_neighbours);
+    void compute_list_element_neighbours(std::vector<std::vector<int>>& list_neighbours);
 
     void collectVariables(std::vector<double>& interp_elt_in_local, bool ghosts);
     void redistributeVariables(std::vector<double> const& out_elt_values, bool const& apply_maxima);
@@ -519,7 +528,6 @@ private:
     std::vector<double> M_UT;
     std::vector<double> M_VT;
 
-
     std::vector<double> M_hminVertices;
     std::vector<double> M_hmaxVertices;
 
@@ -636,6 +644,7 @@ private:
     double M_fullday_counter;
     bool M_reuse_prec;
     bool M_regrid;
+    bool M_regrid_old = false;
     int M_nb_regrid;
 
     bool M_use_assimilation;
@@ -670,6 +679,8 @@ private:
         int mem;
         int angle;
         int optim;
+        int niter;
+        int nlayers;
         int noinsert;
         int noswap;
         int nomove;
@@ -678,6 +689,9 @@ private:
         int xreg;
         int nosizreq;
         int debug;
+        int isotropic;
+        double limit_angle;
+        double load_balance;
         double angleDetection;
         double hausd;
         double hgrad;

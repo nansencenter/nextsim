@@ -78,7 +78,7 @@ endif
 CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
 #endif
 
-#LDFLAGS += -L/cm/shared/modules/generic/mpi/openmpi/4.0.2/lib -liomp5
+LDFLAGS += -L/cm/shared/modules/generic/mpi/openmpi/4.0.2/lib -liomp5
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
@@ -121,7 +121,7 @@ ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 endif
 endif
 
-LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim -lgfortran -llapack -lgmp #-lsvml -lirc -limf -liomp5
+LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim -lgfortran -llapack -lgmp -lsvml -lirc -limf -liomp5
 
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/

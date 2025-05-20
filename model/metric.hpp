@@ -36,8 +36,8 @@ public:
     int Nst = 1; // Number of points 
     bool is_vtk_written = false; // Set to true to write a vtk file containing the mesh and the metric. It is true when the debug option for MMG is activated
     bool isotropic = true; // Set to true to have an isotropic metric (Salmon's metric), set to false to have an anisotropic metric (Loseille's metric)
-    double scale_factor_min = 0.1; // Scale factor for the minimum size of the elements (scale_factor * size of the smallest initial element)
-    double scale_factor_max = 0.26; // Scale factor for the maximum size of the elements (scale_factor * size of the greatest initial element)
+    double scale_factor_min = 1.; // Scale factor for the minimum size of the elements (scale_factor * size of the smallest initial element)
+    double scale_factor_max = 1.; // Scale factor for the maximum size of the elements (scale_factor * size of the greatest initial element)
     int process;
 
     // Edge length in the non-euclidean geometry defined by the metric
