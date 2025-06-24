@@ -172,14 +172,14 @@ public:
         rain         = 107,
         evap         = 108,
         d_crit       = 109,
-        vice_melt    = 110,
-        del_hi       = 111,
-        del_hi_young = 112,
-        newice       = 113,
-        snow2ice     = 114,
-        mlt_top      = 115,
-        mlt_bot      = 116,
-        del_vi_young = 117,
+        dvi_thermo    = 110,
+        dhi       = 111,
+        dhi_young = 112,
+        dvi_newfrazil = 113,
+        dvi_snow2ice  = 114,
+        dvi_mlt_top   = 115,
+        dvi_mlt_bot   = 116,
+        dvi_bot_young = 117,
         sigma_n      = 118,
         sigma_s      = 119,
         divergence   = 120,
@@ -193,6 +193,13 @@ public:
         drag_ui      = 128,
         drag_ti      = 129,
         meltpond_fraction = 130,
+        dci_thermo       = 131,
+        dci_thermo_young = 132,
+        dci_young2old    = 133,
+        dci_ridge        = 134,
+        dci_ridge_young  = 135,
+        dvi_ridge_young  = 136,
+        dvi_young2old    = 137,
 
         // Forcing variables
         tair     = 200,
@@ -563,57 +570,57 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::del_vi_young):
-                    name     = "del_vi_young";
+                case (variableID::dvi_bot_young):
+                    name     = "dvi_bot_young";
                     longName = "Young Ice Volume Melted or Formed per Day per Surface Area";
                     stdName  = "young_ice_volume_melted_or_formed_per_day_per_surface_area";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::vice_melt):
-                    name     = "vice_melt";
+                case (variableID::dvi_thermo):
+                    name     = "dvi_thermo";
                     longName = "Ice Volume Melted or Formed per Day per Surface Area";
                     stdName  = "ice_volume_melted_or_formed_per_day_per_surface_area";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::del_hi):
-                    name     = "del_hi";
+                case (variableID::dhi):
+                    name     = "dhi";
                     longName = "Growth-melt rate of (thick) ice";
                     stdName  = "growth_melt_rate_of_thick_ice";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::del_hi_young):
-                    name     = "del_hi_young";
+                case (variableID::dhi_young):
+                    name     = "dhi_young";
                     longName = "Growth-melt rate of young ice";
                     stdName  = "growth_melt_rate_of_young_ice";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::newice):
-                    name     = "newice";
+                case (variableID::dvi_newfrazil):
+                    name     = "dvi_newfrazil";
                     longName = "Ice formed in open water by supercooling";
                     stdName  = "ice_formed_in_open_water_by_supercooling";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::mlt_bot):
-                    name     = "mlt_bot";
+                case (variableID::dvi_mlt_bot):
+                    name     = "dvi_mlt_bot";
                     longName = "Ice melted at bottom";
                     stdName  = "ice_melted_at_bottom";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::mlt_top):
-                    name     = "mlt_top";
+                case (variableID::dvi_mlt_top):
+                    name     = "dvi_mlt_top";
                     longName = "Ice melted at top";
                     stdName  = "ice_melted_at_top";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::snow2ice):
-                    name     = "snow2ice";
+                case (variableID::dvi_snow2ice):
+                    name     = "dvi_snow2ice";
                     longName = "Ice formed from snow by flooding";
                     stdName  = "ice_formed_from_snow_by_flooding";
                     Units    = " m/day";
@@ -651,6 +658,55 @@ public:
                     name     = "dci_ridge_myi";
                     longName = "myi area_change rate due to ridging";
                     stdName  = "myi_area_change_rate_due_to_ridging";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_ridge_young):
+                    name     = "dci_ridge_young";
+                    longName = "young ice area_change rate due to ridging";
+                    stdName  = "young_ice_area_change_rate_due_to_ridging";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_ridge_young):
+                    name     = "dvi_ridge_young";
+                    longName = "young ice volume_change rate due to ridging";
+                    stdName  = "young_ice_volume_change_rate_due_to_ridging";
+                    Units    = "m/day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_ridge):
+                    name     = "dci_ridge";
+                    longName = " ice area_change rate due to ridging";
+                    stdName  = "ice_area_change_rate_due_to_ridging";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_thermo):
+                    name     = "dci_thermo";
+                    longName = " ice area_change rate due to thermo";
+                    stdName  = "ice_area_change_rate_due_to_thermo";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_thermo_young):
+                    name     = "dci_thermo_young";
+                    longName = " young ice area change rate due to thermo";
+                    stdName  = "young_ice_area_change_rate_due_to_thermo";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dci_young2old):
+                    name     = "dci_young2old";
+                    longName = " young ice area transfer to old due to thermo";
+                    stdName  = "young_ice_area_transfer_to_old_due_to_thermo";
+                    Units    = " /day";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::dvi_young2old):
+                    name     = "dvi_young2old";
+                    longName = " young ice volume transfer to old due to thermo";
+                    stdName  = "young_ice_volume_transfer_to_old_due_to_thermo";
                     Units    = " /day";
                     cell_methods = "area: mean";
                     break;
