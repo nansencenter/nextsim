@@ -738,6 +738,11 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("generic_ps_atm_elements");
             break;
 
+        case setup::AtmosphereType::WRF_PS:
+            M_atmosphere_nodes_dataset=DataSet("wrf_ps_atm_nodes");
+            M_atmosphere_elements_dataset=DataSet("wrf_ps_atm_elements");
+            break;
+
         case setup::AtmosphereType::ASR:
             M_atmosphere_nodes_dataset=DataSet("asr_nodes");
             M_atmosphere_elements_dataset=DataSet("asr_elements");
@@ -1269,6 +1274,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::AtmosphereType> str2atmosphere = boost::assign::map_list_of
         ("constant", setup::AtmosphereType::CONSTANT)
         ("generic_ps", setup::AtmosphereType::GENERIC_PS)
+        ("wrf_ps", setup::AtmosphereType::WRF_PS)
         ("asr", setup::AtmosphereType::ASR)
         ("era5", setup::AtmosphereType::ERA5)
         ("ecmwf_nrt", setup::AtmosphereType::ECMWF_NRT)
@@ -1289,6 +1295,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::CFSR:       quad_drag_coef_air = vm["dynamics.CFSR_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::ERA5:       quad_drag_coef_air = vm["dynamics.ERA5_quad_drag_coef_air"].as<double>(); break;
         case setup::AtmosphereType::GENERIC_PS:
+        case setup::AtmosphereType::WRF_PS:
         case setup::AtmosphereType::ECMWF_NRT:
         case setup::AtmosphereType::ECMWF_NRT_AROME:
         case setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE:
@@ -10923,6 +10930,23 @@ FiniteElement::forcingAtmosphere()
             M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
             M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
             M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
+        break;
+
+        case setup::AtmosphereType::WRF_PS:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0 ,true ,
+                time_init, M_spinup_duration);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 0, false,
+                    time_init, 0, air_temperature_correction);
+            M_dair=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 1, false,
+                    time_init, 0, air_temperature_correction);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_snowfr=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            // M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
             M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 

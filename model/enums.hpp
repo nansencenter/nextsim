@@ -23,7 +23,8 @@ namespace setup
         CFSR_HI                  = 5,
         ECMWF_NRT_AROME          = 6,
         ECMWF_NRT_AROME_ENSEMBLE = 7,
-        ERA5                     = 8
+        ERA5                     = 8,
+        WRF_PS                   = 9
     };
 
     enum class OceanType
