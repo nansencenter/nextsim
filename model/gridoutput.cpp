@@ -919,6 +919,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
+        data.putAtt("coordinates","time latitude longitude");
         data.putAtt("units",it->Units);
         data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
@@ -930,6 +931,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
         data.putAtt("standard_name",it->stdName);
         data.putAtt("long_name",it->longName);
+        data.putAtt("coordinates","time latitude longitude");
         data.putAtt("units",it->Units);
         data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);

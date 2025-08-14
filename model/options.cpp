@@ -8,7 +8,6 @@
  */
 
 #include <boost/program_options.hpp>
-#include <constants.hpp>
 
 #if defined (WAVES)
 #include <options_wim.hpp>
@@ -16,7 +15,6 @@
 
 namespace po = boost::program_options;
 
-double const days_in_sec = 24.0*3600.0;
 namespace Nextsim
 {
     //! Describes the options to be set in a simulation (parameters, setup, dynamics, thermodynamics, numerics, ...)
@@ -104,6 +102,10 @@ namespace Nextsim
             ("setup.ice-type", po::value<std::string>()->default_value( "constant" ), "ice initialisation or assimilation option")
             ("setup.bathymetry-type", po::value<std::string>()->default_value( "etopo" ), "bathymetry option")
             ("setup.bathymetry-file", po::value<std::string>()->default_value( "ETOPO_Arctic_2arcmin.nc" ), "Bathymetry file for basal stress calculations (ETOPO_Arctic_2arcmin.nc)")
+            ("setup.atmospheric_forcing_input_path", po::value<std::string>()->default_value( "" ),
+             "path to root directory of atmospheric forcing files (can be absolute path or relative to NEXTSIM_DATA_DIR) (default is NEXTSIM_DATA_DIR itself)")
+            ("setup.oceanic_forcing_input_path", po::value<std::string>()->default_value( "" ),
+             "path to root directory of ocean forcing files (can be absolute path or relative to NEXTSIM_DATA_DIR) (default is NEXTSIM_DATA_DIR itself)")
             ("setup.basal_stress-type", po::value<std::string>()->default_value( "lemieux" ), "type of basal stress model")
             ("setup.use_assimilation", po::value<bool>()->default_value( false ), "use assimilation or not")
             ("setup.dynamics-type", po::value<std::string>()->default_value( "bbm" ), "type of dynamics [ bbm | no_motion | evp | mevp | free_drift ] ")
@@ -230,7 +232,7 @@ namespace Nextsim
                 "if true, write restart after regrid")
 
             // -- general outputs
-            ("output.output_per_day", po::value<int>()->default_value( 4 ),
+            ("output.output_per_day", po::value<int>()->default_value( 0 ),
                "Positive integer specifies number of outputs per day, Zero cancels output, Negative integer forces ouput at each timestep")
             ("output.save_forcing_fields", po::value<bool>()->default_value( false ), "")
             ("output.save_diagnostics", po::value<bool>()->default_value( false ), "")
@@ -333,7 +335,6 @@ namespace Nextsim
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // - Water and air drag parameterizations
-            ("dynamics.ERAi_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ERA5_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
@@ -380,17 +381,21 @@ namespace Nextsim
 
             ("thermo.use_thermo_forcing", po::value<bool>()->default_value( true ), "")
             ("thermo.Qio-type", po::value<std::string>()->default_value( "basic" ), "")
-            ("thermo.freezingpoint-type", po::value<std::string>()->default_value( "linear" ), "How to calculate the freezing point of sea water, either linear or unesco formula")
+            ("thermo.freezingpoint-type", po::value<std::string>()->default_value( "linear" ),
+                "How to calculate the freezing point of sea water, either linear or unesco formula")
+            ("thermo.freezingpoint_mu", po::value<double>()->default_value( 0.055 ),
+                "Proportionality constant (for linear option) between salinity and freezing temperature of sea water [C kg/g]")
             ("thermo.albedoW", po::value<double>()->default_value( 0.07 ), "")
             ("thermo.alb_scheme", po::value<int>()->default_value( 3 ), "")
             ("thermo.flooding", po::value<bool>()->default_value( true ), "")
             ("thermo.alb_ice", po::value<double>()->default_value( 0.63 ), "")
             ("thermo.alb_sn", po::value<double>()->default_value( 0.88 ), "")
-            ("thermo.I_0", po::value<double>()->default_value( 0.17 ), "")
+            ("thermo.alb_ponds", po::value<double>()->default_value( 0.30 ), "")
+            ("thermo.I_0", po::value<double>()->default_value( 0.30 ), "Fraction of short-wave radiation that penetrates into the ice. The default (30%) is taken from Winton (2000).")
             ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
             ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: YOUNG_ICE; else CLASSIC")
-            ("thermo.melt_type", po::value<int>()->default_value( 1 ), "")
+            ("thermo.melt_type", po::value<int>()->default_value( 2 ), "")
             ("thermo.hnull", po::value<double>()->default_value( 0.25 ), "")
             ("thermo.PhiF", po::value<double>()->default_value( 4. ), "")
             ("thermo.PhiM", po::value<double>()->default_value( 0.5 ), "")
@@ -403,16 +408,17 @@ namespace Nextsim
             ("thermo.drag_ocean_u", po::value<double>()->default_value( 1.1e-3 ), "")
             ("thermo.drag_ocean_t", po::value<double>()->default_value( 0.83e-3 ), "")
             ("thermo.drag_ocean_q", po::value<double>()->default_value( 1.5e-3 ), "")
+            ("thermo.Csens_io", po::value<double>()->default_value( 1.e-3 ), "")
 
             // -- diffusivity
             ("thermo.diffusivity_sss", po::value<double>()->default_value( 0. ), "") //[m^2/s]
             ("thermo.diffusivity_sst", po::value<double>()->default_value( 0. ), "") //[m^2/s]
 
             // -- relaxation of slab ocean to ocean forcing
-            ("thermo.ocean_nudge_timeT", po::value<double>()->default_value( 30*days_in_sec),
-                "relaxation time of slab ocean temperature to ocean forcing")
-            ("thermo.ocean_nudge_timeS", po::value<double>()->default_value( 30*days_in_sec),
-                "relaxation time of slab ocean salinity to ocean forcing")
+            ("thermo.ocean_nudge_timeT_days", po::value<double>()->default_value( 30 ),
+                "relaxation time of slab ocean temperature to ocean forcing (days)")
+            ("thermo.ocean_nudge_timeS_days", po::value<double>()->default_value( 30 ),
+                "relaxation time of slab ocean salinity to ocean forcing (days)")
 
             // -- relating to thermodynamic forcing
             ("thermo.use_parameterised_long_wave_radiation", po::value<bool>()->default_value(false),
@@ -423,10 +429,25 @@ namespace Nextsim
              "Add a heat flux that compensates for assimilation of concentration")
             ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
              "Exponent of factor for heat flux that compensates for assimilation of concentration")
+            ("thermo.zref_wind", po::value<double>()->default_value(10.),
+             "Reference height for wind forcing [m]")
+            ("thermo.zref_temp", po::value<double>()->default_value(2.),
+             "Reference height for temperature forcing [m]")
+            ("thermo.force_neutral_atmosphere", po::value<bool>()->default_value(false),
+             "Don't modify the neutral (default) atmospheric drag coefficient to take atmospheric stability into account.")
+            ("thermo.limiting_lengthscale", po::value<double>()->default_value( 1. ),
+             "A limit for the Obukov length (m).")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")
 #endif
+
+            ("thermo.use_meltponds", po::value<bool>()->default_value(false),
+             "Use a simple meltpond scheme")
+            ("thermo.meltpond_runoff_fraction", po::value<double>()->default_value(0.2),
+             "Fraction of available water that run-off and doesn't fill the ponds")
+            ("thermo.meltpond_depth_to_fraction", po::value<double>()->default_value(0.8),
+             "Slope of linear fit of melt pond volume to melt pond fraction")
 
              //-----------------------------------------------------------------------------------
              //! - Nesting
@@ -442,8 +463,8 @@ namespace Nextsim
                 "Grid filename is nsting_grid_[inner_mesh].nc")
             ("nesting.method", po::value<std::string>()->default_value( "nudging" ),
                 "Options: nudging")
-            ("nesting.nudge_timescale", po::value<double>()->default_value((1./2.)*days_in_sec),
-                "relaxation timescale for nudging at boundary")
+            ("nesting.nudge_timescale", po::value<double>()->default_value((.5)),
+                "relaxation timescale for nudging at boundary (days)")
             ("nesting.nudge_function", po::value<std::string>()->default_value( "exponential" ),
                 "Functional form for nudging frequency as a function of distance to boundary. Options: exponential, linear. Depends on nudge_length_scale")
             ("nesting.nudge_lengthscale", po::value<double>()->default_value(10.),
@@ -457,7 +478,7 @@ namespace Nextsim
 
             ("forecast.air_temperature_correction", po::value<double>()->default_value( 0. ),
                 "for use in BADA (Bias-Aware-Data-Assimilation)")
-            ("forecast.ec2_time_res_hours", po::value<double>()->default_value( 6. ),
+            ("forecast.ecmwf_nrt_time_res_hours", po::value<double>()->default_value( 6. ),
                 "specify the time resolution in hours here if want to change from 6")
 
 

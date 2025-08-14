@@ -145,7 +145,7 @@ public:
         hs_young     = 15,
         conc_young   = 16,
         fyi_fraction = 17,
-        age_d        = 18,
+        age_det      = 18,
         age          = 19,
         conc_upd     = 20,
         sigma_11     = 21,
@@ -158,6 +158,8 @@ public:
         del_vi_tend  = 28,
         thick_myi    = 29,
         thick_summer = 30,
+        meltpond_volume     = 31,
+        meltpond_lid_volume = 32,
 
         // Diagnostic variables
         Qa           = 100,
@@ -188,6 +190,9 @@ public:
         dci_rplnt_myi= 125,
         dvi_rplnt_myi= 126,
         sialb        = 127,
+        drag_ui      = 128,
+        drag_ti      = 129,
+        meltpond_fraction = 130,
 
         // Forcing variables
         tair     = 200,
@@ -204,8 +209,11 @@ public:
         wind_x   = 211,
         wind_y   = 212,
         wspeed   = 213,
-        tau_ax   = 214,
-        tau_ay   = 215,
+        mld      = 214,
+        ocean_temp = 215,
+        ocean_salt = 216,
+        tau_ax   = 217,
+        tau_ay   = 218,
 
         // WIM variables
         dmax        = 300,
@@ -275,10 +283,10 @@ public:
                     break;
                 case (variableID::ridge_ratio):
                     name     = "ridge_ratio";
-                    longName = "Sea Ice Ridge Ratio";
-                    stdName  = "sea_ice_ridge_ratio";
+                    longName = "Sea Ice Volume Fraction of Ridged Ice";
+                    stdName  = "sea_ice_volume_fraction_of_ridged_ice";
                     Units    = "1";
-                    cell_methods = "area: mean";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::snow):
                     name     = "snt";
@@ -350,8 +358,8 @@ public:
                     break;
                 case (variableID::conc_young):
                     name     = "sic_young";
-                    longName = "Young Ice Concentration";
-                    stdName  = "young_ice_area_fraction";
+                    longName = "Sea Ice Area Fraction of Young Ice";
+                    stdName  = "sea_ice_classification";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
@@ -376,19 +384,19 @@ public:
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
-                case (variableID::age_d):
-                    name     = "sia_det";
-                    longName = "Detectable sea ice age";
-                    stdName  = "det_sea_ice_age";
-                    Units    = "s";
-                    cell_methods = "area: mean";
+                case (variableID::age_det):
+                    name     = "siage_det";
+                    longName = "Detectable Age of Sea Ice";
+                    stdName  = "det_age_of_sea_ice";
+                    Units    = "years";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::age):
-                    name     = "sia";
-                    longName = "Sea ice age";
-                    stdName  = "aea_ice_age";
-                    Units    = "s";
-                    cell_methods = "area: mean";
+                    name     = "siage";
+                    longName = "Age of Sea Ice";
+                    stdName  = "age_of_sea_ice";
+                    Units    = "years";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::conc_upd):
                     name     = "conc_upd";
@@ -417,6 +425,20 @@ public:
                     stdName  = "stress_tensor_12";
                     Units    = "Pa";
                     cell_methods = "area: mean";
+                    break;
+                case (variableID::meltpond_volume):
+                    name     = "meltpond_volume";
+                    longName = "Meltpond volume";
+                    stdName  = "meltpond_volume";
+                    Units    = "m";
+                    cell_methods = "area: mean where ice";
+                    break;
+                case (variableID::meltpond_lid_volume):
+                    name     = "meltpond_lid_volume";
+                    longName = "Meltpond lid volume";
+                    stdName  = "meltpond_lid_volume";
+                    Units    = "m";
+                    cell_methods = "area: mean where ice";
                     break;
 
                 // MYI variables
@@ -681,6 +703,25 @@ public:
                     Units    = "1/s";
                     cell_methods = "area: mean";
                     break;
+                case (variableID::drag_ui):
+                    name     = "drag_ui";
+                    longName = "Ice-atmosphere momentum drag";
+                    stdName  = "ice-atmosphere_momentum_drag";
+                    Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::drag_ti):
+                    name     = "drag_ti";
+                    longName = "Ice-atmosphere thermodynamic drag";
+                    stdName  = "ice-atmosphere_thermodynamic_drag";
+                    Units    = "1/s";
+                case (variableID::meltpond_fraction):
+                    name     = "meltpond_fraction";
+                    longName = "Meltpond area fraction";
+                    stdName  = "meltpond_area_fraction";
+                    Units    = "1";
+                    cell_methods = "area: mean where ice";
+                    break;
 
                 // Coupling variables
                 case (variableID::taux):
@@ -881,6 +922,30 @@ public:
                     longName = "Wind speed";
                     stdName  = "wind_speed";
                     Units    = "m/s";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::mld):
+                    name     = "mld";
+                    longName = "ocean mixed layer depth";
+                    stdName  = "ocean_mixed_layer_depth";
+                    Units    = "m";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::ocean_temp):
+                    name     = "ocean_temp";
+                    longName = "ocean temperature forcing";
+                    stdName  = "ocean_temperature_forcing";
+                    Units    = "degree_Celcius";
+                    cell_methods = "area: mean";
+                    break;
+
+                case (variableID::ocean_salt):
+                    name     = "ocean_salt";
+                    longName = "ocean salinity forcing";
+                    stdName  = "ocean_salinity_forcing";
+                    Units    = "1e-3";
                     cell_methods = "area: mean";
                     break;
 

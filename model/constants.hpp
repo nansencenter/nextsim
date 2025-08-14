@@ -20,7 +20,7 @@ namespace physical
     const double cmin = 1e-12;
 
     //! Specific heat of air [J/K/kg]
-    const double cpa = 1004.64;
+    const double cpa = 1000.5;
 
     //! Specific heat of water vapour [J/K/kg]
     const double cpv = 1860.;
@@ -28,7 +28,7 @@ namespace physical
     //! Specific heat of sea water [J/K/kg]
     const double cpw = 4186.84;
 
-    //! Emissivity of ice */
+    //! Emissivity of ice
     const double eps = 0.996;
 
     //! Gravitational acceleration [m/s^2]
@@ -44,10 +44,7 @@ namespace physical
     const double Lf = 333.55e3;
 
     //! Latent heat of evaporation at 0degC [J/Kg]
-    const double Lv0 = 2500.79e3;
-
-    //! Proportionality constant between salinity and freezing temperature of sea water [C]
-    const double mu = 0.055;
+    const double Lv0 = 2.5e6;
 
     //! Gas constant for dry air [J/kg/K]
     const double Ra_dry = 287.058;
@@ -86,10 +83,13 @@ namespace physical
     const double omega = 7.292e-5;
 
     //! Density of air [kg/m3]
-    const double rhoa = 1.225;
+    const double rhoa = 1.22;
 
     //! Temperature of freezing of sea water [degrees Celsius]
     const double ocean_freezing_temp = -1.8;
+
+    //! The dry adiabatic lapse rate [K/m]
+    const double Gamma_d = 0.0098;
 }
 
 #endif
