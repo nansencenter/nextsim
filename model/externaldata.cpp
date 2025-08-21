@@ -910,6 +910,7 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
             // Check Nan and store the loaded data
             dataset->variables[j].loaded_data[fstep].resize(final_MN);
+            dataset->variables[j].loaded_data[fstep].shrink_to_fit();
 
             double tmp_data_i;
             int reduced_i;
@@ -928,10 +929,12 @@ ExternalData::loadDataset(Dataset *dataset, std::vector<double> const& RX_in,
 
                 //now add to loaded_data
                 dataset->variables[j].loaded_data[fstep][i]=tmp_data_i;
+
             }
         }
         // We may need to resize variables if not all variables were read
         dataset->variables.resize(num_read);
+        dataset->variables.shrink_to_fit();
     }
 
     dataset->nb_forcing_step=nb_forcing_step;
@@ -1482,6 +1485,7 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
         for (int j=0; j<dataset->variables.size(); ++j)
         {
             dataset->variables[j].interpolated_data[fstep].resize(M_target_size);
+            dataset->variables[j].interpolated_data[fstep].shrink_to_fit();
             for (int i=0; i<M_target_size; ++i)
                 dataset->variables[j].interpolated_data[fstep][i]=data_out[(dataset->variables.size()*dataset->nb_forcing_step)*i+fstep*dataset->variables.size()+j];
         }
