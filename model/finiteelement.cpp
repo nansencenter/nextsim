@@ -14766,86 +14766,109 @@ FiniteElement::checkFields()
     std::stringstream crash_msg;
     bool crash_els = false;
 
-    for(int i=0; i<M_num_elements; i++)
+    std::vector<int> indices;
+    auto names = M_external_data_elements_names;
+
+    // common sense maxima (not absolute maxima)
+    boost::unordered_map<std::string, double>
+        too_high_values = boost::assign::map_list_of
+            ("M_thick", 35.)
+            ;
+
+    // check the forcings 1st
+    for (int j = 0; j < M_external_data_elements.size(); j++)
     {
+        auto ptr = M_external_data_elements[j];
+        auto name = names[j];
+
         std::vector<double> values;
-        auto names = M_external_data_elements_names;
+        for(int i = 0; i < M_num_elements; i++) values.push_back(ptr->get(i));
 
-        // common sense maxima (not absolute maxima)
-        boost::unordered_map<std::string, double>
-            too_high_values = boost::assign::map_list_of
-                ("M_thick", 35.)
-                ;
-
-        // check the forcings 1st
-        for (int j=0; j<M_external_data_elements.size(); j++)
+        if (std::any_of(values.begin(), values.end(), [](double x) { return std::isnan(x); }))
         {
-            auto ptr = M_external_data_elements[j];
-            auto name = names[j];
-            double val = ptr->get(i);
-            values.push_back(val);
-            if(std::isnan(val))
+            crash_els = true;
+            crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+            for (int i = 0; i < M_num_elements; i++)
             {
-                crash_els = true;
-                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+                if (std::isnan(values[i])) indices.push_back(i);
+            }
+        }
+    }
+
+    // check the variables 2nd
+    for (auto ptr: M_variables_elt)
+    {
+        std::string name = ptr->name();
+        names.push_back(name);
+
+        // is it nan?
+        if (std::any_of(ptr->begin(), ptr->end(), [](double x) { return std::isnan(x); }))
+        {
+            crash_els = true;
+            crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
+            for (int i = 0; i < M_num_elements; i++)
+            {
+                if (std::isnan((*ptr)[i])) indices.push_back(i);
             }
         }
 
-        // check the variables 2nd
-        for (auto ptr: M_variables_elt)
+        // is it < min allowed value?
+        double val = *std::min_element(ptr->begin(), ptr->end());
+        if(ptr->hasMinVal())
         {
-            double val = (*ptr)[i];//vecs_to_check[j] is a pointer, so dereference
-            std::string name = ptr->name();
-            values.push_back(val);
-            names.push_back(name);
-
-            // is it nan?
-            if(std::isnan(val))
+            double thresh = ptr->minVal() - 1.e-8;
+            if(val < thresh)
             {
                 crash_els = true;
-                crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
-            }
-
-            // is it < min allowed value?
-            if(ptr->hasMinVal())
-            {
-                double thresh = ptr->minVal() - 1.e-8;
-                if(val<thresh)
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
+                    << val << " < " << thresh
+                    << ", |diff|=" << thresh - val << "\n";
+                for (int i = 0; i < M_num_elements; i++)
                 {
-                    crash_els = true;
-                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
-                        << val << " < " << thresh
-                        << ", |diff|=" << thresh - val << "\n";
-                }
-            }
-
-            // is it > max allowed value?
-            if(ptr->hasMaxVal())
-            {
-                double thresh = ptr->maxVal() + 1.e-8;
-                if(val>thresh)
-                {
-                    crash_els = true;
-                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
-                        << val << " > " << thresh
-                        << ", |diff|=" << val-thresh << "\n";
-                }
-            }
-
-            // check if it is too high for common sense
-            if(too_high_values.count(name)>0)
-            {
-                double thresh = too_high_values[name];
-                if(val > thresh)
-                {
-                    crash_els = true;
-                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
-                        << val << " > " << thresh << "\n";
+                    if ((*ptr)[i] < thresh) indices.push_back(i);
                 }
             }
         }
+
+        // is it > max allowed value?
+        val = *std::max_element(ptr->begin(), ptr->end());
+        if(ptr->hasMaxVal())
+        {
+            double thresh = ptr->maxVal() + 1.e-8;
+            if(val > thresh)
+            {
+                crash_els = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
+                    << val << " > " << thresh
+                    << ", |diff|=" << val-thresh << "\n";
+                for (int i = 0; i < M_num_elements; i++)
+                {
+                    if ((*ptr)[i] > thresh) indices.push_back(i);
+                }
+            }
+        }
+
+        // check if it is too high for common sense
+        if(too_high_values.count(name) > 0)
+        {
+            double thresh = too_high_values[name];
+            val = *std::max_element(ptr->begin(), ptr->end());
+            if(val > thresh)
+            {
+                crash_els = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
+                    << val << " > " << thresh << "\n";
+                for (int i = 0; i < M_num_elements; i++)
+                {
+                    if ((*ptr)[i] > thresh) indices.push_back(i);
+                }
+            }
+        }
+    }
 
 #ifdef OASIS
+    for (int i = 0; i < M_num_elements; i++)
+    {
         if(M_num_fsd_bins>0)
         {
             double ctot = M_conc[i];
@@ -14865,73 +14888,67 @@ FiniteElement::checkFields()
                     crash_msg << " M_conc_young ="<< M_conc_young[i]<< " \n";
             }
         }
+    }
 #endif
 
-        if((printout && i==itest) || crash_els)
-        {
-            // printout all the variables' values
+    if((printout && std::find(indices.begin(), indices.end(), itest) != indices.end()) || crash_els)
+    {
+        // printout all the variables' values
+        int i = indices[0];
+        if (std::find(indices.begin(), indices.end(), itest) != indices.end()) i = itest;
 
-            // get x,y and lon, lat at current position
-            double xtest = 0.;
-            double ytest = 0.;
-            double lat_test = 0.;
-            double lon_test = 0.;
+        // get x,y and lon, lat at current position
+        double xtest = 0.;
+        double ytest = 0.;
+        double lat_test = 0.;
+        double lon_test = 0.;
 
-            auto movedmesh = M_mesh;
-            movedmesh.move(M_UM, 1.);
-            xtest = movedmesh.bCoordX()[i];
-            ytest = movedmesh.bCoordY()[i];
+        auto movedmesh = M_mesh;
+        movedmesh.move(M_UM, 1.);
+        xtest = movedmesh.bCoordX()[i];
+        ytest = movedmesh.bCoordY()[i];
 
-            // get lon, lat at test position
-            mapx_class *map;
-            std::string mppfile = Environment::nextsimMppfile();
-            std::vector<char> str(mppfile.begin(), mppfile.end());
-            str.push_back('\0');
-            map = init_mapx(&str[0]);
-            inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
-            close_mapx(map);
+        // get lon, lat at test position
+        mapx_class *map;
+        std::string mppfile = Environment::nextsimMppfile();
+        std::vector<char> str(mppfile.begin(), mppfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
+        inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
+        close_mapx(map);
 
-            LOG(INFO)<<pcpt<<"\n";
-            LOG(INFO)<<datenumToString(M_current_time)<<"\n";
-            LOG(INFO)<<M_nb_regrid<<"\n";
-            LOG(INFO)<<i<<"\n";
-            LOG(INFO)<<xtest <<"," <<ytest <<"\n";
-            LOG(INFO)<<lon_test <<"," <<lat_test <<"\n";
+        LOG(INFO)<<pcpt<<"\n";
+        LOG(INFO)<<datenumToString(M_current_time)<<"\n";
+        LOG(INFO)<<M_nb_regrid<<"\n";
+        LOG(INFO)<<i<<"\n";
+        LOG(INFO)<<xtest <<"," <<ytest <<"\n";
+        LOG(INFO)<<lon_test <<"," <<lat_test <<"\n";
 
-            for(int j=0; j<names.size(); j++)
-            {
-                if(j<M_external_data_elements_names.size())
-                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
-                else
-                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
-            }
-            std::cout<<"\n";
-        }
-        if(crash_els) break;
-    }// loop over elements
+        std::cout<<"\n";
+    }
 
     bool crash_nd = false;
-    for (int i=0; i<M_num_nodes; i++)
-    {
-        std::vector<double> values;
-        auto names = M_external_data_nodes_names;
+    names = M_external_data_nodes_names;
 
-        for (int j=0; j<M_external_data_nodes.size(); j++)
+    for (int j = 0; j < M_external_data_nodes.size(); j++)
+    {
+        auto ptr = M_external_data_nodes[j];
+        auto name = names[j];
+
+        std::vector<double> values;
+        for(int i = 0; i < M_num_nodes; i++) values.push_back(ptr->get(i));
+
+        if (ptr->isVector())
         {
-            auto ptr = M_external_data_nodes[j];
-            auto name = names[j];
-            double val = ptr->get(i);
-            if (ptr->isVector())
-                val = std::hypot(val, ptr->get(i + M_num_nodes));
-            values.push_back(val);
-            if(std::isnan(val))
-            {
-                crash_nd = true;
-                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
-            }
+            for(int i = 0; i < M_num_nodes; i++) values.push_back(ptr->get(i + M_num_nodes));
         }
-        if(crash_nd) break;
-    }//loop over nodes
+
+        if (std::any_of(values.begin(), values.end(), [](double x) { return std::isnan(x); }))
+        {
+            crash_nd = true;
+            crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+        }
+    }
 
     bool const crash = (crash_els || crash_nd);
     // Export everything and crash
