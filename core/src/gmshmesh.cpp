@@ -1582,8 +1582,16 @@ GmshMesh::coordY(double const& rotangle) const
 std::vector<double>
 GmshMesh::bCoordX() const
 {
-    std::vector<double> bcoord_x(M_num_triangles);
+    std::vector<double> node(M_num_nodes);
     int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        node[cpt] = it->second.coords[0];
+        ++cpt;
+    }
+
+    std::vector<double> bcoord_x(M_num_triangles);
+    cpt = 0;
     double x = 0.;
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
@@ -1591,7 +1599,7 @@ GmshMesh::bCoordX() const
 
         for (int i=0; i<3; ++i)
         {
-            x += M_nodes.find(it->indices[i])->second.coords[0];
+            x += node[it->indices[i]-1];
         }
 
         bcoord_x[cpt] = x/3.;
@@ -1605,8 +1613,16 @@ GmshMesh::bCoordX() const
 std::vector<double>
 GmshMesh::bCoordY() const
 {
-    std::vector<double> bcoord_y(M_num_triangles);
+    std::vector<double> node(M_num_nodes);
     int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        node[cpt] = it->second.coords[1];
+        ++cpt;
+    }
+
+    std::vector<double> bcoord_y(M_num_triangles);
+    cpt = 0;
     double y = 0.;
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
@@ -1614,7 +1630,7 @@ GmshMesh::bCoordY() const
 
         for (int i=0; i<3; ++i)
         {
-            y += M_nodes.find(it->indices[i])->second.coords[1];
+            y += node[it->indices[i]-1];
         }
 
         bcoord_y[cpt] = y/3.;
