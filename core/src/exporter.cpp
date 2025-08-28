@@ -59,9 +59,113 @@ Exporter::writeContainer(std::fstream& out, std::vector<Type> const& container, 
 	}
 }
 
-template<typename FEMeshType>
 void
-Exporter::writeMesh(std::fstream& out, FEMeshType const& Mesh)
+Exporter::writeMesh(std::fstream& out, GmshMesh const& Mesh)
+{
+    Communicator M_comm = Mesh.comm();
+
+    std::vector<double> coordX = Mesh.coordXPartition();
+    std::vector<double> coordY = Mesh.coordYPartition();
+    std::vector<int> indexTr = Mesh.indexTrPartition();
+    std::vector<int> id = Mesh.id();
+
+    std::vector<double> coordX_root, coordY_root;
+    std::vector<int> indexTr_root, id_root;
+    std::vector<int> id_ghost(Mesh.numGlobalNodes()+1);
+
+    std::vector<int> size_elements;
+    boost::mpi::all_gather(M_comm, 3*Mesh.numTrianglesWithoutGhost(), size_elements);
+
+    std::vector<int> size_nodes;
+    boost::mpi::all_gather(M_comm, Mesh.numLocalNodesWithoutGhost(), size_nodes);
+
+    std::vector<int> displs(M_comm.size());
+    displs[0] = 0;
+    for ( int k = 1; k < M_comm.size(); k++ ) {
+        displs[k] = displs[k-1] + size_nodes[k-1];
+    }
+
+    if (M_comm.rank() == 0)
+    {
+        coordX_root.resize(Mesh.numGlobalNodes());
+        coordY_root.resize(Mesh.numGlobalNodes());
+        indexTr_root.resize(3*Mesh.numGlobalElements());
+        id_root.resize(Mesh.numGlobalNodes());
+    }
+
+    // Gather coordinates and id
+    int ier = MPI_Gatherv(&coordX[0], Mesh.numLocalNodesWithoutGhost(), MPI_DOUBLE, &coordX_root[0], &size_nodes[0], &displs[0], MPI_DOUBLE, 0, MPI_Comm(M_comm));
+    ier = MPI_Gatherv(&coordY[0], Mesh.numLocalNodesWithoutGhost(), MPI_DOUBLE, &coordY_root[0], &size_nodes[0], &displs[0], MPI_DOUBLE, 0, MPI_Comm(M_comm));
+    ier = MPI_Gatherv(&id[0], Mesh.numLocalNodesWithoutGhost(), MPI_INT, &id_root[0], &size_nodes[0], &displs[0], MPI_INT, 0, MPI_Comm(M_comm));
+
+    if (M_comm.rank() == 0)
+    {
+        for (int k = 0; k < Mesh.numGlobalNodes(); k++) id_ghost[id_root[k]] = k;
+    }
+
+    boost::mpi::broadcast(M_comm, &id_ghost[0], Mesh.numGlobalNodes()+1, 0);
+
+    // Correct the indices in the triangles
+    std::map<int, Nextsim::entities::GMSHPoint > nodes = Mesh.nodes();
+    for (int k = 0; k < 3*Mesh.numTrianglesWithoutGhost(); k++)
+    {
+        if (indexTr[k] <= Mesh.numLocalNodesWithoutGhost())
+        {
+            indexTr[k] += displs[M_comm.rank()];
+        }
+        else // it is a ghost that belongs to another partition
+        {
+            indexTr[k] = id_ghost[nodes.find(indexTr[k])->second.id]+1;
+        }
+    }
+
+    // Gather triangle indices
+    displs[0] = 0;
+    for (int k = 1; k < M_comm.size(); k++) displs[k] = displs[k-1] + size_elements[k-1];
+
+    ier = MPI_Gatherv(&indexTr[0], 3*Mesh.numTrianglesWithoutGhost(), MPI_INT, &indexTr_root[0], &size_elements[0], &displs[0], MPI_INT, 0, MPI_Comm(M_comm));
+
+    if (M_comm.rank() == 0)
+    {
+        std::vector<double> coordX_out(Mesh.numGlobalNodes());
+        std::vector<double> coordY_out(Mesh.numGlobalNodes());
+        std::vector<int> indexTr_out(indexTr_root.size());
+        std::vector<int> id_out(Mesh.numGlobalNodes());
+        std::vector<int> node_correspondence(Mesh.numGlobalNodes());
+
+        std::vector<int> M_rmap_nodes = Mesh.mapNodes();
+        std::vector<int> M_rmap_elements = Mesh.mapElements();
+
+        // Reorder nodes to correspond to the node fields
+        for (int i = 0; i < Mesh.numGlobalNodes(); ++i)
+        {
+            int ri =  M_rmap_nodes[i];
+            node_correspondence[ri] = i;
+
+            coordX_out[i] = coordX_root[ri];
+            coordY_out[i] = coordY_root[ri];
+            id_out[i] = id_root[ri];
+        }
+
+        for (int i = 0; i < indexTr_root.size(); i++) indexTr_out[i] = node_correspondence[indexTr_root[i]-1]+1;
+
+        // Reorder the elements to correspond to the element fields
+        auto indexTr_out_cpy = indexTr_out;
+
+        for (int i = 0; i < indexTr_root.size(); i++)
+        {
+            int ri = M_rmap_elements[i/3];
+            indexTr_out[i] = indexTr_out_cpy[3*ri+i%3];
+        }
+
+        // Write the mesh
+        this->writeMesh(out, coordX_out, coordY_out, id_out, indexTr_out);
+    }
+
+}
+
+void
+Exporter::writeMesh(std::fstream& out, GmshMeshSeq const& Mesh)
 {
     auto xnod = Mesh.coordX();
     auto ynod = Mesh.coordY();
@@ -221,9 +325,6 @@ Exporter::loadFile(std::fstream &in, boost::unordered_map<std::string, std::vect
 
 template void Exporter::writeField<double>(std::fstream&, std::vector<double> const&, std::string const&);
 template void Exporter::writeField<int>(std::fstream&, std::vector<int> const&, std::string const&);
-
-template void Exporter::writeMesh(std::fstream&, GmshMesh const& Mesh);
-template void Exporter::writeMesh(std::fstream&, GmshMeshSeq const& Mesh);
 
 template void Exporter::writeMesh<double>(std::fstream&, std::vector<double> const&, std::vector<double> const&,
         std::vector<int> const&,std::vector<int> const&);

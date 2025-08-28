@@ -9632,31 +9632,31 @@ FiniteElement::writeRestart(std::string const& name_str)
 
     M_comm.barrier();
 
-    if (M_rank == 0)
+    Exporter exporter("double");
+    std::string filename;
+
+    // === Start with the mesh ===
+    // First the data
+    // NB directory is never empty, due to the default of output.exporter_path
+    std::string directory = vm["output.exporter_path"].as<std::string>() + "/restart";
+
+    // create the output directory if it does not exist
+    fs::path output_path(directory);
+    if ( !fs::exists(output_path) )
+        fs::create_directories(output_path);
+
+    filename = (boost::format( "%1%/mesh_%2%.bin" )
+                % directory
+                % name_str ).str();
+
+    std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
+    if ( ! meshbin.good() )
+        throw std::runtime_error("Cannot write to file: " + filename);
+    exporter.writeMesh(meshbin, M_mesh);
+    meshbin.close();
+
+    if (M_rank == 0) 
     {
-        Exporter exporter("double");
-        std::string filename;
-
-        // === Start with the mesh ===
-        // First the data
-        // NB directory is never empty, due to the default of output.exporter_path
-        std::string directory = vm["output.exporter_path"].as<std::string>() + "/restart";
-
-        // create the output directory if it does not exist
-        fs::path output_path(directory);
-        if ( !fs::exists(output_path) )
-            fs::create_directories(output_path);
-
-        filename = (boost::format( "%1%/mesh_%2%.bin" )
-                    % directory
-                    % name_str ).str();
-
-        std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
-        if ( ! meshbin.good() )
-            throw std::runtime_error("Cannot write to file: " + filename);
-        exporter.writeMesh(meshbin, M_mesh_root);
-        meshbin.close();
-
         // Then the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % directory
@@ -14259,9 +14259,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         bool const& export_fields, bool const& apply_displacement)
 {
 
-    std::vector<double> M_UM_root;
-    this->gatherNodalField(M_UM, M_UM_root);
-
     // fields defined on mesh elements
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
@@ -14272,7 +14269,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     // get names of the variables in the output file,
     // and set pointers to the data (pointers to the corresponding vectors)
     // NB needs to be done on all processors
-    std::vector<double> M_surface_root;
     auto names_elements = M_export_names_elt;
     std::vector<ExternalData*> ext_data_elements;
     std::vector<double> elt_values_root;
@@ -14285,8 +14281,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     std::vector<double> M_ssh_root;
     if(export_fields)
     {
-        M_surface_root = this->surface(M_mesh_root, M_UM_root);
-
         if(vm["output.save_forcing_fields"].as<bool>())
         {
             ext_data_elements = M_external_data_elements;
@@ -14310,36 +14304,32 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         this->gatherNodalField(M_wind.getVector(),M_wind_root);
     }
     M_comm.barrier();
-    if (M_rank == 0)
+
+    Exporter exporter(vm["output.exporter_precision"].as<std::string>());
+    std::string fileout;
+
+    if (export_mesh)
     {
+        fileout = filenames[0]+".bin";
+        LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
-        Exporter exporter(vm["output.exporter_precision"].as<std::string>());
-        std::string fileout;
+        // Make a copy of the mesh to avoid introduction of random modifications
+        // in the next timesteps introduced by two mesh moves (1 and -1) on M_mesh
+        mesh_type M_mesh_cpy = mesh_type();
+        M_mesh_cpy = M_mesh;
 
-        if (export_mesh)
+        // move the mesh for the export
+        if(apply_displacement) M_mesh_cpy.move(M_UM,1.);
+
+        std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+        if ( !meshbin.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
+
+        exporter.writeMesh(meshbin, M_mesh_cpy);
+        meshbin.close();
+
+        if (M_rank == 0)
         {
-            fileout = filenames[0]+".bin";
-            LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
-
-            if(apply_displacement)
-            {
-                // move the mesh for the export
-                M_mesh_root.move(M_UM_root,1.);
-            }
-
-            std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-            if ( !meshbin.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
-
-            exporter.writeMesh(meshbin, M_mesh_root);
-            meshbin.close();
-
-            if(apply_displacement)
-            {
-                // move it back after the export
-                M_mesh_root.move(M_UM_root,-1.);
-            }
-
             fileout = filenames[0]+".dat";
 
             LOG(VERBOSE) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
@@ -14351,67 +14341,67 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeRecord(outrecord,"mesh");
             outrecord.close();
         }
+    }
 
-        if (export_fields)
-        {
-            fileout = filenames[1]+".bin";
-            LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
+    if (export_fields && M_rank == 0)
+    {
+        fileout = filenames[1]+".bin";
+        LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
-            std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-            if ( !outbin.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
+        std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+        if ( !outbin.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
 
-            std::vector<double> timevec = {M_current_time};
-            std::vector<int> regridvec = {M_nb_regrid};
+        std::vector<double> timevec = {M_current_time};
+        std::vector<int> regridvec = {M_nb_regrid};
 
-            exporter.writeField(outbin, timevec, "Time");
-            // exporter.writeField(outbin, regridvec, "M_nb_regrid");
-            // exporter.writeField(outbin, M_surface_root, "Element_area");
-            // exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+        exporter.writeField(outbin, timevec, "Time");
+        // exporter.writeField(outbin, regridvec, "M_nb_regrid");
+        // exporter.writeField(outbin, M_surface_root, "Element_area");
+        // exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
-            //manually export some vectors defined on the nodes
-            std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
-            if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
-                exporter.writeField(outbin, M_VT_root, "M_VT");
+        //manually export some vectors defined on the nodes
+        std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
+        if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
+            exporter.writeField(outbin, M_VT_root, "M_VT");
 #if defined (OASIS)
-            if (M_couple_waves && M_recv_wave_stress)
-                exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
+        if (M_couple_waves && M_recv_wave_stress)
+            exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
 #endif
-            if (vm["output.save_forcing_fields"].as<bool>())
-            {
-                exporter.writeField(outbin, M_wind_root, "M_wind");
-                exporter.writeField(outbin, M_ocean_root, "M_ocean");
-                exporter.writeField(outbin, M_ssh_root, "M_ssh");
-            }
-
-
-            // loop over the elemental variables that have been
-            // gathered to elt_values_root
-            int const nb_var_element = names_elements.size();
-            for(int j=0; j<nb_var_element; j++)
-            {
-                std::vector<double> tmp(M_mesh_root.numTriangles());
-                for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-                {
-                    int ri = M_rmap_elements[i];
-                    tmp[i] = elt_values_root[nb_var_element*ri+j];
-                }
-                exporter.writeField(outbin, tmp, names_elements[j]);
-
-            }
-
-            outbin.close();
-
-            fileout = filenames[1]+".dat";
-            LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-
-            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-            if ( !outrecord.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
-
-            exporter.writeRecord(outrecord);
-            outrecord.close();
+        if (vm["output.save_forcing_fields"].as<bool>())
+        {
+            exporter.writeField(outbin, M_wind_root, "M_wind");
+            exporter.writeField(outbin, M_ocean_root, "M_ocean");
+            exporter.writeField(outbin, M_ssh_root, "M_ssh");
         }
+
+
+        // loop over the elemental variables that have been
+        // gathered to elt_values_root
+        int const nb_var_element = names_elements.size();
+        for(int j=0; j<nb_var_element; j++)
+        {
+            std::vector<double> tmp(M_mesh_root.numTriangles());
+            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+            {
+                int ri = M_rmap_elements[i];
+                tmp[i] = elt_values_root[nb_var_element*ri+j];
+            }
+            exporter.writeField(outbin, tmp, names_elements[j]);
+
+        }
+
+        outbin.close();
+
+        fileout = filenames[1]+".dat";
+        LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+
+        std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+        if ( !outrecord.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
+
+        exporter.writeRecord(outrecord);
+        outrecord.close();
     }
 
 }// exportResults()
