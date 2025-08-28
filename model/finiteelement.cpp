@@ -6169,12 +6169,13 @@ FiniteElement::IABulkFluxes(
     double const alb_sn   = vm["thermo.alb_sn"].as<double>();
     double const alb_pnd  = vm["thermo.alb_ponds"].as<double>();
 
+    double const ridge_drag_factor = vm ["dynamics.ridge_drag_factor"].as<double>();
+
     // Stability calculations
     const bool fix_drag = vm["thermo.force_neutral_atmosphere"].as<bool>();
 
     const double zref_wind = vm["thermo.zref_wind"].as<double>();
     const double zref_temp = vm["thermo.zref_temp"].as<double>();
-    const double z0 = zref_wind*std::exp(-physical::vonKarman/std::sqrt(quad_drag_coef_air));
 
     const double Linvrange = 1./vm["thermo.limiting_lengthscale"].as<double>();
     const double retv = 0.6078;
@@ -6204,9 +6205,6 @@ FiniteElement::IABulkFluxes(
     const double D3 = ch-Bh;
     const double D4 = ch+Bh;
     const double D5 = std::log(D3/D4);
-
-    const double lambda_u = std::log(zref_wind/z0);
-    const double lambda_h = std::log(zref_wind/z0);
 
     for ( int i=0; i<M_num_elements; ++i )
     {
@@ -6242,6 +6240,8 @@ FiniteElement::IABulkFluxes(
         // -------------------------------------------------
         // Drag coefficients
 
+        // Ridge-ratio dependent drag. Turn it off by setting ridge_drag_factor = 0!
+        const double neutral_drag = quad_drag_coef_air + M_thick[i]*M_ridge_ratio[i]*ridge_drag_factor;
         if ( ! fix_drag )
         {
 
@@ -6301,12 +6301,19 @@ FiniteElement::IABulkFluxes(
             }
 
             // 4. The drag coefficients: ( \frac{k}{\ln{z/z_0} - \Psi} )^2
+            const double z0 = zref_wind*std::exp(-physical::vonKarman/std::sqrt(neutral_drag));
+            const double lambda_u = std::log(zref_wind/z0);
+            const double lambda_h = lambda_u;
+
             drag_ui[i] = physical::vonKarman/(lambda_u - psim);
             drag_ui[i] *= drag_ui[i];
             drag_ti[i] = physical::vonKarman/(lambda_h - psih);
             drag_ti[i] *= drag_ti[i];
 
+        } else {
+            drag_ui[i] = neutral_drag;
         }
+
 
         // -------------------------------------------------
         // Heat fluxes

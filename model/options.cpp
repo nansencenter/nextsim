@@ -375,6 +375,10 @@ namespace Nextsim
             ("dynamics.mevp.alpha", po::value<double>()->default_value( 500 ), "Alpha of the mEVP method (default 500)")
             ("dynamics.mevp.beta",  po::value<double>()->default_value( 500 ), "Beta of the mEVP method (default 500)")
 
+            // - Ridge ratio dependent drag
+            ("dynamics.ridge_drag_factor",  po::value<double>()->default_value( 5.5e-4 ), "Multiplication factor for total ridge volume contribution to atmospheric drag.")
+
+
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics
              //-----------------------------------------------------------------------------------
