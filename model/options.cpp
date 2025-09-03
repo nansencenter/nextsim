@@ -377,6 +377,7 @@ namespace Nextsim
 
             // - Ridge ratio dependent drag
             ("dynamics.ridge_drag_factor",  po::value<double>()->default_value( 5.5e-4 ), "Multiplication factor for total ridge volume contribution to atmospheric drag.")
+            ("dynamics.scale_ocean_drag",  po::value<bool>()->default_value( true ), "Scale ocean drag so that ridged ice has same Nansen number as flat ice.")
 
 
              //-----------------------------------------------------------------------------------

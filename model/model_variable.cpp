@@ -706,6 +706,28 @@ ModelVariable::initElemental()
             M_has_min = false;
             M_has_max = false;
 
+        case (variableID::M_drag_uiw):
+            // mean floe diameter
+            M_name = "M_drag_uiw";
+            M_export_name = "ice-ocean_drag";
+            M_prognostic = true;
+            M_exporting = false;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = false;
+            M_has_max = false;
+
+        case (variableID::M_drag_uiw_young):
+            // mean floe diameter
+            M_name = "M_drag_uiw_young";
+            M_export_name = "ice-ocean_drag_young";
+            M_prognostic = true;
+            M_exporting = false;
+            M_interp_transformation = interpTransformation::none;
+            M_diffusivity = 0.;
+            M_has_min = false;
+            M_has_max = false;
+
         case (variableID::D_tau_ow):
             // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m]
             M_name = "D_tau_ow";

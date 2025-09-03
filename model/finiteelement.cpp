@@ -563,6 +563,7 @@ FiniteElement::assignVariables()
     M_fcor.assign(M_num_elements, 0.);
 
     M_drag_ui.assign(M_num_elements, quad_drag_coef_air);
+    M_drag_uiw.assign(M_num_elements, quad_drag_coef_water);
     const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
     M_drag_ti.assign(M_num_elements, drag_ice_t);
     if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
@@ -5250,7 +5251,7 @@ FiniteElement::thermo(int dt)
     std::vector<double> albedo(M_num_elements);
     std::vector<double> I(M_num_elements);
     this->IABulkFluxes(M_tice[0], M_snow_thick, M_conc, Qia, Qlwi,
-            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo, M_drag_ui, M_drag_ti, bulk_for_young);
+            Qswi, Qlhi, Qshi, I, subl, dQiadT, albedo, M_drag_ui, M_drag_ti, M_drag_uiw, bulk_for_young);
 
     //! Calculate the ice-atmosphere fluxes over young ice
     std::vector<double> Qia_young(M_num_elements);
@@ -5268,7 +5269,7 @@ FiniteElement::thermo(int dt)
         this->IABulkFluxes(M_tsurf_young, M_hs_young, M_conc_young,
                 Qia_young, Qlw_young, Qsw_young, Qlh_young, Qsh_young,
                 I_young, subl_young, dQiadT_young, albedo_young,
-                M_drag_ui_young, M_drag_ti_young, bulk_for_young);
+                M_drag_ui_young, M_drag_ti_young, M_drag_uiw_young, bulk_for_young);
     } else {
         Qia_young.assign(M_num_elements, 0.);
         Qlw_young.assign(M_num_elements, 0.);
@@ -6159,7 +6160,7 @@ FiniteElement::IABulkFluxes(
         std::vector<double>& Qlh, std::vector<double>& Qsh,
         std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
         std::vector<double>& alb_tot,
-        ModelVariable& drag_ui, ModelVariable& drag_ti, bool bulk_for_young)
+        ModelVariable& drag_ui, ModelVariable& drag_ti, ModelVariable& drag_uiw, bool bulk_for_young)
 {
     // Constants
     double const I_0        = vm["thermo.I_0"].as<double>();
@@ -6170,6 +6171,7 @@ FiniteElement::IABulkFluxes(
     double const alb_pnd  = vm["thermo.alb_ponds"].as<double>();
 
     double const ridge_drag_factor = vm ["dynamics.ridge_drag_factor"].as<double>();
+    const bool scale_ocean_drag = vm["dynamics.scale_ocean_drag"].as<bool>();
 
     // Stability calculations
     const bool fix_drag = vm["thermo.force_neutral_atmosphere"].as<bool>();
@@ -6242,6 +6244,14 @@ FiniteElement::IABulkFluxes(
 
         // Ridge-ratio dependent drag. Turn it off by setting ridge_drag_factor = 0!
         const double neutral_drag = quad_drag_coef_air + M_thick[i]*M_ridge_ratio[i]*ridge_drag_factor;
+
+        // We may want to change the ocean drag to preserve the Nansen Number
+        // const double nansen2 = rhoair * quad_drag_coef_air / (physical::rhow * quad_drag_coef_water);
+        // drag_uiw[i] = rhoair * neutral_drag / (physical::rhow * nansen2);
+        if ( scale_ocean_drag )
+            drag_uiw[i] = neutral_drag/quad_drag_coef_air * quad_drag_coef_water;
+
+        // Stability dependent atmospheric drag
         if ( ! fix_drag )
         {
 
@@ -7184,6 +7194,8 @@ FiniteElement::initModelVariables()
     M_variables_elt.push_back(&M_drag_ui);
     M_drag_ti = ModelVariable(ModelVariable::variableID::M_drag_ti);
     M_variables_elt.push_back(&M_drag_ti);
+    M_drag_uiw = ModelVariable(ModelVariable::variableID::M_drag_uiw);
+    M_variables_elt.push_back(&M_drag_uiw);
 
     if(M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE)
     {
@@ -7199,6 +7211,8 @@ FiniteElement::initModelVariables()
         M_variables_elt.push_back(&M_drag_ui_young);
         M_drag_ti_young = ModelVariable(ModelVariable::variableID::M_drag_ti_young);
         M_variables_elt.push_back(&M_drag_ti_young);
+        M_drag_uiw_young = ModelVariable(ModelVariable::variableID::M_drag_uiw_young);
+        M_variables_elt.push_back(&M_drag_uiw_young);
     }
     M_random_number = ModelVariable(ModelVariable::variableID::M_random_number);//! \param M_random_number (double) Random component of cohesion
     M_variables_elt.push_back(&M_random_number);
@@ -8783,6 +8797,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                     it->data_mesh[i] += drag*time_factor;
                 }
                 break;
+            case (GridOutput::variableID::drag_uiw):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_drag_uiw[i]*time_factor;
+                break;
+
 
             case (GridOutput::variableID::meltpond_fraction):
                 for (int i=0; i<M_local_nelements; i++)
@@ -9096,6 +9115,7 @@ FiniteElement::initMoorings()
             ("divergence", GridOutput::variableID::divergence)
             ("drag_ui", GridOutput::variableID::drag_ui)
             ("drag_ti", GridOutput::variableID::drag_ti)
+            ("drag_uiw", GridOutput::variableID::drag_uiw)
             ("meltpond_volume", GridOutput::variableID::meltpond_volume)
             ("meltpond_lid_volume", GridOutput::variableID::meltpond_lid_volume)
             ("meltpond_fraction", GridOutput::variableID::meltpond_fraction)
@@ -10512,7 +10532,7 @@ FiniteElement::explicitSolve()
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
-            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+            double const c_prime = physical::rhow*M_drag_uiw[i]*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
@@ -10634,7 +10654,7 @@ FiniteElement::explicitSolve()
         // Save ice-ocean drag based on the mean ice speed
         double const uice = 0.5*(M_VT[u_indx] + VTM[u_indx]);
         double const vice = 0.5*(M_VT[v_indx] + VTM[v_indx]);
-        double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+        double const c_prime = physical::rhow*M_drag_uiw[i]*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
         D_tau_w[u_indx] = c_prime*( uice - M_ocean[u_indx] );
         D_tau_w[v_indx] = c_prime*( vice - M_ocean[v_indx] );
 

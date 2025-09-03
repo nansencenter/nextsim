@@ -192,7 +192,8 @@ public:
         sialb        = 127,
         drag_ui      = 128,
         drag_ti      = 129,
-        meltpond_fraction = 130,
+        drag_uiw     = 130,
+        meltpond_fraction = 131,
 
         // Forcing variables
         tair     = 200,
