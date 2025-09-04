@@ -569,6 +569,7 @@ FiniteElement::assignVariables()
     if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
     {
         M_drag_ui_young.assign(M_num_elements, quad_drag_coef_air);
+        M_drag_uiw_young.assign(M_num_elements, quad_drag_coef_water);
         M_drag_ti_young.assign(M_num_elements, drag_ice_t);
     }
 
