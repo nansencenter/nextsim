@@ -650,7 +650,7 @@ ModelVariable::initElemental()
         case (variableID::D_dmax):
             // mean floe diameter
             M_name = "D_dmax";
-            M_export_name = "Dmax";
+            M_export_name = "D_dmax";
             M_prognostic = false;
             M_exporting = false;
             break;
@@ -658,9 +658,34 @@ ModelVariable::initElemental()
         case (variableID::D_dmean):
             // mean floe diameter
             M_name = "D_dmean";
-            M_export_name = "Dmean";
+            M_export_name = "D_dmean";
             M_prognostic = false;
             M_exporting = false;
+            break;
+
+        case (variableID::D_dchar):
+            // char floe diameter
+            M_name = "D_dchar";
+            M_export_name = "D_dchar";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_dlength):
+            // length floe diameter
+            M_name = "D_dlength";
+            M_export_name = "D_dlength";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
+
+        case (variableID::D_dnum):
+            // num floe diameter
+            M_name = "D_dnum";
+            M_export_name = "D_dnum";
+            M_prognostic = false;
+            M_exporting = false;
+            break;
 
         case (variableID::M_drag_ui):
             // mean floe diameter
@@ -672,6 +697,7 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = false;
             M_has_max = false;
+            break;
 
         case (variableID::M_drag_ti):
             // mean floe diameter
@@ -683,6 +709,7 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = false;
             M_has_max = false;
+            break;
 
         case (variableID::M_drag_ui_young):
             // mean floe diameter
@@ -694,6 +721,7 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = false;
             M_has_max = false;
+            break;
 
         case (variableID::M_drag_ti_young):
             // mean floe diameter
@@ -705,6 +733,7 @@ ModelVariable::initElemental()
             M_diffusivity = 0.;
             M_has_min = false;
             M_has_max = false;
+            break;
 
         case (variableID::D_tau_ow):
             // Ocean atmosphere drag coefficient - still needs to be multiplied with the wind [Pa/s/m]
