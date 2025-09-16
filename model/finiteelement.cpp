@@ -254,8 +254,11 @@ FiniteElement::bcMarkedNodes()
     LOG(DEBUG) << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
     LOG(DEBUG) << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
 
+    M_dirichlet_flags.shrink_to_fit();
+    M_neumann_flags.shrink_to_fit();
 
     M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    M_dirichlet_nodes.shrink_to_fit();
     for (int i=0; i<M_dirichlet_flags.size(); ++i)
     {
         M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
@@ -263,6 +266,7 @@ FiniteElement::bcMarkedNodes()
     }
 
     M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    M_neumann_nodes.shrink_to_fit();
     for (int i=0; i<M_neumann_flags.size(); ++i)
     {
         M_neumann_nodes[2*i] = M_neumann_flags[i];
@@ -2959,12 +2963,17 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
 
     if (M_rank == 0)
     {
-        elt_values_root.resize(nb_var_element*M_mesh_root.numTriangles());
-        boost::mpi::gatherv(M_comm, elt_values_local, &elt_values_root[0], sizes_elements, 0);
+        std::copy(elt_values_local.begin(), elt_values_local.end(), std::back_inserter(elt_values_root));
+        for (int i = 1; i < M_comm.size(); i++)
+        {
+            std::vector<double> copy(sizes_elements[i]);
+            M_comm.recv(i, i, copy);
+            std::copy(copy.begin(), copy.end(), std::back_inserter(elt_values_root));
+        }
     }
     else
     {
-        boost::mpi::gatherv(M_comm, elt_values_local, 0);
+        M_comm.send(0, M_rank, elt_values_local);
     }
 
     LOG(DEBUG) <<"----------IO: GATHER ELEMENT done in "<< chrono.elapsed() <<"s\n";
@@ -3166,7 +3175,12 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
     LOG(DEBUG) <<"----------GATHER NODE starts\n";
 
     M_nb_var_node = 6;
-    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
+    std::vector<double> interp_node_in_local_VT(2*M_prv_local_ndof,0.);
+    std::vector<double> interp_node_in_local_UM(2*M_prv_local_ndof,0.);
+    std::vector<double> interp_node_in_local_UT(2*M_prv_local_ndof,0.);
+    std::vector<double> interp_in_nodes_VT;
+    std::vector<double> interp_in_nodes_UM;
+    std::vector<double> interp_in_nodes_UT;
 
     chrono.restart();
     //std::cout<<"Nodal Interp starts\n";
@@ -3174,54 +3188,52 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     for (int i=0; i<M_prv_local_ndof; ++i)
     {
-        int tmp_nb_var = 0;
-
         // VT
-        interp_node_in_local[M_nb_var_node*i] = M_VT[i];
-        tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i+M_prv_num_nodes];
-        tmp_nb_var++;
+        interp_node_in_local_VT[2*i] = M_VT[i];
+        interp_node_in_local_VT[2*i+1] = M_VT[i+M_prv_num_nodes];
 
         // UM
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
-        tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i+M_prv_num_nodes];
-        tmp_nb_var++;
+        interp_node_in_local_UM[2*i] = M_UM[i];
+        interp_node_in_local_UM[2*i+1] = M_UM[i+M_prv_num_nodes];
 
         // UT
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
-        tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i+M_prv_num_nodes];
-        tmp_nb_var++;
-
-        if ( tmp_nb_var != M_nb_var_node )
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
+        interp_node_in_local_UT[2*i] = M_UT[i];
+        interp_node_in_local_UT[2*i+1] = M_UT[i+M_prv_num_nodes];
     }
 
-    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+
+    if (M_rank == 0)
+    {
+        interp_in_nodes_VT.resize(2*M_prv_global_num_nodes);
+        interp_in_nodes_UM.resize(2*M_prv_global_num_nodes);
+        interp_in_nodes_UT.resize(2*M_prv_global_num_nodes);
+
+        boost::mpi::gatherv(M_comm, interp_node_in_local_VT, &interp_in_nodes_VT[0], sizes_nodes, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UM, &interp_in_nodes_UM[0], sizes_nodes, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UT, &interp_in_nodes_UT[0], sizes_nodes, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, interp_node_in_local_VT, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UM, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UT, 0);
+    }
 
     if (M_rank == 0)
     {
         interp_in_nodes.resize(M_nb_var_node*M_prv_global_num_nodes);
-        boost::mpi::gatherv(M_comm, interp_node_in_local, &interp_in_nodes[0], sizes_nodes, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, interp_node_in_local, 0);
-    }
-
-    if (M_rank == 0)
-    {
-        auto interp_in_nodes_nrd = interp_in_nodes;
 
         for (int i=0; i<M_prv_global_num_nodes; ++i)
         {
             int ri =  rmap_nodes[i];
 
-            for (int j=0; j<M_nb_var_node; ++j)
-            {
-                interp_in_nodes[M_nb_var_node*i+j] = interp_in_nodes_nrd[M_nb_var_node*ri+j];
-            }
+            interp_in_nodes[M_nb_var_node*i] = interp_in_nodes_VT[2*ri];
+            interp_in_nodes[M_nb_var_node*i+1] = interp_in_nodes_VT[2*ri+1];
+            interp_in_nodes[M_nb_var_node*i+2] = interp_in_nodes_UM[2*ri];
+            interp_in_nodes[M_nb_var_node*i+3] = interp_in_nodes_UM[2*ri+1];
+            interp_in_nodes[M_nb_var_node*i+4] = interp_in_nodes_UT[2*ri];
+            interp_in_nodes[M_nb_var_node*i+5] = interp_in_nodes_UT[2*ri+1];
         }
     }
 
@@ -3239,58 +3251,74 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
     LOG(DEBUG) <<"----------SCATTER NODE starts\n";
 
-    std::vector<double> in_nd_values;
+    std::vector<double> in_nd_values_VT;
+    std::vector<double> in_nd_values_UM;
+    std::vector<double> in_nd_values_UT;
 
     if (M_rank == 0)
     {
-        in_nd_values.resize(M_nb_var_node*M_id_nodes.size());
+        in_nd_values_VT.resize(2*M_id_nodes.size());
+        in_nd_values_UM.resize(2*M_id_nodes.size());
+        in_nd_values_UT.resize(2*M_id_nodes.size());
 
         for (int i=0; i<M_id_nodes.size(); ++i)
         {
             //int ri = rmap_nodes.right.find(id_nodes[i])->second-1;
             int ri = M_id_nodes[i]-1;
 
-            for (int j=0; j<M_nb_var_node; ++j)
-            {
-                in_nd_values[M_nb_var_node*i+j] = interp_nd_out[M_nb_var_node*ri+j];
-            }
+            in_nd_values_VT[2*i] = interp_nd_out[M_nb_var_node*ri];
+            in_nd_values_VT[2*i+1] = interp_nd_out[M_nb_var_node*ri+1];
+            in_nd_values_UM[2*i] = interp_nd_out[M_nb_var_node*ri+2];
+            in_nd_values_UM[2*i+1] = interp_nd_out[M_nb_var_node*ri+3];
+            in_nd_values_UT[2*i] = interp_nd_out[M_nb_var_node*ri+4];
+            in_nd_values_UT[2*i+1] = interp_nd_out[M_nb_var_node*ri+5];
         }
     }
 
-    std::vector<double> out_nd_values(M_nb_var_node*M_num_nodes);
+    std::vector<double> out_nd_values_VT(2*M_num_nodes);
+    std::vector<double> out_nd_values_UM(2*M_num_nodes);
+    std::vector<double> out_nd_values_UT(2*M_num_nodes);
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
 
     if (M_rank == 0)
     {
-        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
-        boost::mpi::scatterv(M_comm, in_nd_values, sizes_nodes, &out_nd_values[0], 0);
+        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+        boost::mpi::scatterv(M_comm, in_nd_values_VT, sizes_nodes, &out_nd_values_VT[0], 0);
+        boost::mpi::scatterv(M_comm, in_nd_values_UM, sizes_nodes, &out_nd_values_UM[0], 0);
+        boost::mpi::scatterv(M_comm, in_nd_values_UT, sizes_nodes, &out_nd_values_UT[0], 0);
     }
     else
     {
-        boost::mpi::scatterv(M_comm, &out_nd_values[0], M_nb_var_node*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values_VT[0], 2*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values_UM[0], 2*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values_UT[0], 2*M_num_nodes, 0);
     }
-
 
     M_VT.resize(2*M_num_nodes);
     M_UM.resize(2*M_num_nodes);
     M_UT.resize(2*M_num_nodes);
+    M_VT.shrink_to_fit();
+    M_UM.shrink_to_fit();
+    M_UT.shrink_to_fit();
 
     D_tau_w.assign(2*M_num_nodes,0.);
     D_tau_a.assign(2*M_num_nodes,0.);
+    D_tau_w.shrink_to_fit();
+    D_tau_a.shrink_to_fit();
 
     for (int i=0; i<M_num_nodes; ++i)
     {
         // VT
-        M_VT[i] = out_nd_values[M_nb_var_node*i];
-        M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
+        M_VT[i] = out_nd_values_VT[2*i];
+        M_VT[i+M_num_nodes] = out_nd_values_VT[2*i+1];
 
         // UM
-        M_UM[i] = out_nd_values[M_nb_var_node*i+2];
-        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
+        M_UM[i] = out_nd_values_UM[2*i];
+        M_UM[i+M_num_nodes] = out_nd_values_UM[2*i+1];
 
         // UT
-        M_UT[i] = out_nd_values[M_nb_var_node*i+4];
-        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
+        M_UT[i] = out_nd_values_UT[2*i];
+        M_UT[i+M_num_nodes] = out_nd_values_UT[2*i+1];
     }
 
 
@@ -9481,15 +9509,29 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
         //gather fields to root processor if not using parallel output
         for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
         {
-            std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
-            if (M_rank==0) it->data_grid = result;
+            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
+            if (M_rank == 0)
+            {
+                for (int proc = 1; proc < M_comm.size(); proc++)
+                {
+                    std::vector<double> result;
+                    M_comm.recv(proc, proc, result);
+                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
+                }
+            }
         }
         for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
         {
-            std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
-            if (M_rank==0) it->data_grid = result;
+            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
+            if (M_rank == 0)
+            {
+                for (int proc = 1; proc < M_comm.size(); proc++)
+                {
+                    std::vector<double> result;
+                    M_comm.recv(proc, proc, result);
+                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
+                }
+            }
         }
     }
 
@@ -14037,11 +14079,15 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
 
     std::vector<std::vector<double>> ghost_update_values(M_comm.size());
 
-    for (int const& proc : M_recipients_proc_id)
-        M_comm.send(proc, M_rank, extract_local_values[proc]);
+    std::vector<boost::mpi::request> request;
+    for (int const& proc : M_recipients_proc_id) {
+        request.push_back(M_comm.isend(proc, M_rank, extract_local_values[proc]));
+    }
 
     for (int const& proc : M_local_ghosts_proc_id)
-        M_comm.recv(proc, proc, ghost_update_values[proc]);
+        request.push_back(M_comm.irecv(proc, proc, ghost_update_values[proc]));
+
+    boost::mpi::wait_all(request.begin(), request.end());
 
     for (int i=0; i<M_local_ghosts_local_index.size(); i++)
     {
