@@ -36,14 +36,29 @@ public:
     template<typename Type>
     void writeContainer(std::fstream& out, std::vector<Type> const& container, std::string const precision);
 
-    void writeMesh(std::fstream& out, GmshMesh const& Mesh);
+    template<typename Type>
+    void writeContainer(MPI_File& out, std::vector<Type> const& container, int is_vector, Communicator M_comm, MPI_Offset& base_offset, std::string const precision);
+
+    template<typename Type>
+    void orderField(std::vector<Type> const& field_local, std::vector<Type>& ordered_field, std::vector<int>& rmap, 
+                        Communicator M_comm, int local_ndof, int num_nodes);
+
+    void writeMesh(MPI_File& out, GmshMesh const& Mesh, std::vector<int>& rmap_nodes, std::vector<int>& rmap_elements);
     void writeMesh(std::fstream& out, GmshMeshSeq const& Mesh);
     template<typename Type>
 	void writeMesh(std::fstream& out, std::vector<Type> const& xnod, std::vector<Type> const& ynod,
             std::vector<int> const& idnod, std::vector<int> const& elements);
+    template<typename Type>
+    void writeMesh(MPI_File& out, std::vector<Type> const &xnod, std::vector<Type> const &ynod,
+                   std::vector<int> const &idnod, std::vector<int> const &elements, Communicator M_comm);
 
     template<typename Type>
-	void writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name);
+	void writeField(MPI_File& out, std::vector<Type> const& field, std::string const& name, Communicator M_comm, 
+                    MPI_Offset& base_offset, std::vector<int>& rmap, int local_ndof, int num_nodes, int root);
+
+    template<typename Type>
+    void writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name);
+
 	void writeRecord(std::fstream& out, std::string const& rtype = "field");
 
     void loadFile(std::fstream &in, boost::unordered_map<std::string, std::vector<int>> &field_map_int, boost::unordered_map<std::string, std::vector<double>> &field_map_dbl);

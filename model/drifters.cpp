@@ -411,20 +411,20 @@ Drifters::sortDrifterNumbers()
 //! Add drifter info to restart
 //! Called by FiniteElement::writeRestart()
 void
-Drifters::addToRestart(Exporter &exporter, std::fstream &outbin)
+Drifters::addToRestart(Exporter &exporter, MPI_File& outbin, Communicator M_comm, MPI_Offset& base_offset)
 {
     // Do nothing if we don't have to
-    if (!M_is_initialised)
-        return;
-    if (M_i.size() == 0)
-        return;
+    int keep_going = M_i.size() + M_is_initialised;
+    boost::mpi::broadcast(M_comm, &keep_going, 1, 0);
+    if (!keep_going) return;
 
     // write the fields to file
     std::vector<double> const t = {M_time_init};
-    exporter.writeField(outbin, M_i, "Drifter_ID_"        + M_tag);
-    exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag);
-    exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag);
-    exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag);
+    std::vector<int> unused;
+    exporter.writeField(outbin, M_i, "Drifter_ID_"        + M_tag, M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag, M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag, M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag, M_comm, base_offset, unused, 0, 0, 1);
 }//addToRestart()
 
 
