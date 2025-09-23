@@ -230,6 +230,7 @@ public:
         fwflux_ice = 908,
         tauwix     = 909,
         tauwiy     = 910,
+        conc_cons  = 911,
 
         // Non-output variables - all negative
         proc_mask = -1,
@@ -360,6 +361,13 @@ public:
                     name     = "sic_young";
                     longName = "Sea Ice Area Fraction of Young Ice";
                     stdName  = "sea_ice_classification";
+                    Units    = "1";
+                    cell_methods = "area: mean";
+                    break;
+                case (variableID::conc_cons):
+                    name     = "sic_cons";
+                    longName = "Consolidated Ice Concentration";
+                    stdName  = "consolidated_ice_area_fraction";
                     Units    = "1";
                     cell_methods = "area: mean";
                     break;
