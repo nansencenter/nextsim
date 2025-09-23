@@ -1342,7 +1342,8 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:physical::rhow/(1000.*1800.),
+        //    a:physical::rhow/(1000.*1800.), // for when computed manually from diff RAINC and RAINNC (mm/output, output=30min)
+            a:physical::rhow/(1000.*3600.), // for conversion from PRECIP_ACC (mm/hour)
             b:0.,
             Units:"kg/m^2/s",
             loaded_data: loaded_data_tmp,
