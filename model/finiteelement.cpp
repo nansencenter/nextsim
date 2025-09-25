@@ -10533,10 +10533,10 @@ FiniteElement::explicitSolve()
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
             double const grad_y = grad_terms[v_indx]*rlmass_matrix[i];
 
-            M_VT[u_indx]  = alpha*uice + beta*vice + dte_over_mass*( alpha*(grad_x + tau_x) + beta*(grad_y + tau_y) ) + delu;
+            M_VT[u_indx]  = alpha*uice + beta*vice + dte_over_mass*( alpha*(grad_x + tau_x) + beta*(grad_y + tau_y) ) + alpha*delu + beta*delv;
             M_VT[u_indx] *= rdenom;
 
-            M_VT[v_indx]  = alpha*vice - beta*uice + dte_over_mass*( alpha*(grad_y + tau_y) + beta*(grad_x + tau_x) ) + delv;
+            M_VT[v_indx]  = alpha*vice - beta*uice + dte_over_mass*( alpha*(grad_y + tau_y) + beta*(grad_x + tau_x) ) + alpha*delv + beta*delu;
             M_VT[v_indx] *= rdenom;
         }
         M_timer.tock("sub-solve");
