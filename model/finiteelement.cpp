@@ -9579,7 +9579,8 @@ FiniteElement::writeRestart(std::string const& name_str)
     LOG(DEBUG) <<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
     LOG(DEBUG) <<"M_ndof                    = "<< M_ndof <<"\n";
 
-    Exporter exporter("double");
+    Exporter exporter;
+    std::string const precision = "double";
     std::string filename;
 
     // === Start with the mesh ===
@@ -9651,14 +9652,14 @@ FiniteElement::writeRestart(std::string const& name_str)
     misc_int[2] = mesh_adapt_step;
     misc_int[3] = M_nb_regrid;
 
-    exporter.writeField(outbin, misc_int, "Misc_int", M_comm, base_offset,
+    exporter.writeField(outbin, misc_int, "Misc_int", "int", M_comm, base_offset,
                         rmap_nodes, M_local_ndof, M_num_nodes, 1);
-    exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags", M_comm, base_offset,
+    exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags", "int", M_comm, base_offset,
                         rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
-    std::vector<double> timevec(1);
+    std::vector<double> timevec(1);// time always written as double
     timevec[0] = M_current_time;
-    exporter.writeField(outbin, timevec, "Time", M_comm, base_offset,
+    exporter.writeField(outbin, timevec, "Time", "double", M_comm, base_offset,
                         rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
     // loop over the elemental variables
@@ -9671,13 +9672,13 @@ FiniteElement::writeRestart(std::string const& name_str)
         {
             tmp[i] = (*ptr)[i];
         }
-        exporter.writeField(outbin, tmp, M_restart_names_elt[j], M_comm, base_offset, 
+        exporter.writeField(outbin, tmp, M_restart_names_elt[j], precision, M_comm, base_offset,
                             rmap_elements, M_local_nelements, 0, 0);
     }
 
-    exporter.writeField(outbin, M_VT, "M_VT", M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
-    exporter.writeField(outbin, M_UM, "M_UM", M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
-    exporter.writeField(outbin, M_UT, "M_UT", M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+    exporter.writeField(outbin, M_VT, "M_VT", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+    exporter.writeField(outbin, M_UM, "M_UM", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+    exporter.writeField(outbin, M_UT, "M_UT", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
 
     // Add the drifters if they are initialised
     for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
@@ -9690,7 +9691,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
             PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
 
-    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering", M_comm, base_offset,
+    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering", precision, M_comm, base_offset,
                         rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
     MPI_File_close(&outbin);
@@ -9717,7 +9718,7 @@ FiniteElement::writeRestart(std::string const& name_str)
 void
 FiniteElement::readRestart(std::string const& name_str)
 {
-    Exporter exp_field("double"), exp_mesh("double");
+    Exporter exp_field, exp_mesh;
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
@@ -14260,7 +14261,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         boost::mpi::broadcast(M_comm, &rmap_elements[0], size_elements, 0);
     }
 
-    Exporter exporter(vm["output.exporter_precision"].as<std::string>());
+    Exporter exporter;
     std::string fileout;
 
     if (export_mesh)
@@ -14303,6 +14304,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
     if (export_fields)
     {
+        std::string const precision = vm["output.exporter_precision"].as<std::string>();
         MPI_Offset base_offset = 0;
 
         fileout = filenames[1]+".bin";
@@ -14313,27 +14315,27 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
                       MPI_INFO_NULL, &outbin);
 
         // Nodes
-        std::vector<double> timevec = {M_current_time};
-        exporter.writeField(outbin, timevec, "Time", M_comm, base_offset, 
+        std::vector<double> timevec = {M_current_time};// time always written as double
+        exporter.writeField(outbin, timevec, "Time", "double", M_comm, base_offset,
                             rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
         //manually export some vectors defined on the nodes
         std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
         if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
-            exporter.writeField(outbin, M_VT, "M_VT", M_comm, base_offset, 
+            exporter.writeField(outbin, M_VT, "M_VT", precision, M_comm, base_offset,
                                 rmap_nodes, M_local_ndof, M_num_nodes, 0);
 #if defined (OASIS)
         if (M_couple_waves && M_recv_wave_stress)
-            exporter.writeField(outbin, M_tau_wi.getVector(), "M_tau_wi", M_comm, 
+            exporter.writeField(outbin, M_tau_wi.getVector(), "M_tau_wi", precision, M_comm,
                                 base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
 #endif
         if (vm["output.save_forcing_fields"].as<bool>())
         {
-            exporter.writeField(outbin, M_wind.getVector(), "M_wind", M_comm, 
+            exporter.writeField(outbin, M_wind.getVector(), "M_wind", precision, M_comm,
                                 base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
-            exporter.writeField(outbin, M_ocean.getVector(), "M_ocean", M_comm, 
+            exporter.writeField(outbin, M_ocean.getVector(), "M_ocean", precision, M_comm,
                                 base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
-            exporter.writeField(outbin, M_ssh.getVector(), "M_ssh", M_comm, 
+            exporter.writeField(outbin, M_ssh.getVector(), "M_ssh", precision, M_comm,
                                 base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
         }
 
@@ -14348,7 +14350,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             {       
                 elt_values_local[i] = (*ptr)[i];
             }
-            exporter.writeField(outbin, elt_values_local, names_elements[j], M_comm, 
+            exporter.writeField(outbin, elt_values_local, names_elements[j], precision, M_comm,
                                 base_offset, rmap_elements, M_local_nelements, unused_int, 0);
         }
         if(vm["output.save_forcing_fields"].as<bool>())
@@ -14362,7 +14364,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
                 {
                 	elt_values_local[i] = (*ptr)[i];
                 }
-                exporter.writeField(outbin, elt_values_local, names_elements[j+M_export_variables_elt.size()], 
+                exporter.writeField(outbin, elt_values_local, names_elements[j+M_export_variables_elt.size()], precision,
                                     M_comm, base_offset, rmap_elements, M_local_nelements, unused_int, 0);
         	}
         }

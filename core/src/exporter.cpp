@@ -12,20 +12,13 @@
 
 namespace Nextsim
 {
-Exporter::Exporter(std::string const& precision)
+Exporter::Exporter()
 	:
 	M_mrecord(),
     M_frecord(),
     M_type_record(),
-    M_name_record(),
-    M_precision(precision)
-{
-    if ( precision != "double" & precision != "float" & precision != "int" )
-    {
-        std::string error_str = "Exporter: Unknown precision: " + precision;
-        throw std::logic_error(error_str);
-    }
-}
+    M_name_record()
+{}
 
 // writeContainer in sequential
 template<typename Type>
@@ -493,24 +486,20 @@ Exporter::writeMesh(std::fstream& out, std::vector<Type> const &xnod, std::vecto
 //writeField in parallel
 template<typename Type>
 void
-Exporter::writeField(MPI_File& out, std::vector<Type> const& field, std::string const& name, Communicator M_comm, 
+Exporter::writeField(MPI_File& out, std::vector<Type> const& field, std::string const& name, std::string const& precision, Communicator M_comm, 
                      MPI_Offset& base_offset, std::vector<int>& rmap, int size_without_ghost, int num_nodes, int root)
 {
     std::string description;
-    std::string precision;
-
-    if (((boost::any)field[0]).type() == typeid(int))
-        precision = "int";
-    else
-        precision = M_precision;
-
-    if (name == "Time") precision = "double";
 
     MPI_Datatype mpi_type;
     size_t elem_size = 0;
     if (precision == "float")      { mpi_type = MPI_FLOAT;  elem_size = sizeof(float); }
     else if (precision == "double"){ mpi_type = MPI_DOUBLE; elem_size = sizeof(double); }
     else if (precision == "int")   { mpi_type = MPI_INT;    elem_size = sizeof(int); }
+    else {
+        std::string const error_str = "Exporter: Unknown precision: " + precision;
+        throw std::logic_error(error_str);
+    }
 
     // For the fields written only by the root process
     if (root)
@@ -577,34 +566,6 @@ Exporter::writeField(MPI_File& out, std::vector<Type> const& field, std::string 
 
 }//writeField
 
-//writeField sequentially
-template<typename Type>
-void
-Exporter::writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name)
-{
-    std::string description;
-
-    std::string precision;
-    // We must choose either integer or floating point
-    if (((boost::any)field[0]).type() == typeid(int))
-        precision = "int";
-    else
-        precision = M_precision;
-
-    // Time should always be in double
-    if ( name == "Time" )
-        precision = "double";
-
-    writeContainer(out, field, precision);
-    description = (boost::format( "%1% %2% %3$g %4$g %5$g" )
-                   % name
-                   % precision
-                   % field.size()
-                   % ( (field.size() > 0) ? *std::min_element(field.begin(), field.end()) : 0 ) 
-                   % ( (field.size() > 0) ? *std::max_element(field.begin(), field.end()) : 0 ) ).str();
-
-    M_frecord.push_back(description);
-}
 
 void
 Exporter::writeRecord(std::fstream& out, std::string const& rtype)
@@ -674,12 +635,10 @@ Exporter::loadFile(std::fstream &in, boost::unordered_map<std::string, std::vect
     }
 }
 
-template void Exporter::writeField<double>(std::fstream&, std::vector<double> const&, std::string const&);
-template void Exporter::writeField<int>(std::fstream&, std::vector<int> const&, std::string const&);
 
-template void Exporter::writeField(MPI_File& out, std::vector<double> const& field, std::string const& name, Communicator M_comm, 
+template void Exporter::writeField(MPI_File& out, std::vector<double> const& field, std::string const& name, std::string const& precision, Communicator M_comm,
                                    MPI_Offset& base_offset, std::vector<int>& rmap, int size_without_ghost, int num_nodes, int root);
-template void Exporter::writeField(MPI_File& out, std::vector<int> const& field, std::string const& name, Communicator M_comm, 
+template void Exporter::writeField(MPI_File& out, std::vector<int> const& field, std::string const& name, std::string const& precision, Communicator M_comm,
                                    MPI_Offset& base_offset, std::vector<int>& rmap, int size_without_ghost, int num_nodes, int root);
 
 template void Exporter::writeMesh<double>(std::fstream&, std::vector<double> const&, std::vector<double> const&,
