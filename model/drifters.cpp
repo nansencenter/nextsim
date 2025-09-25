@@ -421,10 +421,10 @@ Drifters::addToRestart(Exporter &exporter, MPI_File& outbin, Communicator M_comm
     // write the fields to file
     std::vector<double> const t = {M_time_init};
     std::vector<int> unused;
-    exporter.writeField(outbin, M_i, "Drifter_ID_"        + M_tag, M_comm, base_offset, unused, 0, 0, 1);
-    exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag, M_comm, base_offset, unused, 0, 0, 1);
-    exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag, M_comm, base_offset, unused, 0, 0, 1);
-    exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag, M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, M_i, "Drifter_ID_"        + M_tag, "int",  M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag, "double", M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag, "double", M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag, "double", M_comm, base_offset, unused, 0, 0, 1);
 }//addToRestart()
 
 
