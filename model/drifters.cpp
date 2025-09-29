@@ -18,58 +18,6 @@
 
 namespace Nextsim
 {
-
-// ------------------------------------------
-//! Main drifter interface to FiniteElement
-//! Called from FiniteElement::checkUpdateDrifters()
-//! \note call after moving
-void
-Drifters::updateDrifters(GmshMeshSeq const& movedmesh_root,
-        std::vector<double> & conc_root, double const& current_time)
-{
-    std::vector<double> conc_drifters(0);
-
-    //! 1) Reset temporary (i.e. OSISAF) drifters if needed
-    //! \note this does outputting so needs conc_root
-    if(this->resetting(current_time))
-        this->reset(movedmesh_root, conc_root, current_time);
-
-    //! 2) Initialize if needed
-    //! - need conc on the moved mesh
-    //! - \note updates conc_drifters
-    if(this->initialising(current_time))
-        this->initialise(movedmesh_root, conc_root,
-                conc_drifters);
-
-    //! 3) Add/remove drifters if needed
-    //!    \note do this after moving
-    if (this->isInputTime(current_time))
-    {
-        //! - add current buoys if not already there
-        //!   (output is used for masking later)
-        auto current_buoys = this->grabBuoysFromInputTextFile(current_time);
-
-        //! - update conc at drifter positions (conc_drifters)
-        this->updateConc(movedmesh_root, conc_root, conc_drifters);
-
-        //! - Check the drifters map and throw out:
-        //!   i) the ones which IABP doesn't report as being in the ice anymore
-        //!   (not in current_buoys)
-        //!   ii) the ones which have a low conc according to the model
-        this->maskXY(conc_drifters, current_buoys);
-    }
-
-    //! 4) Add/remove drifters if needed
-    if (this->isOutputTime(current_time))
-    {
-        if(conc_drifters.size()==0)
-            // get conc if needed
-            // (haven't added new buoys or initialised this timestep)
-            this->updateConc(movedmesh_root, conc_root, conc_drifters);
-        this->outputDrifters(current_time, conc_drifters);
-    }
-}//updateDrifters
-
 // ------------------------------------------
 //! Main drifter interface to FiniteElement
 //! Called from FiniteElement::checkUpdateDrifters()
@@ -79,6 +27,17 @@ Drifters::updateDrifters(GmshMesh const& movedmesh,
                          std::vector<double> & conc, double const& current_time)
 {
     std::vector<double> conc_drifters(0);
+
+    //! 1) Reset temporary (i.e. OSISAF) drifters if needed
+    //! \note this does outputting so needs conc_root
+    if(this->resetting(current_time))
+        this->reset(movedmesh, conc, current_time);
+
+    //! 2) Initialize if needed
+    //! - need conc on the moved mesh
+    //! - \note updates conc_drifters
+    if(this->initialising(current_time))
+        this->initialise(movedmesh, conc, conc_drifters);
 
     //! 3) Add/remove drifters if needed
     //!    \note do this after moving
@@ -118,27 +77,29 @@ Drifters::updateDrifters(GmshMesh const& movedmesh,
 //! Initialise the drifter positions
 //! Called from Drifters::updateDrifters()
 void
-Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
+Drifters::initialise(GmshMesh const& moved_mesh, std::vector<double> & conc,
         std::vector<double> &conc_drifters)
 {
     //! -1) Initialise drifter positions
-
-    if (M_init_type == Drifters::initType::TEXT_FILE)
+    if (M_comm.rank() == 0 && M_init_type == Drifters::initType::TEXT_FILE)
         this->initFromTextFile();
     else if (M_init_type == Drifters::initType::SPACING)
         this->initFromSpacing(moved_mesh);
-    else if (M_init_type == Drifters::initType::NETCDF)
+    else if (M_comm.rank() == 0 && M_init_type == Drifters::initType::NETCDF)
         this->initFromNetCDF();
 
     //! -2) Update conc_drifters
     this->updateConc(moved_mesh, conc, conc_drifters);
 
     //! -3) Applies the mask using conc_drifters and climit, and save to M_X and M_Y
-    this->maskXY(conc_drifters);
+    if (M_comm.rank() == 0) this->maskXY(conc_drifters);
 
     //! -4) Init the netcdf output file
-    this->setOutputFilename();
-    this->initOutputFile();
+    if (M_comm.rank() == 0)
+    {
+        this->setOutputFilename();
+        this->initOutputFile();
+    }
 
     //! -5) Success 
     M_is_initialised = true;
@@ -149,26 +110,33 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
 //! Initialise the drifter positions on a regular grid
 //! Called from Drifters::initialise()
 void
-Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
+Drifters::initFromSpacing(GmshMesh const& moved_mesh)
 {
     //! Calculates the grid spacing assuming a regular grid
     std::vector<double> RX = moved_mesh.coordX();
     std::vector<double> RY = moved_mesh.coordY();
-    auto xcoords = std::minmax_element( RX.begin(), RX.end() );
-    auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+    auto xcoords_local = std::minmax_element( RX.begin(), RX.end() );
+    auto ycoords_local = std::minmax_element( RY.begin(), RY.end() );
 
-    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/M_spacing );
-    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/M_spacing );
+    double xmin = boost::mpi::all_reduce(M_comm, *xcoords_local.first,  boost::mpi::minimum<double>());
+    double xmax = boost::mpi::all_reduce(M_comm, *xcoords_local.second, boost::mpi::maximum<double>());
+    double ymin = boost::mpi::all_reduce(M_comm, *ycoords_local.first,  boost::mpi::minimum<double>());
+    double ymax = boost::mpi::all_reduce(M_comm, *ycoords_local.second, boost::mpi::maximum<double>());
+
+    if (M_comm.rank() != 0) return;
+
+    int ncols = (int) ( 0.5 + ( xmax - xmin )/M_spacing );
+    int nrows = (int) ( 0.5 + ( ymax - ymin )/M_spacing );
 
     M_X.resize(ncols*nrows);
     M_Y.resize(ncols*nrows);
     M_i.resize(ncols*nrows);
 
     int i=0;
-    int y = *ycoords.first;
+    int y = ymin;
     for (int row=0; row<nrows; ++row)
     {
-        int x = *xcoords.first;
+        int x = xmin;
         for (int col=0; col<ncols; ++col)
         {
             M_X[i] = x;
@@ -180,7 +148,6 @@ Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
         y += M_spacing;
     }
 }//initFromSpacing()
-
 
 // ---------------------------------------------
 //! Initialise the drifter positions from the grid of an input netcdf file
@@ -486,15 +453,14 @@ Drifters::fixInitTimeAtRestart(double const& restart_time)
 //! reset drifters
 //! - so far only used by OSISAF drifters (reset them after 2 days)
 //! Called by FiniteElement::checkUpdateDrifters()
-template<typename FEMeshType>
 void
-Drifters::reset(FEMeshType const& movedmesh, std::vector<double> & conc,
+Drifters::reset(GmshMesh const& movedmesh, std::vector<double> & conc,
                 double const& current_time)
 {
     //! 1) Output final positions
     std::vector<double> conc_drifters;
     this->updateConc(movedmesh, conc, conc_drifters);
-    this->outputDrifters(current_time, conc_drifters);
+    if (M_comm.rank() == 0) this->outputDrifters(current_time, conc_drifters);
 
     //! 2) Set back to being uninitialised
     M_is_initialised = false;
@@ -502,52 +468,9 @@ Drifters::reset(FEMeshType const& movedmesh, std::vector<double> & conc,
     M_X.resize(0);
     M_Y.resize(0);
     M_time_init += M_lifetime;//new init time
-    this->setOutputFilename();
+    if (M_comm.rank() == 0) this->setOutputFilename();
 }//reset()
 
-
-// --------------------------------------------------------------------------------------
-//! Move drifters and replace the old coordinates with the new ones
-//! called by FiniteElement::updateDrifters()
-void
-Drifters::move(GmshMeshSeq const& mesh,
-        std::vector<double> const& UT)
-{
-    // Do nothing if we don't have to
-    if ( !M_is_initialised )
-        return;
-    int const num_drifters = M_i.size();
-    if ( num_drifters == 0 )
-        return;
-
-    // Interpolate the total displacement onto the drifter positions
-    int const nb_var=2;
-    int const numNodes = mesh.numNodes();
-    std::vector<double> interp_drifter_in(nb_var*numNodes);
-    for (int i=0; i<numNodes; ++i)
-    {
-        interp_drifter_in[nb_var*i]   = UT[i];
-        interp_drifter_in[nb_var*i+1] = UT[i+numNodes];
-    }
-
-    double* interp_drifter_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0],
-                            numNodes, mesh.numTriangles(),
-                            &interp_drifter_in[0],
-                            numNodes, nb_var,
-                            &M_X[0], &M_Y[0], num_drifters,
-                            true, 0.);
-
-    // Add the displacement to the current position
-    for ( int i=0; i<num_drifters; ++i )
-    {
-        M_X[i] += interp_drifter_out[nb_var*i];
-        M_Y[i] += interp_drifter_out[nb_var*i+1];
-    }
-
-    xDelete<double>(interp_drifter_out);
-}//move()
 
 // --------------------------------------------------------------------------------------
 //! Check whether a point is inside a triangle
@@ -773,41 +696,6 @@ Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT)
     }
 
 } // move
-
-// --------------------------------------------------------------------------------------
-//! interp conc onto drifter positions
-//! called by updateDrifters(), reset() and initialise()
-void
-Drifters::updateConc(GmshMeshSeq const& moved_mesh,
-        std::vector<double> & conc, std::vector<double> &conc_drifters)
-{
-    // Do nothing if we don't have to
-    int const num_drifters = M_i.size();
-    if ( num_drifters == 0 )
-        return;
-    conc_drifters.resize(num_drifters);
-
-    // move the mesh before interpolating
-    int const numNodes = moved_mesh.numNodes();
-    int const numElements = moved_mesh.numTriangles();
-
-    // Interpolate the concentration onto the drifter positions
-    int nb_var=1;
-    double* interp_drifter_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &moved_mesh.indexTr()[0], &moved_mesh.coordX()[0], &moved_mesh.coordY()[0],
-                            numNodes, numElements,
-                            &conc[0],
-                            numElements, nb_var,
-                            &M_X[0], &M_Y[0], num_drifters,
-                            true, 0.);
-
-    for ( int i=0; i<num_drifters; ++i )
-        conc_drifters[i] = std::max(0.,
-                std::min(1., interp_drifter_out[i]));
-
-    xDelete<double>(interp_drifter_out);
-}//updateConc
 
 // --------------------------------------------------------------------------------------
 //! interp conc onto drifter positions
