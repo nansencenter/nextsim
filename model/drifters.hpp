@@ -178,11 +178,8 @@ public:
         bool isInitialised() { return M_is_initialised; }
 
         //main interface to FiniteElement
-        void updateDrifters(GmshMeshSeq const& movedmesh_root,
-                std::vector<double> & conc_root, double const& current_time);
         void updateDrifters(GmshMesh const& movedmesh,
                             std::vector<double> & conc, double const& current_time);
-        void move(GmshMeshSeq const& mesh, std::vector<double> const& UT);
         void move(GmshMesh const& mesh, std::vector<double> const& UT);
 
         int inside(std::vector<double> const& points, double xp, double yp);
@@ -206,9 +203,9 @@ private:
             this->setTimingInfo(timing_info);
         }
 
-        void initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
-                std::vector<double> & conc_drifters);
-        void initFromSpacing(GmshMeshSeq const& moved_mesh);
+        void initialise(GmshMesh const& moved_mesh, std::vector<double> & conc,
+                        std::vector<double> & conc_drifters);
+        void initFromSpacing(GmshMesh const& moved_mesh);
         void initFromTextFile();
         void initFromNetCDF();
         bool readFromRestart(
@@ -219,11 +216,8 @@ private:
         void sortDrifterNumbers();
 
         //main ops
-        template<typename FEMeshType>
-        void reset(FEMeshType const& moved_mesh, std::vector<double> & conc,
+        void reset(GmshMesh const& moved_mesh, std::vector<double> & conc,
                 double const& current_time);
-        void updateConc( GmshMeshSeq const& moved_mesh,
-                std::vector<double> & conc, std::vector<double> & conc_drifters);
         void updateConc(GmshMesh const& moved_mesh,
                         std::vector<double> & conc, std::vector<double> &conc_drifters);
         bool resetting(double const& current_time)
