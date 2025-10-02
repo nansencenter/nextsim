@@ -14360,15 +14360,18 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
         MPI_File_close(&outbin);
 
-        fileout = filenames[1]+".dat";
-        LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-
-        std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-        if ( !outrecord.good() )
-            throw std::runtime_error("Cannot write to file: " + fileout);
-
-        exporter.writeRecord(outrecord);
-        outrecord.close();
+        if (M_rank == 0)
+        {
+            fileout = filenames[1]+".dat";
+            LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+    
+            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+            if ( !outrecord.good() )
+                throw std::runtime_error("Cannot write to file: " + fileout);
+    
+            exporter.writeRecord(outrecord);
+            outrecord.close();
+        }
     }
 
 }// exportResults()
