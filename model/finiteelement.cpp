@@ -7714,8 +7714,8 @@ FiniteElement::initOASIS()
         throw std::runtime_error(std::string("FiniteElement::initOASIS: No coupling option selected. ")
                 + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
-    M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-        cpl_time_step*days_in_sec, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+    M_cpl_out = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+        cpl_time_step*days_in_sec, true, M_mesh_root, M_mesh.transferMapElt(), M_comm);
 
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
@@ -8039,13 +8039,13 @@ FiniteElement::step()
             if ( M_use_moorings && !M_moorings_snapshot )
             {
                 M_timer.tick("updateGridMean");
-                M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+                M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
                 M_timer.tock("updateGridMean");
             }
 
 #ifdef OASIS
             M_timer.tick("updateGridMean_cpl");
-            M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+            M_cpl_out.updateGridMean(M_mesh, M_local_nelements, M_UM);
             M_timer.tock("updateGridMean_cpl");
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
@@ -8064,9 +8064,9 @@ FiniteElement::step()
              * case (so far). */
             M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(M_mesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), M_mesh_root);
             else
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
+                M_cpl_out.resetMeshMean(M_mesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
             {
@@ -8090,14 +8090,14 @@ FiniteElement::step()
                 M_timer.tick("resetMeshMean");
 #ifdef OASIS
                 if(vm["moorings.grid_type"].as<std::string>()=="coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
+                    M_moorings.resetMeshMean(M_mesh, M_regrid, M_local_nelements,
                             M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 else
 #endif
                 if ( vm["moorings.use_conservative_remapping"].as<bool>() )
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                    M_moorings.resetMeshMean(M_mesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), M_mesh_root);
                 else
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+                    M_moorings.resetMeshMean(M_mesh, M_regrid, M_local_nelements);
 
                 M_timer.tock("resetMeshMean");
             }
@@ -8265,7 +8265,7 @@ FiniteElement::step()
     this->updateMeans(M_cpl_out, cpl_time_factor);
     if ( pcpt*time_step % cpl_time_step == 0 )
     {
-        M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+        M_cpl_out.updateGridMean(M_mesh, M_local_nelements, M_UM);
 
         for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
         {
@@ -8293,7 +8293,7 @@ FiniteElement::step()
                     int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         }
 
-        M_cpl_out.resetMeshMean(bamgmesh);
+        M_cpl_out.resetMeshMean(M_mesh);
         M_cpl_out.resetGridMean();
     }
     M_timer.tock("coupler put");
@@ -8947,6 +8947,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
     }
 
     // Update nodes
+    std::vector<double> tau_a(M_num_nodes,0.);
+    std::vector<double> conc(M_num_nodes,0.);
+    std::vector<double> surface(M_num_nodes,0.);
+    int n_nodes;
     for ( auto it=means.M_nodal_variables.begin(); it!=means.M_nodal_variables.end(); ++it )
     {
         switch (it->varID)
@@ -8997,6 +9001,19 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::taux):
             case (GridOutput::variableID::tauy):
             case (GridOutput::variableID::taumod):
+
+                // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
+                for (int i = 0; i < M_mesh.numTriangles(); i++)
+                {
+                    for (int j = 0; j < 3; j++)
+                    {
+                        n_nodes = M_mesh.triangles()[i].indices[j]-1;
+                        tau_a[n_nodes] += D_tau_ow[i] * M_surface[i];
+                        conc[n_nodes] += M_conc[i] * M_surface[i];
+                        surface[n_nodes] += M_surface[i];
+                    }
+                }
+
                 for (int i=0; i<M_num_nodes; i++)
                 {
                     double tau_i;
@@ -9019,27 +9036,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
                         wind2 *= wind2;
                     }
-
-                    // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
-                    double tau_a = 0;
-                    double conc = 0;
-                    double surface = 0;
-                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-                    for (int j=0; j<num_elements; j++)
-                    {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Skip negative elt_num
-                        if ( elt_num < 0 ) continue;
-
-                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
-                        conc    += M_conc[elt_num] * M_surface[elt_num];
-                        surface += M_surface[elt_num];
-                    }
-                    tau_a /= surface;
-                    conc  /= surface;
-
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind2*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc[i] + tau_a[i]*wind2*(1.-conc[i]/surface[i]) )*time_factor/surface[i];
                 }
+
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
@@ -9353,7 +9352,7 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
+        M_moorings = GridOutput(M_mesh, M_local_nelements, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
                 M_moorings_averaging_period, M_moorings_false_easting);
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
@@ -9364,8 +9363,8 @@ FiniteElement::initMoorings()
             GridOutput::Grid grid = GridOutput::Grid(vm["moorings.grid_file"].as<std::string>(),
                     "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
-            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+            M_moorings = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, true, M_mesh_root, M_mesh.transferMapElt(), M_comm);
         } else {
             // don't use conservative remapping
             GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
@@ -9374,8 +9373,8 @@ FiniteElement::initMoorings()
                     Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
             // Define the mooring dataset
-            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                    M_moorings_averaging_period, M_moorings_false_easting);
+            M_moorings = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, M_moorings_false_easting, M_mesh_root);
         }
     }
 #ifdef OASIS
@@ -9385,8 +9384,8 @@ FiniteElement::initMoorings()
         GridOutput::Grid grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        M_moorings = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                M_moorings_averaging_period, true, M_mesh_root, M_mesh.transferMapElt(), M_comm);
     }
 #endif
     else
@@ -9397,7 +9396,7 @@ FiniteElement::initMoorings()
 
     // As only the root processor knows the entire grid we set the land mask using it
     if ( M_rank == 0 )
-        M_moorings.setLSM(bamgmesh_root);
+        M_moorings.setLSM(M_mesh_root);
 
     // Initialise netCDF output
     if ( (M_rank==0) || M_moorings_parallel_output )
@@ -9491,7 +9490,7 @@ void
 FiniteElement::mooringsAppendNetcdf(double const &output_time)
 {
     // update data on grid
-    M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+    M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
 
     if ( ! M_moorings_parallel_output )
     {
@@ -9529,7 +9528,7 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
         M_moorings.appendNetCDF(M_moorings_file, output_time);
 
     //reset means on mesh and grid
-    M_moorings.resetMeshMean(bamgmesh);
+    M_moorings.resetMeshMean(M_mesh);
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
 
@@ -10367,6 +10366,7 @@ FiniteElement::explicitSolve()
 #ifdef OASIS
     std::vector<double> tau_wi(2*M_num_nodes, 0.);
 #endif
+
     for ( int i=0; i<M_num_nodes; ++i )
     {
         const int u_indx = i;
@@ -14545,7 +14545,6 @@ FiniteElement::checkVelocityFields()
     // minimum speed to trigger velocity check
     double const spd_lim = 0.5;
 
-    int const num_nodes = bamgmesh->NodalConnectivitySize[0];
     int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
 
     std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
