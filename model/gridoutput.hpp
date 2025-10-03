@@ -23,6 +23,11 @@
 #include <BamgTriangulatex.h>
 #include <netcdf>
 #include <debug.hpp>
+#include <boost/serialization/vector.hpp>
+extern "C" {
+  #include <netcdf.h>
+  #include <netcdf_par.h>
+}
 
 /**
  * @class GridOutput
@@ -1054,6 +1059,7 @@ public:
     ~GridOutput();
 
     void setLSM(GmshMeshSeq const& mesh_root);
+    void setLSM(GmshMesh const& mesh);
 
     void updateGridMean(GmshMesh const& mesh, int nb_local_el,
             std::vector<double> const& UM);
@@ -1066,9 +1072,32 @@ public:
             bimap_type const & transfer_map = boost::bimaps::bimap<int,int>(),
             GmshMeshSeq const& mesh_root = GmshMeshSeq());
     std::string initNetCDF(const std::string file_prefix, const fileLength file_length,
-            const double current_time, const bool append=false);
+                           const double current_time, const bool append=false, bool parallel=false);
+    void sequential_initNetCDF(std::string filename);
+    void parallel_initNetCDF(std::string filename);
     void createProjectionVariable(netCDF::NcFile &dataFile);
+    void createProjectionVariableParallel(int ncid);
     void appendNetCDF(std::string filename, double timestamp);
+    void appendNetCDFParallel(std::string filename, double timestamp, std::vector<double> bounds);
+    std::vector<double> intersection(std::vector<double> rect1, std::vector<double> rect2);
+    int is_inside(double x, double y, std::vector<std::vector<double>> list_rects);
+    std::vector<std::vector<double>> remove_rectangles(const std::vector<double>& rect1, const std::vector<std::vector<double>>& list_rects);
+    void domain_splitting(std::vector<std::vector<std::vector<double>>>& list_rectangles, const std::vector<double>& bounds,
+                          std::vector<std::vector<int>>& list_recv, std::vector<std::vector<int>>& list_send);
+    void data_exchange(std::vector<std::vector<std::vector<double>>>& nodal_send, std::vector<std::vector<std::vector<double>>>& nodal_recv,
+                       std::vector<std::vector<std::vector<double>>>& elemental_send, std::vector<std::vector<std::vector<double>>>& elemental_recv,
+                       const std::vector<std::vector<int>>& list_send);
+    void writeNetCDFParallel(const std::vector<std::vector<double>>& list_rectangles,
+                             const std::vector<std::vector<std::vector<double>>>& nodal_recv,
+                             const std::vector<std::vector<std::vector<double>>>& elemental_recv,
+                             const std::vector<std::vector<int>>& list_recv, size_t nc_step,
+                             int ncid);
+    void find_box(int& imin, int& imax, int& jmin, int& jmax, const std::vector<double>& box);
+    void find_indices(std::vector<int> list_indices, const std::vector<double>& box);
+    void compute_exchange_points(const std::vector<std::vector<std::vector<double>>>& list_rectangles,
+                                 const std::vector<double>& bounding_box,
+                                 std::vector<std::vector<int>>& list_recv,
+                                 std::vector<std::vector<int>>& list_send);
 
     // Return a mask
     std::vector<int> const &getMask() const { return M_lsm; }
@@ -1085,7 +1114,7 @@ public:
     std::vector<Variable> M_elemental_variables;
     std::vector<Vectorial_Variable> M_vectorial_variables;
 
-    double M_miss_val = -1e+14; // Must be smaller than any expected result
+    double M_miss_val = -16e6;//std::numeric_limits<double>::quiet_NaN(); //-16e+6; // Must be smaller than any expected result
 
     std::vector<int> const &getGridP() const { return M_gridP; }
     std::vector<std::vector<int>> const &getTriangles() const { return M_triangles; }
