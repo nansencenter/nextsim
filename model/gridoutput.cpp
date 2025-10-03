@@ -551,11 +551,10 @@ GridOutput::updateGridMeanWorker(FEMeshType const& mesh, std::vector<double> con
 }//updateGridMeanWorker
 
 // Set the land-sea mask
-/* This function should _only_ be called by the root and _only_ with bamgmesh_root as an argument.
- * You only need to call it if you want an LSM in your output or you need to get at it in the code
+/* You only need to call it if you want an LSM in your output or you need to get at it in the code
  * via GridOutput::getLSM() */
 void
-GridOutput::setLSM(GmshMeshSeq const& mesh_root)
+GridOutput::setLSM(GmshMesh const& mesh)
 {
     M_use_lsm = true;
 
@@ -563,14 +562,17 @@ GridOutput::setLSM(GmshMeshSeq const& mesh_root)
     std::vector<Variable> variables(1);
     variables[0] = Variable(variableID::lsm);
     variables[0].data_grid.assign(M_grid_size,0);
-    variables[0].data_mesh.assign(mesh_root.numTriangles(), 1.);
+    variables[0].data_mesh.assign(mesh.numTriangles(), 1.);
 
     // Mesh displacement of zero
-    std::vector<double> UM(2*mesh_root.numNodes(), 0.);
+    std::vector<double> UM(2*mesh.numNodes(), 0.);
 
-    this->updateGridMeanWorker(mesh_root, UM, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
+    this->updateGridMeanWorker(mesh, UM, variableKind::elemental, interpMethod::meshToMesh, variables, 0.);
 
-    M_lsm = std::vector<int>(variables[0].data_grid.begin(), variables[0].data_grid.end());
+    std::vector<int> local_lsm = std::vector<int>(variables[0].data_grid.begin(), variables[0].data_grid.end());
+
+    // boost mpi cannot reduce vectors
+    MPI_Allreduce(local_lsm.data(), M_lsm.data(), M_grid_size, MPI_INT, MPI_SUM, MPI_Comm(M_comm));
 }
 
 // Rotate the vectors as needed
@@ -812,7 +814,7 @@ GridOutput::broadcastWeights(std::vector<int>& gridP,
 
 // Initialise a netCDF file and return the file name in an std::string
 std::string
-GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time, bool append)
+GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double current_time, bool append, bool parallel)
 {
     // Choose the right file name, depending on how much data goes in there
     boost::gregorian::date now = Nextsim::parse_date(current_time);
@@ -861,9 +863,18 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     if ( append && boost::filesystem::exists(full_path) )
         return filename.str();
 
+    if (parallel) parallel_initNetCDF(filename.str());
+    else sequential_initNetCDF(filename.str());
+
+    return filename.str();
+}
+
+void
+GridOutput::sequential_initNetCDF(std::string filename)
+{
     // Create the netCDF file.
     //LOG(DEBUG) <<"Initialise mooring file named " << filename.str() << "\n";
-    netCDF::NcFile dataFile(filename.str(), netCDF::NcFile::replace);
+    netCDF::NcFile dataFile(filename, netCDF::NcFile::replace);
 
     // Create the projection variable
     // FIXME: This only works for the regular grid for now
@@ -952,9 +963,127 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     dataFile.putAtt("institution", "NERSC, Jahnebakken 3, N-5007 Bergen, Norway");
     dataFile.putAtt("source", "neXtSIM model fields");
 
-    return filename.str();
-}
+} // sequential_initNetCDF
 
+// In parallel, the file must be create using the nc_create_par function
+// So a parallel init function is needed to do the same thing as the sequential one
+void
+GridOutput::parallel_initNetCDF(std::string filename)
+{
+    // Create the netCDF file.
+    int ncid, tDim, nvDim, time, time_bnds, xDim, yDim, lon, lat, data;
+    nc_create_par(filename.c_str(), NC_NETCDF4|NC_MPIIO, MPI_Comm(M_comm), MPI_INFO_NULL, &ncid);
+
+    // Create the projection variable
+    // FIXME: This only works for the regular grid for now
+    if ( !M_grid.loaded )
+        this->createProjectionVariableParallel(ncid);
+
+    // Create the time dimension
+    nc_def_dim(ncid, "time", NC_UNLIMITED, &tDim);
+
+    // Create the nv dimension for time_bnds
+    nc_def_dim(ncid, "nv", 2, &nvDim);
+
+    // Create the time variable
+    int dimids[1] = { tDim };
+    nc_def_var(ncid, "time", NC_DOUBLE, 1, dimids, &time);
+    nc_put_att_text(ncid, time, "standard_name", strlen("time"), "time");
+    nc_put_att_text(ncid, time, "long_name", strlen("simulation time"), "simulation time");
+    nc_put_att_text(ncid, time, "units", strlen("days since 1900-01-01 00:00:00"), "days since 1900-01-01 00:00:00");
+    nc_put_att_text(ncid, time, "calendar", strlen("standard"), "standard");
+    nc_put_att_text(ncid, time, "bounds", strlen("time_bnds"), "time_bnds");
+
+
+    // Create the time_bnds variable (specify the time period each record applies to)
+    int dims_bnds[2] = {tDim, nvDim};
+    nc_def_var(ncid, "time_bnds", NC_DOUBLE, 2, dims_bnds, &time_bnds);
+    nc_put_att_text(ncid, time_bnds, "units", strlen("days since 1900-01-01 00:00:00"), 
+                    "days since 1900-01-01 00:00:00");
+
+    // Create the two spatial dimensions.
+    nc_def_dim(ncid, "x", M_ncols, &xDim);
+    nc_def_dim(ncid, "y", M_nrows, &yDim);
+    int dims2[2] = {yDim, xDim};
+
+    // cell methods - combine time method with hard-coded area method defined for each variable
+    std::string cell_methods_time = "time: point ";//for snapshot
+    if (M_averaging_period>0)
+    {
+        double averaging_period = 24*M_averaging_period;//hours
+        cell_methods_time = (boost::format( "time: mean (interval: %1% hours) " )
+                               % averaging_period
+                               ).str();
+    }
+
+    std::vector<int> local_rows(M_comm.size());
+    std::vector<int> local_cols(M_comm.size());
+    int row_offset = 0;
+    int col_offset = 0;
+    std::vector<size_t> start = {(size_t) row_offset, (size_t) col_offset};
+    std::vector<size_t> count = {(size_t) M_nrows, (size_t) M_ncols};
+
+    // Create the longitude and latitude variables
+    // Longitude
+    nc_def_var(ncid, "longitude", NC_FLOAT, 2, dims2, &lon);
+    nc_put_att_text(ncid, lon, "standard_name", strlen("longitude"), "longitude");
+    nc_put_att_text(ncid, lon, "long_name", strlen("longitude"), "longitude");
+    nc_put_att_text(ncid, lon, "units", strlen("degrees_east"), "degrees_east");
+    std::vector<float> float_longitude(M_grid.gridLON.size());
+    std::transform(M_grid.gridLON.begin(), M_grid.gridLON.end(), float_longitude.begin(),
+               [](double v){ return static_cast<float>(v); });
+    nc_put_vara_float(ncid, lon, start.data(), count.data(), &float_longitude[0]);
+
+    // Latitude
+    nc_def_var(ncid, "latitude", NC_FLOAT, 2, dims2, &lat);
+    nc_put_att_text(ncid, lat, "standard_name", strlen("latitude"), "latitude");
+    nc_put_att_text(ncid, lat, "long_name", strlen("latitude"), "latitude");
+    nc_put_att_text(ncid, lat, "units", strlen("degrees_north"), "degrees_north");
+    std::vector<float> float_latitude(M_grid.gridLAT.size());
+    std::transform(M_grid.gridLAT.begin(), M_grid.gridLAT.end(), float_latitude.begin(),
+               [](double v){ return static_cast<float>(v); });
+    nc_put_vara_float(ncid, lat, start.data(), count.data(), &float_latitude[0]);
+
+    float miss_val = M_miss_val;
+    // Create the output variables
+    int dims[3] = {tDim, yDim, xDim};
+    for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
+    {
+        if ( it->varID < 0 ) // Skip non-outputting variables
+            continue;
+        nc_def_var(ncid, it->name.c_str(), NC_FLOAT, 3, dims, &data);
+        nc_put_att_text(ncid, data, "standard_name", it->stdName.size(), it->stdName.c_str());
+        nc_put_att_text(ncid, data, "long_name", it->longName.size(), it->longName.c_str());
+        nc_put_att_text(ncid, data, "coordinates", strlen("latitude longitude"), "latitude longitude");
+        nc_put_att_text(ncid, data, "units", it->Units.size(), it->Units.c_str());
+        std::string cell_methods_full = cell_methods_time + it->cell_methods;
+        nc_put_att_text(ncid, data, "cell_methods", cell_methods_full.size(), cell_methods_full.c_str());
+        nc_put_att_float(ncid, data, "_FillValue", NC_FLOAT, 1, &miss_val);
+    }
+    for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
+    {
+        if ( it->varID < 0 ) // Skip non-outputting variables
+            continue;
+        nc_def_var(ncid, it->name.c_str(), NC_FLOAT, 3, dims, &data);
+        nc_put_att_text(ncid, data, "standard_name", it->stdName.size(), it->stdName.c_str());
+        nc_put_att_text(ncid, data, "long_name", it->longName.size(), it->longName.c_str());
+        nc_put_att_text(ncid, data, "coordinates", strlen("latitude longitude"), "latitude longitude");
+        nc_put_att_text(ncid, data, "units", it->Units.size(), it->Units.c_str());
+        std::string cell_methods_full = cell_methods_time + it->cell_methods;
+        nc_put_att_text(ncid, data, "cell_methods", cell_methods_full.size(), cell_methods_full.c_str());
+        nc_put_att_float(ncid, data, "_FillValue", NC_FLOAT, 1, &miss_val);
+    }
+
+    // - set the global attributes
+    nc_put_att_text(ncid, NC_GLOBAL, "Conventions", strlen("CF-1.6"), "CF-1.6");
+    nc_put_att_text(ncid, NC_GLOBAL, "institution",
+                    strlen("NERSC, Jahnebakken 3, N-5007 Bergen, Norway"),
+                    "NERSC, Jahnebakken 3, N-5007 Bergen, Norway");
+    nc_put_att_text(ncid, NC_GLOBAL, "source",
+                    strlen("neXtSIM model fields"), "neXtSIM model fields");
+
+    nc_close(ncid);
+}
 
 void
 GridOutput::createProjectionVariable(netCDF::NcFile &dataFile)
@@ -995,6 +1124,52 @@ GridOutput::createProjectionVariable(netCDF::NcFile &dataFile)
     close_mapx(map);
 }
 
+void
+GridOutput::createProjectionVariableParallel(int ncid)
+{
+    // - get the projection
+    mapx_class *map;
+    char* mppfile = const_cast<char*>(Environment::nextsimMppfile().c_str());
+    map = init_mapx(mppfile);
+
+    // - determine false easting string
+    int false_easting = (M_false_easting) ? 1 : 0;
+
+    double a = 1.e3*map->equatorial_radius;
+    double b = 1.e3*map->polar_radius;
+    double lat0 = map->lat0;
+    double lat_ts = map->lat1;
+    double rotn = map->rotation;
+    std::string proj4 = ( boost::format( "+proj=stere +a=%1% +b=%2% +lat_0=%3% +lat_ts=%4% +lon_0=%5%" )
+            %a
+            %b
+            %lat0
+            %lat_ts
+            %rotn
+            ).str();
+
+    // - add the projection variable
+    int ndims = 0;
+    int proj;
+    size_t size = 1;
+    nc_def_var(ncid, "Polar_Stereographic_Grid", NC_INT, ndims, nullptr, &proj);
+    nc_put_att_text(ncid, proj, "grid_mapping_name", 19, "polar_stereographic");
+    std::string f = std::to_string(false_easting);
+    nc_put_att_text(ncid, proj, "false_easting", f.size(), f.c_str());
+    nc_put_att_text(ncid, proj, "false_northing", f.size(), f.c_str());
+    f = std::to_string(a);
+    nc_put_att_text(ncid, proj, "semi_major_axis", f.size(), f.c_str());
+    f = std::to_string(b);
+    nc_put_att_text(ncid, proj, "semi_minor_axis", f.size(), f.c_str());
+    f = std::to_string(rotn);
+    nc_put_att_text(ncid, proj, "straight_vertical_longitude_from_pole", f.size(), f.c_str());
+    f = std::to_string(lat0);
+    nc_put_att_text(ncid, proj, "latitude_of_projection_origin", f.size(), f.c_str());
+    f = std::to_string(lat_ts);
+    nc_put_att_text(ncid, proj, "standard_parallel", f.size(), f.c_str());
+    nc_put_att_text(ncid, proj, "proj4_string", proj4.size(), proj4.c_str());
+    close_mapx(map);
+}
 
 // Write data to the netCDF file
 void
@@ -1043,6 +1218,535 @@ GridOutput::appendNetCDF(std::string filename, double timestamp)
         data.putVar(start, count, &it->data_grid[0]);
     }
 }
+
+// Write the netCDF file in parallel
+void
+GridOutput::appendNetCDFParallel(std::string filename, double timestamp, std::vector<double> bounds)
+{
+    int ncid, time, tDim, time_bnds, data, data2;
+    size_t nc_step;
+
+    // Time is written only by the root process
+    if (M_comm.rank() == 0)
+    {
+        // Open the netCDF file
+        nc_open(filename.c_str(), NC_WRITE, &ncid);
+    
+        // Append to time
+        nc_inq_varid(ncid, "time", &time);
+        nc_inq_vardimid(ncid, time, &tDim);
+        nc_inq_dimlen(ncid, tDim, &nc_step);
+        size_t start[1] = {nc_step};
+        size_t count[1] = {1};
+        nc_put_vara_double(ncid, time, start, count, &timestamp);
+    
+        // Append to time_bnds
+        nc_inq_varid(ncid, "time_bnds", &time_bnds);
+        size_t start2[2] = {nc_step, 0};
+        size_t count2[2] = {1, 2};
+        double tbdata[2] = { timestamp - 0.5*M_averaging_period,
+                             timestamp + 0.5*M_averaging_period };
+        nc_put_vara_double(ncid, time_bnds, start2, count2, tbdata);
+        nc_close(ncid);
+    }
+
+    boost::mpi::broadcast(M_comm, &nc_step, 1, 0);
+
+    // Apply mask - if needed
+    if (M_use_lsm) this->applyLSM();
+
+    // Append to the output variables
+    // Decomposition of the domain in rectangles
+    std::vector<std::vector<std::vector<double>>> list_rectangles(M_comm.size());
+    std::vector<std::vector<int>> list_recv(M_comm.size());
+    std::vector<std::vector<int>> list_send(M_comm.size());
+    domain_splitting(list_rectangles, bounds, list_recv, list_send);
+
+    // Exchange the nodal and element data
+    std::vector<std::vector<std::vector<double>>> nodal_send(M_comm.size());
+    std::vector<std::vector<std::vector<double>>> elemental_send(M_comm.size());
+    std::vector<std::vector<std::vector<double>>> nodal_recv(M_comm.size());
+    std::vector<std::vector<std::vector<double>>> elemental_recv(M_comm.size());
+    data_exchange(nodal_send, nodal_recv, elemental_send, elemental_recv, list_send);
+
+#ifdef NETCDF_PARALLEL
+    // Open the file and write the data
+    nc_open_par(filename.c_str(), NC_WRITE, M_comm, MPI_INFO_NULL, &ncid);
+    writeNetCDFParallel(list_rectangles[M_comm.rank()], nodal_recv, elemental_recv, list_recv, nc_step, ncid);
+    nc_close(ncid);
+#endif
+
+} // appendNetCDFParallel
+
+// Compute the intersection between two rectangles
+std::vector<double> 
+GridOutput::intersection(std::vector<double> rect1, std::vector<double> rect2)
+{
+    std::vector<double> res(4);
+    res[0] = std::max(rect1[0], rect2[0]); // xmin
+    res[1] = std::max(rect1[1], rect2[1]); // ymin
+    res[2] = std::min(rect1[2], rect2[2]); // xmax
+    res[3] = std::min(rect1[3], rect2[3]); // ymax
+
+    return res;
+} // intersection
+
+// Check if a point is inside a list of rectangles
+int
+GridOutput::is_inside(double x, double y, std::vector<std::vector<double>> list_rects)
+{
+    int res = 0;
+
+    for (int i = 0; i < list_rects.size(); i++)
+    {
+        if (list_rects[i][0] <= x && x <= list_rects[i][2] && 
+            list_rects[i][1] <= y && y <= list_rects[i][3]) 
+        {
+            res = 1;
+            break;
+        }
+    }
+
+    return res;
+} // is_inside
+
+// Remove the list of rectangles list_rects from the initial rectangle rect1
+// The remaining domain is divided in rectangles
+std::vector<std::vector<double>> 
+GridOutput::remove_rectangles(const std::vector<double>& rect1, const std::vector<std::vector<double>>& list_rects)
+{
+    std::vector<std::vector<double>> rectangles;
+
+    if (list_rects.empty()) return {rect1}; // No rectangle to remove from the initial rectangle
+
+    // First, compute the list of rectangles covering the remaining domain
+    // Find every x-coordinate and y-coordinate
+    std::vector<double> list_x, list_y;
+    list_x.push_back(rect1[0]);
+    list_x.push_back(rect1[2]);
+    list_y.push_back(rect1[1]);
+    list_y.push_back(rect1[3]);
+
+    for (int i = 0; i < list_rects.size(); i++)
+    {
+        list_x.push_back(list_rects[i][0]);
+        list_x.push_back(list_rects[i][2]);
+        list_y.push_back(list_rects[i][1]);
+        list_y.push_back(list_rects[i][3]);
+    }
+
+    // Sort the lists and then remove the duplicates
+    std::sort(list_x.begin(), list_x.end());
+    std::sort(list_y.begin(), list_y.end());
+
+    std::vector<double> x,y;
+    x.push_back(list_x[0]);
+    y.push_back(list_y[0]);
+    for (int i = 1; i < list_x.size(); i++)
+    {
+        if (fabs(list_x[i] - list_x[i-1]) > 1e-4) x.push_back(list_x[i]);
+        if (fabs(list_y[i] - list_y[i-1]) > 1e-4) y.push_back(list_y[i]);
+    }
+
+    // Find the list of rectangles covering the remaining domain
+    int ncols = x.size()-1;
+    int nrows = y.size()-1;
+    std::vector<std::vector<int>> grid(ncols, std::vector<int>(nrows,0));
+    int k = 0;
+    for (int i = 0; i < ncols; i++)
+    {
+        for (int j = 0; j < nrows; j++)
+        {
+            // Check whether the gravity point of the rectangle is inside one of the rectangles to remove
+            double xg = 0.5*(x[i]+x[i+1]);
+            double yg = 0.5*(y[j]+y[j+1]);
+            if (!is_inside(xg,yg,list_rects))
+                // The rectangle is covering the remaining domain
+                grid[i][j] = 1;
+        }
+    }
+
+    // Second, merge as much as possible rectangles to form bigger rectangles
+    for (int i = 0; i < ncols; i++)
+    {
+        for (int j = 0; j < nrows; j++)
+        {
+            if (grid[i][j] == 1) {
+                // Find the rectangle width
+                int right = i;
+                while (right + 1 < ncols && grid[right+1][j] == 1)
+                    right++;
+
+                // Find the rectangle height
+                int top = j;
+                bool full = true;
+                while (full && top + 1 < nrows) {
+                    for (int r = i; r <= right; r++) {
+                        if (grid[r][top + 1] == 0) {
+                            full = false;
+                            break;
+                        }
+                    }
+                    if (full) top++;
+                }
+
+                // Tag the cells that belong to the rectangle
+                for (int r = i; r <= right; r++)
+                    for (int c = j; c <= top; c++)
+                        grid[r][c] = 0;
+
+                rectangles.push_back({x[i], y[j], x[right+1], y[top+1]});
+            }
+        }
+    }
+
+    return rectangles;
+
+} // remove_rectangles
+
+// For parallel writing, split the local domain in rectangles that do no overlap
+// The whole set of rectangles cover the whole grid
+void
+GridOutput::domain_splitting(std::vector<std::vector<std::vector<double>>>& list_rectangles, const std::vector<double>& bounds, 
+                             std::vector<std::vector<int>>& list_recv, std::vector<std::vector<int>>& list_send)
+{
+    int nprocs = M_comm.size();
+
+    // Find the bounding rectangle of each local domain
+    std::vector<std::vector<double>> bounding_box(nprocs, std::vector<double>(4));
+    std::vector<double> o(nprocs);
+    boost::mpi::all_gather(M_comm,bounds[0],o);
+    for (int i = 0; i < nprocs; i++) bounding_box[i][0] = o[i];
+    boost::mpi::all_gather(M_comm,bounds[1],o);
+    for (int i = 0; i < nprocs; i++) bounding_box[i][1] = o[i];
+    boost::mpi::all_gather(M_comm,bounds[2],o);
+    for (int i = 0; i < nprocs; i++) bounding_box[i][2] = o[i];
+    boost::mpi::all_gather(M_comm,bounds[3],o);
+    for (int i = 0; i < nprocs; i++) bounding_box[i][3] = o[i];
+
+    // The bounding rectangle of the root process is directly added
+    list_rectangles[0].push_back({bounding_box[0][0], bounding_box[0][1], bounding_box[0][2], bounding_box[0][3]});
+
+    for (int i = 1; i < nprocs; i++) // Loop to find the list of rectangles in each partition
+    {
+        std::vector<std::vector<double>> rectangles_to_remove;
+        for (int j = 0; j < i; j++) // Loop over the previous partitions
+        {
+            // Check whether the bounding boxes of both local domains intersect
+            std::vector<double> intersec = intersection(bounding_box[i], bounding_box[j]);
+
+            if (intersec[2]-intersec[0] <= 0. || intersec[3]-intersec[1] <= 0.) continue; // No intersection
+
+            for (int k = 0; k < list_rectangles[j].size(); k++) // Loop over the rectangles of the previous partitions
+            {
+                // Compute the intersection between both rectangles
+                std::vector<double> tmp = intersection(list_rectangles[j][k], bounding_box[i]);
+                // Add the intersection rectangle if it exists
+                if (tmp[2]-tmp[0] > 0 && tmp[3]-tmp[1] > 0) rectangles_to_remove.push_back(tmp);
+            }
+        }
+        // Remove the parts of the bounding rectangle that overlap the previous domain
+        list_rectangles[i] = remove_rectangles(bounding_box[i], rectangles_to_remove);
+    }
+
+    // Find the list of grid nodes to exchange
+    compute_exchange_points(list_rectangles, bounding_box[M_comm.rank()], list_recv, list_send); 
+
+} // domain_splitting
+
+// Exchange the needed data
+void
+GridOutput::data_exchange(std::vector<std::vector<std::vector<double>>>& nodal_send, 
+                          std::vector<std::vector<std::vector<double>>>& nodal_recv,
+                          std::vector<std::vector<std::vector<double>>>& elemental_send, 
+                          std::vector<std::vector<std::vector<double>>>& elemental_recv,
+                          const std::vector<std::vector<int>>& list_send)
+{
+    // Prepare the list of data to exchange
+    for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
+    {
+        if ( it->varID < 0 ) // Skip non-outputting variables
+            continue;
+
+        for (int k = 0; k < M_comm.size(); k++)
+        {
+            if (k == M_comm.rank()) continue;
+
+            std::vector<double> tmp(list_send[k].size());
+            for (int i = 0; i < list_send[k].size(); i++)
+            {
+                int ind = list_send[k][i];
+                tmp[i] = it->data_grid[ind];
+            }
+
+            nodal_send[k].push_back(tmp);
+        }
+    }
+
+    for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
+    {
+        if ( it->varID < 0 ) // Skip non-outputting variables
+            continue;
+
+        for (int k = 0; k < M_comm.size(); k++)
+        {
+            if (k == M_comm.rank()) continue;
+
+            std::vector<double> tmp(list_send[k].size());
+            for (int i = 0; i < list_send[k].size(); i++)
+            {
+                int ind = list_send[k][i];
+                tmp[i] = it->data_grid[ind];
+            }
+
+            elemental_send[k].push_back(tmp);
+        }
+    }
+
+    // Make the exchanges
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        if (k == M_comm.rank()) continue;
+
+        M_comm.send(k, M_comm.rank(), nodal_send[k]);
+        M_comm.recv(k, k, nodal_recv[k]);
+
+        M_comm.send(k, M_comm.rank(), elemental_send[k]);
+        M_comm.recv(k, k, elemental_recv[k]);
+    }
+
+}//data_exchange
+
+#ifdef NETCDF_PARALLEL
+// Write the variables in the netCDF file in parallel
+void
+GridOutput::writeNetCDFParallel(const std::vector<std::vector<double>>& list_rectangles,
+                                const std::vector<std::vector<std::vector<double>>>& nodal_recv,
+                                const std::vector<std::vector<std::vector<double>>>& elemental_recv,
+                                const std::vector<std::vector<int>>& list_recv, size_t nc_step,
+                                int ncid)
+{
+    int data;
+
+    // Store the received data in their corresponding rectangle
+    std::vector<int> imin(list_rectangles.size());
+    std::vector<int> imax(list_rectangles.size());
+    std::vector<int> jmin(list_rectangles.size());
+    std::vector<int> jmax(list_rectangles.size());
+    for (int k = 0; k < list_rectangles.size(); k++)
+    {
+        if (M_is_regular_grid)
+        {
+            find_box(imin[k], imax[k], jmin[k], jmax[k], list_rectangles[k]);
+        }
+        else if (M_grid.loaded)
+        {
+            std::vector<int> list_indices;
+            find_indices(list_indices, list_rectangles[k]);
+            imin[k] = *std::min_element(list_indices.begin(), list_indices.end(),
+                       [this](int a, int b){ return (a % M_ncols) < (b % M_ncols); }) % M_ncols;
+            imax[k] = *std::max_element(list_indices.begin(), list_indices.end(),
+                       [this](int a, int b){ return (a % M_ncols) < (b % M_ncols); }) % M_ncols;
+            jmin[k] = *std::min_element(list_indices.begin(), list_indices.end(),
+                       [this](int a, int b){ return (a / M_ncols) < (b / M_ncols); }) / M_ncols;
+            jmax[k] = *std::max_element(list_indices.begin(), list_indices.end(),
+                       [this](int a, int b){ return (a / M_ncols) < (b / M_ncols); }) / M_ncols;
+        }
+    }
+   
+    std::vector<std::vector<int>> indices(list_rectangles.size());
+    for (int n = 0; n < M_comm.size(); n++)
+    {
+        if (n == M_comm.rank()) continue;
+
+        for (int i = 0; i < list_recv[n].size(); i++)
+        {
+            int x = list_recv[n][i]%M_ncols;
+            int y = list_recv[n][i]/M_ncols;
+            for (int k = 0; k < list_rectangles.size(); k++)
+            {
+                if (x >= imin[k] && x < imax[k] && y >= jmin[k] && y < jmax[k]) 
+                {
+                    indices[k].push_back(n + M_comm.size()*i);
+                    break;
+                }
+            }
+        }
+    }
+
+    // The netCDF file is written in parallel, so each process must come in nc_put_vara_float
+    // the same number of times. Here, there is therefore dummy writing for some processes
+    int local_size = list_rectangles.size();
+    int max_size = boost::mpi::all_reduce(M_comm, local_size, boost::mpi::maximum<int>());
+    
+    for (int k = 0; k < max_size; k++)
+    {
+        size_t start[3] = {nc_step, 0, 0};
+        size_t count[3] = {1, 0, 0};
+        if (k < local_size)
+        {
+            start[0] = nc_step;
+            start[1] = (size_t) jmin[k];
+            start[2] = (size_t) imin[k]; 
+            count[0] = 1;
+            count[1] = (size_t) jmax[k] - jmin[k];
+            count[2] = (size_t) imax[k] - imin[k]; 
+        }
+
+        int el = -1;
+        float miss_val = (float) M_miss_val;
+
+        for (auto* container : { &M_nodal_variables, &M_elemental_variables }) 
+        {
+            el++;
+            int ID = 0;
+            for (auto it = container->begin(); it != container->end(); it++)
+            {
+                if ( it->varID < 0 ) // Skip non-outputting variables
+                continue;
+
+                nc_inq_varid(ncid, it->name.c_str(), &data);
+                nc_var_par_access(ncid, data, NC_COLLECTIVE);
+
+                if (k < local_size)
+                { 
+                    // First, write the local data
+                    std::vector<float> tmp((jmax[k] - jmin[k])*(imax[k] - imin[k]));
+                    for (int i = imin[k]; i < imax[k]; i++)
+                    {
+                        for (int j = jmin[k]; j < jmax[k]; j++)
+                        {
+                            int ind_glob = i + j * M_ncols;
+                            int ind_loc = i-imin[k] + (j-jmin[k]) * (imax[k]-imin[k]);
+                            tmp[ind_loc] = (float) it->data_grid[ind_glob];
+                        }
+                    }
+    
+                    // Second, write the data from other processes
+                    std::vector<std::vector<std::vector<double>>> value;
+                    if (el)
+                        value = elemental_recv;
+                    else
+                        value = nodal_recv;
+    
+                    for (int i = 0; i < indices[k].size(); i++)
+                    {
+                        int n = indices[k][i]%M_comm.size();
+                        int ii = indices[k][i]/M_comm.size();
+                        int x = list_recv[n][ii]%M_ncols;
+                        int y = list_recv[n][ii]/M_ncols;
+                        int ind_loc = x - imin[k] + (y-jmin[k]) * (imax[k]-imin[k]);
+
+                        // If the point has already been written locally, it should not be erased
+                        if (fabs(tmp[ind_loc]-miss_val)<1 || fabs(tmp[ind_loc]) < 1.e-8) tmp[ind_loc] = (float) value[n][ID][ii];
+                    }
+    
+                    nc_put_vara_float(ncid, data, start, count, &tmp[0]);
+                }
+                else // Dummy
+                    nc_put_vara_float(ncid, data, start, count, nullptr);
+
+                ID++;
+            }
+        }
+    }
+} // writeNetCDFParallel
+#endif
+
+// Find the corresponding global indices of the grid of a given rectangle
+// for a regular grid
+void
+GridOutput::find_box(int& imin, int& imax, int& jmin, int& jmax, const std::vector<double>& box)
+{
+    imin = 0; 
+    while (M_xmin + imin*M_mooring_spacing < box[0]) imin++;
+    imax = imin;
+    while (M_xmin + imax*M_mooring_spacing < box[2]) imax++;
+
+    double M_ymin = M_ymax - (M_nrows-1)*M_mooring_spacing;
+    jmin = 0;
+    while (M_ymin + jmin*M_mooring_spacing < box[1]) jmin++;
+    jmax = jmin;
+    while (M_ymin + jmax*M_mooring_spacing < box[3]) jmax++;
+} // find_box
+
+// Find the corresponding global indices of the grid of a given rectangle
+// for an arbitrary grid
+void 
+GridOutput::find_indices(std::vector<int> list_indices, const std::vector<double>& box)
+{
+    for (int i = 0; i < M_grid_size; i++)
+    {
+        if (is_inside(M_grid.gridX[i], M_grid.gridY[i], {box})) list_indices.push_back(i);
+    }
+} // find_indices
+
+// Exchange the global indices where each process need information from the other processes
+void
+GridOutput::compute_exchange_points(const std::vector<std::vector<std::vector<double>>>& list_rectangles, 
+                                    const std::vector<double>& bounding_box, 
+                                    std::vector<std::vector<int>>& list_recv, 
+                                    std::vector<std::vector<int>>& list_send)
+{
+    // First store the grid points that belong to the bounding box
+    std::vector<double> coordx;
+    std::vector<double> coordy;
+    std::vector<int> indices;
+
+    if (M_grid.loaded)
+    {
+        for (int i = 0; i < M_grid_size; i++)
+        {
+            if (is_inside(M_grid.gridX[i], M_grid.gridY[i], {bounding_box}))
+            {
+                coordx.push_back(M_grid.gridX[i]);
+                coordy.push_back(M_grid.gridY[i]);
+                indices.push_back(i);
+            }
+        }
+    }
+    else if (M_is_regular_grid)
+    {
+        int imin, imax, jmin, jmax;
+        find_box(imin, imax, jmin, jmax, bounding_box);
+        int M_ymin = M_ymax - (M_nrows - 1) * M_mooring_spacing;
+
+        for (int i = imin; i < imax; i++)
+        {
+            for (int j = jmin; j < jmax; j++)
+            {
+                coordx.push_back(M_xmin + i*M_mooring_spacing); 
+                coordy.push_back(M_ymin + j*M_mooring_spacing);
+                indices.push_back(i + j*M_ncols);
+            }
+        }
+    }
+
+    // Store the grid points in the corresponding exchange lists
+    for (int i = 0; i < coordx.size(); i++)
+    {
+        for (int k = 0; k < M_comm.size(); k++)
+        {
+            if (k == M_comm.rank()) continue;
+
+            if (is_inside(coordx[i], coordy[i], list_rectangles[k]))
+            {
+                list_send[k].push_back(indices[i]);
+                break;
+            }
+        }
+    }
+
+    // Exchange the list of indices
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        if (k == M_comm.rank()) continue;
+
+        M_comm.send(k, M_comm.rank(), list_send[k]);
+        M_comm.recv(k, k, list_recv[k]);
+    }
+
+}//compute_exchange_points
 
 // Diagnostic output on stdout - for debugging
 void
