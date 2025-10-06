@@ -668,18 +668,39 @@ Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT)
         M_drifter_X.resize(M_i.size());
         M_drifter_Y.resize(M_i.size());
 
-        std::vector<int> rcounts(M_comm.size());
-        boost::mpi::gather(M_comm, size, rcounts, 0);
-        boost::mpi::gatherv(M_comm, M_nb_drifter, &M_drifter_i[0], rcounts, 0);
-        boost::mpi::gatherv(M_comm, M_local_drifter_X, &M_drifter_X[0], rcounts, 0);
-        boost::mpi::gatherv(M_comm, M_local_drifter_Y, &M_drifter_Y[0], rcounts, 0);
+        for (int i = 0; i < M_nb_drifter.size(); i++)
+        {
+            M_drifter_i[i] = M_nb_drifter[i];
+            M_drifter_X[i] = M_local_drifter_X[i];
+            M_drifter_Y[i] = M_local_drifter_Y[i];
+        }
+
+        for (int i = 1; i < M_comm.size(); i++)
+        {
+            M_comm.recv(i,i,size);
+            if (size == 0) continue;
+
+            std::vector<int> local_drifter_i;
+            std::vector<double> local_drifter_X, local_drifter_Y;
+            M_comm.recv(i,i,local_drifter_i);
+            M_comm.recv(i,i,local_drifter_X);
+            M_comm.recv(i,i,local_drifter_Y);
+
+            M_drifter_i.insert(M_drifter_i.end(), local_drifter_i.begin(), local_drifter_i.end());
+            M_drifter_X.insert(M_drifter_X.end(), local_drifter_X.begin(), local_drifter_X.end());
+            M_drifter_Y.insert(M_drifter_Y.end(), local_drifter_Y.begin(), local_drifter_Y.end());
+        }
+
     }
     else
     {
-        boost::mpi::gather(M_comm, size, 0);
-        boost::mpi::gatherv(M_comm, M_nb_drifter, 0);
-        boost::mpi::gatherv(M_comm, M_local_drifter_X, 0);
-        boost::mpi::gatherv(M_comm, M_local_drifter_Y, 0);
+        M_comm.send(0, M_comm.rank(), size);
+        if (size != 0) 
+        {
+            M_comm.send(0, M_comm.rank(), M_nb_drifter);
+            M_comm.send(0, M_comm.rank(), M_local_drifter_X);
+            M_comm.send(0, M_comm.rank(), M_local_drifter_Y);
+        }
     }
 
     if (M_comm.rank() != 0) {
@@ -801,11 +822,13 @@ Drifters::maskXY(std::vector<double> & conc_drifters, std::vector<int> const& ke
     }
     else
     {
+        int max_id = *std::max_element(idx.begin(), idx.end());
+        std::vector<int> indices(max_id+1,0);
+        for ( int i=0; i<keepers.size(); ++i) indices[keepers[i]] = 1;
+
         for ( int i=0; i<idx.size(); ++i )
         {
-            int const id_count = std::count(keepers.begin(),
-                        keepers.end(), idx[i]);
-            if ( conc[i] > M_conc_lim && id_count>0 )
+            if ( conc[i] > M_conc_lim && indices[idx[i]] )
             {
                 M_X.push_back(X[i]);
                 M_Y.push_back(Y[i]);
