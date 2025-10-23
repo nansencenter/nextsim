@@ -157,7 +157,7 @@ namespace Nextsim
             ("moorings.grid_transpose", po::value<bool>()->default_value( false ), "If true we assume the first dimension is x and the second y (non-standard ordering).")
             ("moorings.false_easting", po::value<bool>()->default_value( true ),
                 "true: we output vectors relative to the output grid; false: we give their north-south components. NB only implemented for grid_type=regular")
-            ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
+            ("moorings.parallel_output", po::value<bool>()->default_value( false ), "Use true to save netcdf files in parallel. Note that this is only faster for larger meshes.")
 
 
             // -- drifters
