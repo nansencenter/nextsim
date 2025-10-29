@@ -1582,7 +1582,7 @@ GridOutput::writeNetCDFParallel(const std::vector<std::vector<double>>& list_rec
     for (int k = 0; k < max_size; k++)
     {
         size_t start[3] = {nc_step, 0, 0};
-        size_t count[3] = {0, 0, 0};
+        size_t count[3] = {1, 0, 0};
         if (k < local_size)
         {
             start[0] = nc_step;
@@ -1599,7 +1599,7 @@ GridOutput::writeNetCDFParallel(const std::vector<std::vector<double>>& list_rec
         for (auto* container : { &M_nodal_variables, &M_elemental_variables }) 
         {
             el++;
-            int ID = -1;
+            int ID = 0;
             for (auto it = container->begin(); it != container->end(); it++)
             {
                 if ( it->varID < 0 ) // Skip non-outputting variables
@@ -1607,48 +1607,46 @@ GridOutput::writeNetCDFParallel(const std::vector<std::vector<double>>& list_rec
 
                 nc_inq_varid(ncid, it->name.c_str(), &data);
                 nc_var_par_access(ncid, data, NC_COLLECTIVE);
-                ID++;
 
-                if (k >= local_size)
-                {
-                    nc_var_par_access(ncid, data, NC_INDEPENDENT);
-                    nc_put_vara_float(ncid, data, start, count, nullptr);
-                    nc_var_par_access(ncid, data, NC_COLLECTIVE);
-                    continue;
-                }
-
-                // First, write the local data
-                std::vector<float> tmp((jmax[k] - jmin[k])*(imax[k] - imin[k]));
-                for (int i = imin[k]; i < imax[k]; i++)
-                {
-                    for (int j = jmin[k]; j < jmax[k]; j++)
+                if (k < local_size)
+                { 
+                    // First, write the local data
+                    std::vector<float> tmp((jmax[k] - jmin[k])*(imax[k] - imin[k]));
+                    for (int i = imin[k]; i < imax[k]; i++)
                     {
-                        int ind_glob = i + j * M_ncols;
-                        int ind_loc = i-imin[k] + (j-jmin[k]) * (imax[k]-imin[k]);
-                        tmp[ind_loc] = (float) it->data_grid[ind_glob];
+                        for (int j = jmin[k]; j < jmax[k]; j++)
+                        {
+                            int ind_glob = i + j * M_ncols;
+                            int ind_loc = i-imin[k] + (j-jmin[k]) * (imax[k]-imin[k]);
+                            tmp[ind_loc] = (float) it->data_grid[ind_glob];
+                        }
                     }
+    
+                    // Second, write the data from other processes
+                    std::vector<std::vector<std::vector<double>>> value;
+                    if (el)
+                        value = elemental_recv;
+                    else
+                        value = nodal_recv;
+    
+                    for (int i = 0; i < indices[k].size(); i++)
+                    {
+                        int n = indices[k][i]%M_comm.size();
+                        int ii = indices[k][i]/M_comm.size();
+                        int x = list_recv[n][ii]%M_ncols;
+                        int y = list_recv[n][ii]/M_ncols;
+                        int ind_loc = x - imin[k] + (y-jmin[k]) * (imax[k]-imin[k]);
+
+                        // If the point has already been written locally, it should not be erased
+                        if (fabs(tmp[ind_loc]-miss_val)<1 || fabs(tmp[ind_loc]) < 1.e-8) tmp[ind_loc] = (float) value[n][ID][ii];
+                    }
+    
+                    nc_put_vara_float(ncid, data, start, count, &tmp[0]);
                 }
+                else // Dummy
+                    nc_put_vara_float(ncid, data, start, count, nullptr);
 
-                // Second, write the data from other processes
-                std::vector<std::vector<std::vector<double>>> value;
-                if (el)
-                    value = elemental_recv;
-                else
-                    value = nodal_recv;
-
-                for (int i = 0; i < indices[k].size(); i++)
-                {
-                    int n = indices[k][i]%M_comm.size();
-                    int ii = indices[k][i]/M_comm.size();
-                    int x = list_recv[n][ii]%M_ncols;
-                    int y = list_recv[n][ii]/M_ncols;
-                    int ind_loc = x - imin[k] + (y-jmin[k]) * (imax[k]-imin[k]);
-
-                    // If the point has already been written locally, it should not be erased
-                    if (fabs(tmp[ind_loc]-miss_val)<1 || fabs(tmp[ind_loc]) < 1.e-8) tmp[ind_loc] = (float) value[n][ID][ii];
-                }
-
-                nc_put_vara_float(ncid, data, start, count, &tmp[0]);
+                ID++;
             }
         }
     }
