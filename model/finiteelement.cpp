@@ -1352,6 +1352,7 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::DynamicsType> str2dynamics = boost::assign::map_list_of
         ("evp", setup::DynamicsType::EVP)
         ("mevp", setup::DynamicsType::mEVP)
+        ("aevp", setup::DynamicsType::aEVP)
         ("bbm", setup::DynamicsType::BBM)
         ("no_motion", setup::DynamicsType::NO_MOTION)
         ("free_drift", setup::DynamicsType::FREE_DRIFT);
@@ -10232,6 +10233,7 @@ FiniteElement::explicitSolve()
     M_shape_coeff.resize(M_num_elements);
     M_B0T.resize(M_num_elements);
 
+    std::vector<double> rGamma(M_num_elements, 0.);
     std::vector<double> element_mass(M_num_elements, 0.);
     std::vector<double> rlmass_matrix(M_num_nodes, 0.);
     std::vector<double> node_mass(M_num_nodes, 0.);
@@ -10272,6 +10274,10 @@ FiniteElement::explicitSolve()
             element_mass[cpt] = (physical::rhoi*total_thickness + physical::rhos*total_snow)/total_concentration;
         else
             element_mass[cpt] = 0.;
+
+        // 1/(Gamma/zeta) (just called rGamma here, for convenience) to calculate alpha and beta for the aEVP
+        const double c = 2.5;
+        rGamma[cpt] = M_surface[cpt]/c * element_mass[cpt]/dte;
 
         // Basal stress term: the numerator of equation (24) in Lemieux et al. (2015) - I still call it C_bu
         // We calculate C_bu on the element and then take the nodal maximum of it below.
@@ -10432,6 +10438,7 @@ FiniteElement::explicitSolve()
     LOG(DEBUG) << "Starting sub-time stepping\n";
     M_timer.tick("sub-time stepping");
 
+    std::vector<double> rbeta_aevp;
     // Do the sub-time stepping itself
     for ( int s=0; s<steps; s++ )
     {
@@ -10445,6 +10452,10 @@ FiniteElement::explicitSolve()
 
             case setup::DynamicsType::mEVP:
                 this->updateSigmaMEVP(e, Pstar, C, delta_min, alpha_mevp);
+                break;
+
+            case setup::DynamicsType::aEVP:
+                rbeta_aevp = this->updateSigmaAEVP(e, Pstar, C, delta_min, rGamma);
                 break;
 
             case setup::DynamicsType::BBM:
@@ -10493,9 +10504,15 @@ FiniteElement::explicitSolve()
 
             // mEVP modificatinos and additional term
             double dtep, delu, delv;
-            if ( M_dynamics_type == setup::DynamicsType::mEVP )
+            if ( M_dynamics_type == setup::DynamicsType::mEVP ||
+                 M_dynamics_type == setup::DynamicsType::aEVP )
             {
-                double const b_mevp = beta_mevp + 1.;
+                double b_mevp;
+                if ( M_dynamics_type == setup::DynamicsType::mEVP )
+                    b_mevp = beta_mevp + 1.;
+                else
+                    b_mevp = (rbeta_aevp[i] + 1.) / rbeta_aevp[i];
+
                 delu = (VTM[u_indx]-M_VT[u_indx])/b_mevp;
                 delv = (VTM[v_indx]-M_VT[v_indx])/b_mevp;
                 dtep = dte/b_mevp;
@@ -10653,6 +10670,89 @@ FiniteElement::explicitSolve()
 
     M_timer.tock("OW smoother");
 }
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates M_sigma for the EVP and mEVP models
+//! Called by updateSigmaEVP and updateSigmaMEVP
+std::vector<double>
+FiniteElement::updateSigmaAEVP(double const e, double const Pstar, double const C, double const delta_min, const std::vector<double>& rGamma)
+{
+    double const re2 = 1./(e*e);
+
+    std::vector<double> rbeta(M_num_elements, 0.);
+    for ( int cpt=0; cpt<M_num_elements; cpt++ )
+    {
+        // Skip ice-free elements (it's just a zero term anyway)
+        if ( M_thick[cpt] == 0. )
+        {
+            for ( int i=0; i<M_sigma.size(); ++i )
+                M_sigma[i][cpt] = 0.;
+
+            continue;
+        }
+
+        // Deformation rate tensor on element
+        // Sum up over the nodes of this element
+        double eps11 = 0.;
+        double eps22 = 0.;
+        double eps12 = 0.;
+        for(int i=0; i<3; i++)
+        {
+            double const u = M_VT[(M_elements[cpt]).indices[i]-1];
+            double const v = M_VT[(M_elements[cpt]).indices[i]-1 + M_num_nodes];
+            double const dxN = M_shape_coeff[cpt][i];
+            double const dyN = M_shape_coeff[cpt][i+3];
+            eps11 += dxN*u;
+            eps22 += dyN*v;
+            eps12 += 0.5*( dxN*v + dyN*u );
+        }
+
+        double const eps1 = eps11 + eps22;
+        double const eps2 = eps11 - eps22;
+
+        double const delta = std::sqrt( eps1*eps1 + (eps2*eps2 + 4*eps12*eps12)*re2 );
+        double const P = Pstar*std::exp(-C*(1.-M_conc[cpt]));
+        double const zeta = P / ( delta + delta_min );
+
+        // zeta is only zero if rGamma is zero, but we don't want NaNs!
+        const double c_tilde = 4;
+        double const ralpha = std::min(1./5., std::sqrt(rGamma[cpt] / (std::max(1e-12, zeta)*c_tilde)));
+        rbeta[cpt] = ralpha;
+
+        double sigma1 = M_sigma[0][cpt] + M_sigma[1][cpt];
+        double sigma2 = M_sigma[0][cpt] - M_sigma[1][cpt];
+
+        // Sylvain's eqs 43--45
+        sigma1 += ralpha*( zeta*(eps1-delta) - sigma1 );
+        sigma2 += ralpha*( zeta*eps2*re2 - sigma2 );
+        M_sigma[2][0] += ralpha*( zeta*eps12*re2 - M_sigma[2][0] );
+
+        M_sigma[0][cpt] = 0.5*(sigma1 + sigma2);
+        M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
+
+    }
+
+    std::vector<double> rbeta_nodes(M_num_elements, 0.);
+    for ( int i=0; i<M_num_nodes; ++i )
+    {
+        // Surface weighted average rbeta
+        double beta = 0.;
+        double surface = 0;
+        int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+        for (int j=0; j<num_elements; j++)
+        {
+            int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
+            // Skip negative elt_num
+            if ( elt_num < 0 ) continue;
+
+            beta += rbeta[elt_num] * M_surface[elt_num];
+            surface += M_surface[elt_num];
+        }
+        rbeta_nodes[i] = beta / surface;
+    }
+
+    return rbeta_nodes;
+} //updateSigmaVP
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates M_sigma for the EVP and mEVP models

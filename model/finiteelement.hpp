@@ -166,6 +166,8 @@ public:
     inline void updateSigmaVP(double const e, double const Pstar, double const C, double const delta_min, double const ralpha1, double const ralpha2);
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
     inline void updateSigmaMEVP(double const e, double const Pstar, double const C, double const delta_min, double const alpha);
+    inline std::vector<double>& updateSigmaMEVP(double const e, double const Pstar, double const C, double const delta_min);
+    std::vector<double> updateSigmaAEVP(double const e, double const Pstar, double const C, double const delta_min, const std::vector<double>& rGamma);
     void explicitSolve();
 
     void nestingIce();

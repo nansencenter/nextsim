@@ -146,7 +146,8 @@ namespace setup
         NO_MOTION  = 1,
         FREE_DRIFT = 2,
         EVP        = 3,
-        mEVP       = 4
+        mEVP       = 4,
+        aEVP       = 5
     };
 
 } // setup
