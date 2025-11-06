@@ -10725,7 +10725,7 @@ FiniteElement::updateSigmaAEVP(double const e, double const Pstar, double const 
         // Sylvain's eqs 43--45
         sigma1 += ralpha*( zeta*(eps1-delta) - sigma1 );
         sigma2 += ralpha*( zeta*eps2*re2 - sigma2 );
-        M_sigma[2][0] += ralpha*( zeta*eps12*re2 - M_sigma[2][0] );
+        M_sigma[2][cpt] += ralpha*( zeta*eps12*re2 - M_sigma[2][cpt] );
 
         M_sigma[0][cpt] = 0.5*(sigma1 + sigma2);
         M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
@@ -10752,7 +10752,7 @@ FiniteElement::updateSigmaAEVP(double const e, double const Pstar, double const 
     }
 
     return rbeta_nodes;
-} //updateSigmaVP
+} //updateSigmaAEVP
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates M_sigma for the EVP and mEVP models
@@ -10802,7 +10802,7 @@ FiniteElement::updateSigmaVP(double const e, double const Pstar, double const C,
         // Sylvain's eqs 43--45
         sigma1 += ralpha1*( zeta*(eps1-delta) - sigma1 );
         sigma2 += ralpha2*( zeta*eps2*re2 - sigma2 );
-        M_sigma[2][0] += ralpha2*( zeta*eps12*re2 - M_sigma[2][0] );
+        M_sigma[2][cpt] += ralpha2*( zeta*eps12*re2 - M_sigma[2][cpt] );
 
         M_sigma[0][cpt] = 0.5*(sigma1 + sigma2);
         M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
