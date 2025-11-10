@@ -316,7 +316,7 @@ void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double
     ConservativeRemappingMeshToGrid(interp_out, interp_in, nb_var, grid_size, std::nan(""),
                                     gridP, gridCornerX, gridCornerY, triangles, weights, 3);
 
-}//ConservativeRemappingMeshToMesh
+}//ConservativeRemappingFromMeshToMesh
 
 // Apply weights for a mesh-to-grid remapping
 void 
