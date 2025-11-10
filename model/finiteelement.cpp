@@ -10502,7 +10502,7 @@ FiniteElement::explicitSolve()
             int u_indx = i;
             int v_indx = i+M_num_nodes;
 
-            // mEVP modificatinos and additional term
+            // mEVP modifications and additional term
             double dtep, delu, delv;
             if ( M_dynamics_type == setup::DynamicsType::mEVP ||
                  M_dynamics_type == setup::DynamicsType::aEVP )
@@ -10523,7 +10523,8 @@ FiniteElement::explicitSolve()
             }
 
             /* This is Hunke and Dukowicz's solution to (22), multiplied
-             * with (\Delta t/m)^2 to ensure stability for c' = 0 */
+             * with (\Delta t/m)^2 to ensure stability for c' = 0
+             * NB minus sign error in v equation after decoupling u and v*/
             double const dte_over_mass = dtep/std::max(min_m, node_mass[i]);
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
