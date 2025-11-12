@@ -1098,7 +1098,6 @@ public:
 #endif
 
     void find_box(int& imin, int& imax, int& jmin, int& jmax, const std::vector<double>& box);
-    void find_indices(std::vector<int> list_indices, const std::vector<double>& box);
     void compute_exchange_points(const std::vector<std::vector<std::vector<double>>>& list_rectangles,
                                  const std::vector<double>& bounding_box,
                                  std::vector<std::vector<int>>& list_recv,
