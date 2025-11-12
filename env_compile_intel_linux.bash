@@ -42,6 +42,15 @@ else
     unset USE_OASIS ; # that's the whole point of this if/else/fi block, their could be "remnant" values in USE_OASIS...
 fi
 
+# Check if netcdf has been compiled in parallel
+NETCDF_PARALLEL=$(nc-config --has-parallel) ;
+
+if [ "$NETCDF_PARALLEL" = "yes" ]; then
+    export USE_NETCDF_PARALLEL=true
+else
+    unset USE_NETCDF_PARALLEL ;
+fi
+
 ############################################
 # Defaults before host-specific adjustment #
 ############################################

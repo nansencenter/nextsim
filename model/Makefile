@@ -72,6 +72,10 @@ else
 	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
 endif
 
+ifdef USE_NETCDF_PARALLEL
+    CXXFLAGS += -DNETCDF_PARALLEL
+endif
+
 # gmsh
 CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
 
