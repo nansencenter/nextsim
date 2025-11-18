@@ -219,6 +219,9 @@ public:
         // WIM variables
         dmax        = 300,
         dmean       = 301,
+        dchar       = 302,
+        dlength     = 303,
+        dnum        = 304,
 
         // Coupling variables not already covered elsewhere
         taux       = 901,
@@ -724,6 +727,7 @@ public:
                     longName = "Ice-atmosphere thermodynamic drag";
                     stdName  = "ice-atmosphere_thermodynamic_drag";
                     Units    = "1/s";
+                    break;
                 case (variableID::meltpond_fraction):
                     name     = "meltpond_fraction";
                     longName = "Meltpond area fraction";
@@ -817,6 +821,30 @@ public:
                     name     = "dmean";
                     longName = "Mean floe size";
                     stdName  = "mean_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+
+                case (variableID::dchar):
+                    name     = "dchar";
+                    longName = "Mean floe size associated with floe area";
+                    stdName  = "char_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+
+                case (variableID::dnum):
+                    name     = "dnum";
+                    longName = "Mean floe size associated with number of floes";
+                    stdName  = "mean_num_floe_size";
+                    Units    = "m";
+                    cell_methods = "area: mean where sea_ice";
+                    break;
+                
+                case (variableID::dlength):
+                    name     = "dlength";
+                    longName = "Mean floe size associated with floe perimeter";
+                    stdName  = "mean_length_floe_size";
                     Units    = "m";
                     cell_methods = "area: mean where sea_ice";
                     break;
