@@ -84,7 +84,7 @@ namespace Nextsim
              "Options for regridding: No-regridding, bamg or mmg")
 #else
             ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ),
-                "Options for regridding: No-regridding, bamg or mmg")
+                "Options for regridding: No-regridding or bamg")
 #endif
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
