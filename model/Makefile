@@ -11,60 +11,45 @@ ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
 
-ifdef USE_OASIS
-	CXXFLAGS += -DOASIS
-	CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
-	LDFLAGS += -L$(NEXTSIMDIR)/lib -loasis
-	CHAN = MPI1
-	LDFLAGS += -L$(OASIS_DIR)/lib -lpsmile.$(CHAN) -lmct -lmpeu -lscrip $(LD_EXTRA_OASIS)
-endif
-
-ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O0 -DNDEBUG
-ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-	CXXFLAGS += -DWITHGPERFTOOLS
-endif
-endif
-
-# add include paths
+# our libraries (include paths only, linking comes later)
 CXXFLAGS += -I$(NEXTSIMDIR)/core/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
 
+# our optional libraries
+# -oasis
+ifdef USE_OASIS
+	CXXFLAGS += -DOASIS
+	CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
+	CHAN = MPI1
+endif
+
+# -ensemble
 ifdef USE_ENSEMBLE
 	CXXFLAGS += -DENSEMBLE
 	CXXFLAGS += -I$(NEXTSIMDIR)/modules/enkf/perturbation/include
 endif
 
-# include with -isystem instead of -I to suppress warnings and to not
-# add them to the dependancies file (this is mainly because they are outside our control)
-ifdef USE_AEROBULK
-	CXXFLAGS += -isystem $(AEROBULK_DIR)/include
-	CXXFLAGS += -DAEROBULK
-endif
-
-# boost
+# external libraries (include paths)
+# -boost
 ifeq ($(BOOST_DIR),/usr)
 	CXXFLAGS += -I$(BOOST_INCDIR)/ -I.
 else
 	CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
 endif
 
-# netcdf
+# -gmsh
+CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
+
+# -netcdf
 ifeq ($(NETCDF_CXX_DIR),)
 	NETCDF_CXX_DIR=$(NETCDF_DIR)
 endif
 ifeq ($(NETCDF_FOR_DIR),)
 	NETCDF_FOR_DIR=$(NETCDF_DIR)
 endif
-LDFLAGS += -L$(NETCDF_DIR)/lib -lnetcdf -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
-ifdef USE_OASIS
-	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
-endif
 
 ifeq ($(NETCDF_DIR),/usr)
-	#needed for maud: need -I/usr/include otherwise have problems with stdlib.h
 	CXXFLAGS += -I$(NETCDF_DIR)/include
 	CXXFLAGS += -I$(NETCDF_CXX_DIR)/include
 else
@@ -72,44 +57,78 @@ else
 	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
 endif
 
-# gmsh
-CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
+# -mmg
+ifdef USE_MMG
+    CXXFLAGS += -DMMG
+    CXXFLAGS += -I$(PARMMG_DIR)/include
+endif
 
-LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
+# -aerobulk
+ifdef USE_AEROBULK
+	CXXFLAGS += -isystem $(AEROBULK_DIR)/include
+	CXXFLAGS += -DAEROBULK
+endif
 
-LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L$(NETCDF_DIR)/lib -lnetcdf
-LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
+# debug build
+ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CXXFLAGS += -g -O0 -DNDEBUG
+	LDFLAGS += -Wl,-rpath,/opt/local/lib
 
+	# profiling build
+	ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+		CXXFLAGS += -DWITHGPERFTOOLS
+		LDFLAGS += -L/opt/local/lib -lprofiler
+	endif
+endif
+
+# ========================================
+# LINKING ORDER - CRITICAL FOR STATIC LIBS
+# Most dependent libraries FIRST
+# ========================================
+
+# Our static libraries first (they depend on everything below)
+LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim -lbamg -lmapx
+
+# Optional libraries
+ifdef USE_OASIS
+	LDFLAGS += -loasis
+	LDFLAGS += -L$(OASIS_DIR)/lib -lpsmile.$(CHAN) -lmct -lmpeu -lscrip $(LD_EXTRA_OASIS)
+endif
+
+ifdef USE_ENSEMBLE
+	LDFLAGS += -lpseudo2D
+endif
+
+# MMG and METIS
+ifdef USE_MMG
+    LDFLAGS += -L$(PARMMG_DIR)/lib -lmmg -lparmmg2d -lmetis
+endif
+
+# External libraries in dependency order
+# Gmsh
+LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
+LDFLAGS += -L$(GMSH_DIR)/lib -lGmsh
+
+# Boost
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi -lboost_date_time
 
-LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
-LDFLAGS += -L$(NEXTSIMDIR)/lib -lbamg
-LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
-
-ifdef USE_ENSEMBLE
-	LDFLAGS += -L$(NEXTSIMDIR)/lib -lpseudo2D
+# NetCDF
+LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L$(NETCDF_DIR)/lib -lnetcdf
+LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
+ifdef USE_OASIS
+	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
 endif
 
+# Aerobulk
 ifdef USE_AEROBULK
 	LDFLAGS += -L$(AEROBULK_DIR)/lib -laerobulk_cxx -laerobulk
 	LDFLAGS += $(LD_EXTRA_AEROBULK)
 endif
 
-ifdef USE_MMG
-    CXXFLAGS += -DMMG
-    CXXFLAGS += -I$(PARMMG_DIR)/include
-    LDFLAGS += -L$(PARMMG_DIR)/lib -lmmg -lparmmg2d -lmetis
-endif
-
-ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-	LDFLAGS += -Wl,-rpath,/opt/local/lib
-ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-	LDFLAGS += -L/opt/local/lib -lprofiler
-endif
-endif
-
-LDFLAGS += -L$(NEXTSIMDIR)/lib -lnextsim
+# System libraries last
+LDFLAGS += -ldl -lstdc++
 
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
@@ -148,7 +167,7 @@ mrproper: clean
 # Rule for making the actual target
 lines="=========="
 Lines=$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)$(lines)
-$(PROGNAME): $(OBJS) #$(CCOBJS)
+$(PROGNAME): $(OBJS)
 	@mkdir -p $(BINARYDIR)
 	@echo " "
 	@echo $(Lines)$(Lines)
@@ -165,7 +184,7 @@ $(PROGNAME): $(OBJS) #$(CCOBJS)
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp
-	@mkdir -p $(OBJECTDIR) # $(dir $@)
+	@mkdir -p $(OBJECTDIR)
 	@echo " "
 	$(CXX) -o $@ -c $< $(CXXFLAGS)
 
@@ -180,7 +199,6 @@ $(OBJS): Makefile
 # Make everything
 all:
 	cd ..; $(MAKE) all
-
 
 # Clean everything
 cleanall:

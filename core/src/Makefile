@@ -1,16 +1,9 @@
 KERNEL := $(shell uname -s)
 
-ifeq ($(KERNEL),Linux)
-	LIBRARYNAME=libnextsim.so.1.0
-else
-	LIBRARYNAME=libnextsim.dylib
-endif
-
-LIB=$(LIBRARYNAME)
+LIBRARYNAME=libnextsim.a
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
-
 
 
 CXXFLAGS += -std=c++14
@@ -21,7 +14,6 @@ CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fpermissive
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
 	CXXFLAGS += -I$(NEXTSIMDIR)/modules/oasis/include
-	LDFLAGS += -L$(NEXTSIMDIR)/lib -loasis
 	CHAN = MPI1
 endif
 
@@ -41,32 +33,11 @@ CXXFLAGS += -I$(NEXTSIMDIR)/core/include -I/usr/local/include -I$(MPI_INC_DIR)/
 CXXFLAGS += -I$(BOOST_INCDIR)/ -I$(GMSH_DIR)/include/gmsh
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
 
-ifeq ($(KERNEL),Linux)
-	LDFLAGS += -shared -Wl,-soname,libnextsim.so.1
-else
+ifneq ($(KERNEL),Linux)
 	ifeq ($(CXX),clang)
 		CXXFLAGS += -stdlib=libc++
 	endif
-
-	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
-
-	ifeq ($(CXX),clang)
-		LDFLAGS += -stdlib=libc++
-	endif
 endif
-
-LDFLAGS += -ldl -lstdc++ #-lpthread #-lm -lrt
-
-#boost
-LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
-LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
-
-# gmsh
-LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
-LDFLAGS += -L$(GMSH_DIR)/lib -lGmsh
-
-# mapx
-LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
 
 
 # C++ files
@@ -80,7 +51,7 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 .PHONY: all clean mrproper
 
 # Default action.
-all: $(LIB)
+all: $(LIBRARYNAME)
 
 # Delete the object files.
 clean:
@@ -90,25 +61,12 @@ mrproper: clean
 	$(RM) $(LIBRARYDIR)$(LIBRARYNAME)
 
 # Rule for making the actual target
-ifeq ($(KERNEL),Linux)
-$(LIBRARYNAME): $(OBJS) #$(CCOBJS)
+$(LIBRARYNAME): $(OBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
 	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$@ $^ $(LDFLAGS)
-	@ln -sf $@ $(LIBRARYDIR)libnextsim.so
-	@ln -sf $@ $(LIBRARYDIR)libnextsim.so.1
-else
-$(LIBRARYNAME): $(OBJS) #$(CCOBJS)
-	@mkdir -p $(LIBRARYDIR)
-	@echo "============================================"
-	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
-	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$@ $^ $(LDFLAGS)
-	@ln -sf $@ $(LIBRARYDIR)libnextsim.dylib.0
-	@ln -sf $@ $(LIBRARYDIR)libnextsim.dylib.1
-endif
+	$(AR) rcs -o $(LIBRARYDIR)$@ $^
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp
