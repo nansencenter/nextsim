@@ -1,12 +1,7 @@
 KERNEL := $(shell uname -s)
 
-ifeq ($(KERNEL),Linux)
-	LIBRARYNAME=libbamg.so.1.0
-else
-	LIBRARYNAME=libbamg.dylib
-endif
+LIBRARYNAME=libbamg.a
 
-LIB=$(LIBRARYNAME)
 OBJECTDIR=$(NEXTSIMDIR)/objs/
 DEPENDDIR=$(NEXTSIMDIR)/.deps/
 LIBRARYDIR=$(NEXTSIMDIR)/lib/
@@ -30,22 +25,11 @@ endif
 
 ifeq ($(KERNEL),Linux)
 	CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include -I$(MPI_INC_DIR)
-	LDFLAGS += -shared -Wl,-soname,libbamg.so.1
-	LDFLAGS += -lm -ldl #-lhwloc
 else
-
 	ifeq ($(CXX),clang)
-	CXXFLAGS += -stdlib=libc++
+		CXXFLAGS += -stdlib=libc++
 	endif
-
 	CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include -I/usr/local/include
-	LDFLAGS += -dynamiclib -Wl,-headerpad_max_install_names,-undefined,dynamic_lookup,-current_version,1.0,-install_name,$(LIBRARYDIR)$(LIBRARYNAME)
-	LDFLAGS += -ldl -lstdc++
-
-	ifeq ($(CXX),clang)
-	LDFLAGS += -stdlib=libc++
-	endif
-
 endif
 
 # C++ files
@@ -59,7 +43,7 @@ DEPS=$(CXXSRC:%.cpp=$(DEPENDDIR)%.d)
 .PHONY: all clean mrproper
 
 # Default action.
-all: $(LIB)
+all: $(LIBRARYNAME)
 
 # Delete the object files.
 clean:
@@ -69,25 +53,12 @@ mrproper: clean
 	$(RM) $(LIBRARYDIR)$(LIBRARYNAME)
 
 # Rule for making the actual target
-ifeq ($(KERNEL),Linux)
 $(LIBRARYNAME): $(OBJS) #$(CCOBJS)
 	@mkdir -p $(LIBRARYDIR)
-	@echo "============================================"
-	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
-	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$@ $^ $(LDFLAGS)
-	@ln -sf $@ $(LIBRARYDIR)libbamg.so
-	@ln -sf $@ $(LIBRARYDIR)libbamg.so.1
-else
-$(LIBRARYNAME): $(OBJS) #$(CCOBJS)
-	@mkdir -p $(LIBRARYDIR)
-	@echo "============================================"
-	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
-	@echo "============================================"
-	$(CXX) $(CXXFLAGS) -o $(LIBRARYDIR)$@ $^ $(LDFLAGS)
-	@ln -sf $@ $(LIBRARYDIR)libbamg.dylib.0
-	@ln -sf $@ $(LIBRARYDIR)libbamg.dylib.1
-endif
+	@echo "=================================================="
+	@echo Creating static library $(LIBRARYDIR)$(LIBRARYNAME)
+	@echo "=================================================="
+	$(AR) rcs $(LIBRARYDIR)$@ $^
 
 # Rules for object files from cpp files
 $(OBJECTDIR)%.o: %.cpp
