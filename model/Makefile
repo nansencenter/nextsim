@@ -98,16 +98,11 @@ endif
 
 ifdef USE_MMG
     CXXFLAGS += -DMMG
-    CXXFLAGS += -I$(PARMMG_DIR)/Mmg-prefix/src/Mmg-build/include/
-    LDFLAGS += -L$(PARMMG_DIR)/Mmg-prefix/src/Mmg-build/lib -lmmg
-    CXXFLAGS += -I$(PARMMG_DIR)/include/parmmg2d/
-    LDFLAGS += -L$(PARMMG_DIR)/lib -lparmmg2d
-    CXXFLAGS += -I$(PARMMG_DIR)/Metis-prefix/src/Metis/include/
-    LDFLAGS += -L$(PARMMG_DIR)/Metis-prefix/src/Metis/build/Linux-x86_64/libmetis/ -lmetis
+    CXXFLAGS += -I$(PARMMG_DIR)/include
+    LDFLAGS += -L$(PARMMG_DIR)/lib -lmmg -lparmmg2d -lmetis
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	LDFLAGS += -Wl,-rpath,/opt/local/lib
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	LDFLAGS += -L/opt/local/lib -lprofiler

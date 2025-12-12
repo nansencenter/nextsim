@@ -25,7 +25,7 @@
 #include <Bamgx.h>
 #ifdef MMG
 #include "mmg/mmg2d/libmmg2d.h"
-#include "libparmmg2d.h"
+#include "parmmg2d/libparmmg2d.h"
 #endif
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
