@@ -6,11 +6,10 @@
  * @date   Thu Aug  4 09:47:27 CEST 2024
  */
 
-#ifndef __iterpolation_H
+#ifndef __interpolation_H
 #define __interpolation_H
 
 #include <vector>
-#include <InterpFromMeshToMesh2dx.h>
 #include <gmshmeshseq.hpp>
 
 /**
@@ -22,6 +21,17 @@
 
 namespace Nextsim
 {
+
+// Check if a point is inside a triangle
+int inside(std::vector<double> const& points, double xp, double yp);
+
+// Compute the area of a triangle
+double triangle_area(const std::vector<double> &a, const std::vector<double> &b, const std::vector<double> &c);
+
+// Function to interpolate fields on nodes
+int InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* background_x, double* background_y,
+                           int n_background_nodes, int n_background_triangles, double* interp_in, int source_size, int nb_var,
+                           double* x, double* y, int n_nodes, bool isdefault=false, double defaultvalue=1e-24);
 
 void ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &gridX, std::vector<double> &gridY, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
                                   std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights);

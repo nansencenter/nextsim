@@ -2203,13 +2203,13 @@ FiniteElement::interpVertices()
         interp_Vertices_in[2*i+1] = M_hmaxVertices[i];
     }
 
-    InterpFromMeshToMesh2dx(&interp_Vertices_out,
-                            &M_mesh_init_root.indexTr()[0],&M_mesh_init_root.coordX()[0],&M_mesh_init_root.coordY()[0],
-                            M_mesh_init_root.numNodes(),M_mesh_init_root.numTriangles(),
-                            &interp_Vertices_in[0],
-                            M_mesh_init_root.numNodes(),2,
-                            &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
-                            false);
+    InterpFromMeshToMesh2d(&interp_Vertices_out,
+                           &M_mesh_init_root.indexTr()[0],&M_mesh_init_root.coordX()[0],&M_mesh_init_root.coordY()[0],
+                           M_mesh_init_root.numNodes(),M_mesh_init_root.numTriangles(),
+                           &interp_Vertices_in[0],
+                           M_mesh_init_root.numNodes(),2,
+                           &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
+                           false);
 
     bamgopt->hminVertices = new double[M_mesh_root.numNodes()];
     bamgopt->hmaxVertices = new double[M_mesh_root.numNodes()];
@@ -3454,13 +3454,13 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 #endif
 
         // Interpolate nodes
-        InterpFromMeshToMesh2dx(&interp_nd_out,
-                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
-                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
-                                &interp_in_nodes[0],
-                                M_mesh_previous_root.numNodes(),M_nb_var_node,
-                                &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
-                                false);
+        InterpFromMeshToMesh2d(&interp_nd_out,
+                               &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
+                               M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
+                               &interp_in_nodes[0],
+                               M_mesh_previous_root.numNodes(),M_nb_var_node,
+                               &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
+                               false);
     } // rank 0
 
     chrono.restart();
@@ -3958,13 +3958,13 @@ FiniteElement::interpFields_parallel(std::vector<double> const& coordX_prv, std:
     double* interp_nd_out;
 
     // Interpolate nodes
-    InterpFromMeshToMesh2dx(&interp_nd_out,
-                            &background_triangles[0], &coordX_back[0], &coordY_back[0],
-                            new_node-1, int(background_triangles.size()/3),
-                            &interp_nodes_back[0],
-                            new_node-1, M_nb_var_node,
-                            &coordX[0], &coordY[0], M_mesh.numNodes(),
-                            false);
+    InterpFromMeshToMesh2d(&interp_nd_out,
+                           &background_triangles[0], &coordX_back[0], &coordY_back[0],
+                           new_node-1, int(background_triangles.size()/3),
+                           &interp_nodes_back[0],
+                           new_node-1, M_nb_var_node,
+                           &coordX[0], &coordY[0], M_mesh.numNodes(),
+                           false);
 
     interp_nodes_back.clear();
     interp_nodes_back.shrink_to_fit();

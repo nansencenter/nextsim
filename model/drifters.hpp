@@ -11,7 +11,6 @@
 
 #include <environment.hpp>
 #include <gmshmeshseq.hpp>
-#include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromMeshToGridx.h>
 #include <netcdf>
 #include <date.hpp>

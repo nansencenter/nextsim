@@ -27,7 +27,6 @@
 #include "mmg/mmg2d/libmmg2d.h"
 #include "libparmmg2d.h"
 #endif
-#include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
 #include <gmshmeshseq.hpp>
