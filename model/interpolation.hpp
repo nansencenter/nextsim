@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <gmshmeshseq.hpp>
+#include <MemOps.h>
 
 /**
  * @brief Different functions allowing interpolations between two meshes
