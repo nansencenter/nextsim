@@ -4098,7 +4098,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
 
         if((new_conc+conc_young)>1.)
-            new_conc=1.-conc_young;
+            conc_young=1.-new_conc;
 
         M_conc[cpt]=new_conc;
 
