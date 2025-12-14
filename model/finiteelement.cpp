@@ -3944,6 +3944,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
     bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
 
+    double const cmin_dynamics = vm["dynamics.min_c"].as<double>();
+    double const hmin_dynamics = vm["dynamics.min_h"].as<double>();
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
 
@@ -4027,95 +4030,82 @@ FiniteElement::update(std::vector<double> const & UM_P)
         }
 
         /*======================================================================
-        //! - Performs the mechanical redistribution (after the advection the concentration can be higher than 1, meaning that ridging should have occured)
-         *======================================================================
-         */
-        double open_water_concentration=1.-M_conc[cpt];
+         * Performs mechanical redistribution after advection
+         * (handles ridging when concentration exceeds 1)
+         *======================================================================*/
 
-        /* Young ice category */
-        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+        // Calculate open water concentration
+        double open_water_concentration = 1.0 - M_conc[cpt];
+        if (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
             open_water_concentration -= M_conc_young[cpt];
+        open_water_concentration = std::min(1., std::max(0., open_water_concentration));
 
-        // limit open_water concentration to 0 if inferior to 0 (should not happen)
-        open_water_concentration=(open_water_concentration<0.)?0.:open_water_concentration;
+        // Initialize young ice variables
+        double new_conc_young = 0.0;
+        double newice = 0.0;
+        double del_c = 0.0;
+        double newsnow = 0.0;
+        constexpr double RIDGE_YOUNG_ICE_ASPECT_RATIO = 10.0;
 
-        // limit open_water concentration to 1 if superior to 1
-        open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
-
-        /* Young ice category */
-        double new_conc_young=0.;
-        double new_h_young=0.;
-        double new_hs_young=0.;
-
-        double newice = 0.;
-        double del_c = 0.;
-        double newsnow = 0.;
-
-        double ridge_young_ice_aspect_ratio=10.;
-
-        double conc_young = 0.;
-        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+        // Process young ice category
+        if (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
         {
-            if(M_conc_young[cpt]>0. )
+            if (M_conc_young[cpt] > 0.0)
             {
-                new_conc_young   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
+                new_conc_young = std::min(1., std::max(0., 1.0 - M_conc[cpt] - open_water_concentration));
 
-                // Ridging
-                if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_young < M_conc_young[cpt] ))
+                // Apply ridging if conditions are met
+                bool should_ridge = (M_conc[cpt] > cmin_dynamics) &&
+                                   (M_thick[cpt] > hmin_dynamics) &&
+                                   (new_conc_young < M_conc_young[cpt]);
+
+                if (should_ridge)
                 {
-                    new_h_young      = new_conc_young*M_h_young[cpt]/M_conc_young[cpt]; // so that we keep the same h0, no preferences for the ridging
-                    new_hs_young     = new_conc_young*M_hs_young[cpt]/M_conc_young[cpt];
+                    double ratio = new_conc_young / M_conc_young[cpt];
+                    double new_h_young = ratio * M_h_young[cpt];
+                    double new_hs_young = ratio * M_hs_young[cpt];
 
-                    newice = M_h_young[cpt]-new_h_young;
-                    del_c   = (M_conc_young[cpt]-new_conc_young)/ridge_young_ice_aspect_ratio;
-                    newsnow = M_hs_young[cpt]-new_hs_young;
+                    newice = M_h_young[cpt] - new_h_young;
+                    del_c = (M_conc_young[cpt] - new_conc_young) / RIDGE_YOUNG_ICE_ASPECT_RATIO;
+                    newsnow = M_hs_young[cpt] - new_hs_young;
 
-                    M_h_young[cpt]   = new_h_young;
-                    M_hs_young[cpt]  = new_hs_young;
+                    M_h_young[cpt] = new_h_young;
+                    M_hs_young[cpt] = new_hs_young;
 
-                    // Ridging of young ice - conserve level ice volume, but now area is constant
-                    // (1-R^n) H^n = (1-R^{n+1}) H^{n+1}
-                    M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
-
-                    M_thick[cpt]        += newice;
-                    M_conc[cpt]         += del_c;
-                    M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
-
-                    M_snow_thick[cpt]   += newsnow;
+                    // Conserve level ice volume with constant area
+                    M_ridge_ratio[cpt] = 1.0 - (1.0 - M_ridge_ratio[cpt]) * M_thick[cpt] / (M_thick[cpt] + newice);
+                    M_thick[cpt] += newice;
+                    M_snow_thick[cpt] += newsnow;
                 }
-
                 M_conc_young[cpt] = new_conc_young;
             }
             else
             {
-                M_conc_young[cpt]=0.;
-                M_h_young[cpt]=0.;
-                M_hs_young[cpt]=0.;
+                M_conc_young[cpt] = 0.0;
+                M_h_young[cpt] = 0.0;
+                M_hs_young[cpt] = 0.0;
             }
-            conc_young = M_conc_young[cpt];
         }
 
-        double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
+        double conc_young = (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE) ? M_conc_young[cpt] : 0.0;
 
-        if((new_conc+conc_young)>1.)
-            new_conc=1.-conc_young;
+        // Update main ice concentration
+        double new_conc = std::min(1., std::max(0., 1.0 - conc_young - open_water_concentration + del_c));
+        new_conc = std::min(new_conc, 1.0 - conc_young);
+        M_conc[cpt] = new_conc;
 
-        M_conc[cpt]=new_conc;
-
-        double max_true_thickness = 50.;
-        if(M_conc[cpt]>0.)
+        // Enforce maximum thickness constraint
+        constexpr double MAX_TRUE_THICKNESS = 50.0;
+        if (M_conc[cpt] > 0.0)
         {
-            double test_h_thick=M_thick[cpt]/M_conc[cpt];
-            test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.-conc_young,M_thick[cpt]/test_h_thick);
+            M_thick[cpt] = std::max(0., std::min(M_thick[cpt], MAX_TRUE_THICKNESS * M_conc[cpt]));
         }
         else
         {
-            M_ridge_ratio[cpt]=0.;
-            M_thick[cpt]=0.;
-            M_snow_thick[cpt]=0.;
+            M_ridge_ratio[cpt] = 0.0;
+            M_thick[cpt] = 0.0;
+            M_snow_thick[cpt] = 0.0;
         }
-
         // END: Ridging scheme and mechanical redistribution
 
         /*======================================================================
