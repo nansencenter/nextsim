@@ -4087,12 +4087,17 @@ FiniteElement::update(std::vector<double> const & UM_P)
             }
         }
 
-        double conc_young = (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE) ? M_conc_young[cpt] : 0.0;
-
         // Update main ice concentration
-        double new_conc = std::min(1., std::max(0., 1.0 - conc_young - open_water_concentration + del_c));
-        new_conc = std::min(new_conc, 1.0 - conc_young);
-        M_conc[cpt] = new_conc;
+        double conc_young = (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE) ? M_conc_young[cpt] : 0.0;
+        M_conc[cpt] = std::min(1., std::max(0., 1.0 - conc_young - open_water_concentration + del_c));
+
+        // See if we have to reduce the young ice concentration further to make
+        // the total < 1
+        if (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
+        {
+            conc_young = std::min(conc_young, 1.0 - M_conc[cpt]);
+            M_conc_young[cpt] = std::min(1., std::max(0., conc_young));
+        }
 
         // Enforce maximum thickness constraint
         constexpr double MAX_TRUE_THICKNESS = 50.0;
