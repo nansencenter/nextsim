@@ -4029,10 +4029,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
             D_del_ci_ridge_myi[cpt]*=days_in_sec/dtime_step; // Change in myi concentration due to ridging [/day]
         }
 
-        /*======================================================================
-         * Performs mechanical redistribution after advection
-         * (handles ridging when concentration exceeds 1)
-         *======================================================================*/
+        //===================================================================================================
+        //! Performs mechanical redistribution after advection (handles ridging when concentration exceeds 1)
+        //===================================================================================================
 
         // Calculate open water concentration
         double open_water_concentration = 1.0 - M_conc[cpt];
@@ -4042,10 +4041,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         // Initialize young ice variables
         double new_conc_young = 0.0;
-        double newice = 0.0;
         double del_c = 0.0;
-        double newsnow = 0.0;
-        constexpr double RIDGE_YOUNG_ICE_ASPECT_RATIO = 10.0;
 
         // Process young ice category
         if (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
@@ -4054,20 +4050,22 @@ FiniteElement::update(std::vector<double> const & UM_P)
             {
                 new_conc_young = std::min(1., std::max(0., 1.0 - M_conc[cpt] - open_water_concentration));
 
-                // Apply ridging if conditions are met
+                // Apply ridging if we have ice and the young ice conc has dropped
                 bool should_ridge = (M_conc[cpt] > cmin_dynamics) &&
                                    (M_thick[cpt] > hmin_dynamics) &&
                                    (new_conc_young < M_conc_young[cpt]);
 
                 if (should_ridge)
                 {
-                    double ratio = new_conc_young / M_conc_young[cpt];
-                    double new_h_young = ratio * M_h_young[cpt];
-                    double new_hs_young = ratio * M_hs_young[cpt];
+                    double const ratio = new_conc_young / M_conc_young[cpt];
+                    double const new_h_young = ratio * M_h_young[cpt];
+                    double const new_hs_young = ratio * M_hs_young[cpt];
 
-                    newice = M_h_young[cpt] - new_h_young;
+                    double const newice = M_h_young[cpt] - new_h_young;
+                    double const newsnow = M_hs_young[cpt] - new_hs_young;
+
+                    constexpr double RIDGE_YOUNG_ICE_ASPECT_RATIO = 10.0;
                     del_c = (M_conc_young[cpt] - new_conc_young) / RIDGE_YOUNG_ICE_ASPECT_RATIO;
-                    newsnow = M_hs_young[cpt] - new_hs_young;
 
                     M_h_young[cpt] = new_h_young;
                     M_hs_young[cpt] = new_hs_young;
@@ -4077,26 +4075,23 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     M_thick[cpt] += newice;
                     M_snow_thick[cpt] += newsnow;
                 }
-                M_conc_young[cpt] = new_conc_young;
             }
             else
             {
-                M_conc_young[cpt] = 0.0;
                 M_h_young[cpt] = 0.0;
                 M_hs_young[cpt] = 0.0;
             }
         }
 
         // Update main ice concentration
-        double conc_young = (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE) ? M_conc_young[cpt] : 0.0;
-        M_conc[cpt] = std::min(1., std::max(0., 1.0 - conc_young - open_water_concentration + del_c));
+        M_conc[cpt] = std::min(1., std::max(0., 1.0 - new_conc_young - open_water_concentration + del_c));
 
-        // See if we have to reduce the young ice concentration further to make
-        // the total < 1
+        // See if we have to reduce the young ice concentration further to make the total < 1
         if (M_ice_cat_type == setup::IceCategoryType::YOUNG_ICE)
         {
-            conc_young = std::min(conc_young, 1.0 - M_conc[cpt]);
-            M_conc_young[cpt] = std::min(1., std::max(0., conc_young));
+            // make sure total conc < 1
+            new_conc_young = std::min(new_conc_young, 1.0 - M_conc[cpt]);
+            M_conc_young[cpt] = std::min(1., std::max(0., new_conc_young));
         }
 
         // Enforce maximum thickness constraint
