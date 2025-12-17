@@ -4053,7 +4053,6 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         double ridge_young_ice_aspect_ratio=10.;
 
-        double conc_young = 0.;
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
             if(M_conc_young[cpt]>0. )
@@ -4092,16 +4091,14 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 M_h_young[cpt]=0.;
                 M_hs_young[cpt]=0.;
             }
-            conc_young = M_conc_young[cpt];
         }
 
-        double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
+        M_conc[cpt] = std::min(1.,std::max(1.-M_conc_young[cpt]-open_water_concentration+del_c,0.));
 
-        if((new_conc+conc_young)>1.)
-            M_conc_young[cpt] = 1.-new_conc;
+        if((M_conc[cpt]+M_conc_young[cpt])>1.)
+            M_conc_young[cpt] = 1.-M_conc[cpt];
 
-        M_conc[cpt]=new_conc;
-
+        // TODO: Remove this "fix"
         double max_true_thickness = 50.;
         if(M_conc[cpt]>0.)
         {
