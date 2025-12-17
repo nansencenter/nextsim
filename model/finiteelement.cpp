@@ -4098,7 +4098,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
 
         if((new_conc+conc_young)>1.)
-            conc_young=1.-new_conc;
+            M_conc_young[cpt] = 1.-new_conc;
 
         M_conc[cpt]=new_conc;
 
@@ -4107,7 +4107,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.-conc_young,M_thick[cpt]/test_h_thick);
+            M_conc[cpt]=std::min(1.-M_conc_young[cpt],M_thick[cpt]/test_h_thick);
         }
         else
         {
