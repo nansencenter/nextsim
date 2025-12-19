@@ -4043,6 +4043,7 @@ FiniteElement::update(std::vector<double> const & UM_P)
         open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
 
         /* Young ice category */
+        // TODO only need new_conc_young, del_c in main scope
         double new_conc_young=0.;
         double new_h_young=0.;
         double new_hs_young=0.;
@@ -4053,12 +4054,11 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         double ridge_young_ice_aspect_ratio=10.;
 
-        double conc_young = 0.;
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
             if(M_conc_young[cpt]>0. )
             {
-                new_conc_young   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
+                new_conc_young   = std::min(1., std::max(0., 1. - M_conc[cpt] - open_water_concentration));
 
                 // Ridging
                 if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_young < M_conc_young[cpt] ))
@@ -4076,38 +4076,32 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     // Ridging of young ice - conserve level ice volume, but now area is constant
                     // (1-R^n) H^n = (1-R^{n+1}) H^{n+1}
                     M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
-
                     M_thick[cpt]        += newice;
-                    M_conc[cpt]         += del_c;
-                    M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
-
                     M_snow_thick[cpt]   += newsnow;
                 }
-
-                M_conc_young[cpt] = new_conc_young;
             }
             else
             {
-                M_conc_young[cpt]=0.;
                 M_h_young[cpt]=0.;
                 M_hs_young[cpt]=0.;
             }
-            conc_young = M_conc_young[cpt];
         }
 
-        double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
+        M_conc[cpt] = std::min(1.,std::max(0., 1. - new_conc_young - open_water_concentration + del_c));
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+        {
+            // total conc should be <= 1
+            new_conc_young = std::max(0., std::min(new_conc_young, 1.- M_conc[cpt]));
+            M_conc_young[cpt] = new_conc_young;
+        }
 
-        if((new_conc+conc_young)>1.)
-            new_conc=1.-conc_young;
-
-        M_conc[cpt]=new_conc;
-
+        // TODO: Remove this "fix"
         double max_true_thickness = 50.;
         if(M_conc[cpt]>0.)
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
             test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.-conc_young,M_thick[cpt]/test_h_thick);
+            M_conc[cpt]=std::min(1. - new_conc_young, M_thick[cpt]/test_h_thick);
         }
         else
         {
