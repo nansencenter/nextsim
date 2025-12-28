@@ -176,6 +176,7 @@ InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* b
             double max_dist = 1.e15;
             int closest_triangle = -1;
             int extend = 0;
+
             while (closest_triangle == -1)
             {
                 for (int idx = std::max(minx-extend,0); idx <= std::min(maxx+extend,GRID_SIZE-1); idx++) {
@@ -207,7 +208,7 @@ InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* b
                 }
             }
 
-            corresponding_triangle[k] = closest_triangle;
+            corresponding_triangle[k] = -closest_triangle-2;
         }
 
     }
@@ -220,6 +221,46 @@ InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* b
         if (k == -1) // The node is not in a triangle and isdefault is set to True
         {
             for(int j = 0; j < nb_var; j++) result[i*nb_var+j] = defaultvalue;
+            continue;
+        }
+
+        // If the node is not in a triangle, the interpolation is achieved from the two nodes of the closest edge
+        if (k < 0)
+        {
+            k = -k-2;
+
+            if (source_size == n_background_triangles) // Just take the value of the closest triangle for element fields
+            {
+                for (int l = 0; l < nb_var; l++)
+                    result[i*nb_var+l] = interp_in[nb_var*k+l];
+            }
+            else
+            {
+                std::vector<int> indices{background_triangles[3*k]-1, background_triangles[3*k+1]-1, background_triangles[3*k+2]-1};
+    
+                int max = 0;
+                double distance = pow(background_x[indices[0]] - x[i],2) + pow(background_y[indices[0]] - y[i], 2);
+                for (int j = 1; j < 3; j++)
+                {
+                    if (distance < pow(background_x[indices[j]] - x[i],2) + pow(background_y[indices[j]] - y[i], 2))
+                    {
+                        distance = pow(background_x[indices[j]] - x[i],2) + pow(background_y[indices[j]] - y[i], 2);
+                        max = j;
+                    }
+                }
+    
+                // Indices of the closest edge
+                int i1 = indices[(max+1)%3];
+                int i2 = indices[(max+2)%3];
+    
+                double t = (x[i]-background_x[i1])*(background_x[i2]-background_x[i1]) + (y[i]-background_y[i1])*(background_y[i2]-background_y[i1]);
+                t /= pow(background_x[i2]-background_x[i1],2) + pow(background_y[i2]-background_y[i1],2);
+                t = std::min(1.,std::max(0.,t));
+    
+                for (int l = 0; l < nb_var; l++)
+                    result[i*nb_var+l] = interp_in[nb_var*i1+l] + t*(interp_in[nb_var*i2+l] - interp_in[nb_var*i1+l]);
+            }
+
             continue;
         }
 
@@ -257,6 +298,7 @@ InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* b
 
         for (int l = 0; l < nb_var; l++)
             result[i*nb_var+l] /= area_triangle;
+
     }
 
     std::copy(result.begin(), result.end(), *interp_out);

@@ -91,9 +91,9 @@ namespace Nextsim
             ("numerics.nit_ow", po::value<int>()->default_value( 50. ),
                 "Number of iterations taken to smooth velocity into open water")
 
-            ("numerics.metric_coef_min", po::value<double>()->default_value( 0.999 ),
+            ("numerics.metric_coef_min", po::value<double>()->default_value( 0.9999 ),
                 "Scale factor for minimum element size.")
-            ("numerics.metric_coef_max", po::value<double>()->default_value( 1.001 ),
+            ("numerics.metric_coef_max", po::value<double>()->default_value( 1.0001 ),
                 "Scale factor for maximum element size.")
             ("numerics.metric_anisotropy", po::value<double>()->default_value( 1. ),
                 "Maximum anisotropy ratio for elements.")
