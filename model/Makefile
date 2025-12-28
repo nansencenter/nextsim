@@ -75,7 +75,6 @@ endif
 # gmsh
 CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
 
-
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
 LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L$(NETCDF_DIR)/lib -lnetcdf
@@ -97,8 +96,13 @@ ifdef USE_AEROBULK
 	LDFLAGS += $(LD_EXTRA_AEROBULK)
 endif
 
+ifdef USE_MMG
+    CXXFLAGS += -DMMG
+    CXXFLAGS += -I$(PARMMG_DIR)/include
+    LDFLAGS += -L$(PARMMG_DIR)/lib -lmmg -lparmmg2d -lmetis
+endif
+
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
 	LDFLAGS += -Wl,-rpath,/opt/local/lib
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
 	LDFLAGS += -L/opt/local/lib -lprofiler

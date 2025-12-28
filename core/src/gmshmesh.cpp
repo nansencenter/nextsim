@@ -797,6 +797,19 @@ GmshMesh::move(std::vector<double> const& um, double factor)
 }
 
 void
+GmshMesh::update(std::vector<point_type> const& nodes,
+                 std::vector<element_type> const& triangles,
+                 int numElements)
+{
+    M_nodes_vec = nodes;
+    M_triangles = triangles;
+    M_num_nodes = nodes.size();
+    M_num_triangles = triangles.size();
+    M_global_num_elements_from_serial = numElements;
+    M_global_num_nodes_from_serial = M_num_nodes;
+}
+
+void
 GmshMesh::stereographicProjection()
 {
     // polar stereographic projection
