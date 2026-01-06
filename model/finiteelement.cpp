@@ -564,7 +564,7 @@ FiniteElement::assignVariables()
     // For drifters:
     M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] += time_step*M_VT[]) [m]
 
-    M_fcor.assign(M_num_elements, 0.);
+    M_fcor.assign(M_num_nodes, 0.);
 
     M_drag_ui.assign(M_num_elements, quad_drag_coef_air);
     const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
@@ -10351,8 +10351,6 @@ FiniteElement::explicitSolve()
     M_timer.tick("prep nodes");
 
     // std::vector<double> tau_a(2*M_num_nodes);
-    // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
-    std::vector<double> fcor(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
 #ifdef OASIS
@@ -10398,9 +10396,6 @@ FiniteElement::explicitSolve()
 
         D_tau_a[u_indx] = drag * M_wind[u_indx];
         D_tau_a[v_indx] = drag * M_wind[v_indx];
-
-        // Coriolis term
-        fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
 
         // Post-process mass matrix and nodal mass
         rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
@@ -10509,7 +10504,7 @@ FiniteElement::explicitSolve()
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
-            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
+            double const beta   = dtep*M_fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
             double const tau_x = D_tau_a[u_indx]
@@ -13741,7 +13736,7 @@ void
 FiniteElement::calcCoriolis()
 {
     // Interpolation of the latitude
-    std::vector<double> lat = M_mesh.meanLat();
+    std::vector<double> lat = M_mesh.lat();
 
     for (int i=0; i<M_fcor.size(); ++i)
         M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
