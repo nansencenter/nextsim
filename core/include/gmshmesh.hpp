@@ -63,6 +63,7 @@ public:
     void readFromFileASCII(std::ifstream& ifs);
     void writeToFile(std::string const& filename);
     void move(std::vector<double> const& um, double factor);
+    void update(std::vector<point_type> const& nodes, std::vector<element_type> const& triangles, int numElements);
     void allGather(std::vector<int> const& field_in, std::vector<std::vector<int> >& field_out, int& acc_size);
     void nodalGrid();
 
