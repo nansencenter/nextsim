@@ -564,7 +564,7 @@ FiniteElement::assignVariables()
     // For drifters:
     M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] += time_step*M_VT[]) [m]
 
-    M_fcor.assign(M_num_elements, 0.);
+    M_fcor.assign(M_num_nodes, 0.);
 
     M_drag_ui.assign(M_num_elements, quad_drag_coef_air);
     const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
@@ -3972,6 +3972,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
     bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
 
+    double const cmin_dynamics = vm["dynamics.min_c"].as<double>();
+    double const hmin_dynamics = vm["dynamics.min_h"].as<double>();
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
 
@@ -4071,16 +4074,8 @@ FiniteElement::update(std::vector<double> const & UM_P)
         open_water_concentration=(open_water_concentration>1.)?1.:open_water_concentration;
 
         /* Young ice category */
-        // TODO only need new_conc_young, del_c in main scope
         double new_conc_young=0.;
-        double new_h_young=0.;
-        double new_hs_young=0.;
-
-        double newice = 0.;
         double del_c = 0.;
-        double newsnow = 0.;
-
-        double ridge_young_ice_aspect_ratio=10.;
 
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
@@ -4089,14 +4084,17 @@ FiniteElement::update(std::vector<double> const & UM_P)
                 new_conc_young   = std::min(1., std::max(0., 1. - M_conc[cpt] - open_water_concentration));
 
                 // Ridging
-                if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_young < M_conc_young[cpt] ))
+                if( (M_conc[cpt] > cmin_dynamics) && (M_thick[cpt] > hmin_dynamics) && (new_conc_young < M_conc_young[cpt] ))
                 {
-                    new_h_young      = new_conc_young*M_h_young[cpt]/M_conc_young[cpt]; // so that we keep the same h0, no preferences for the ridging
-                    new_hs_young     = new_conc_young*M_hs_young[cpt]/M_conc_young[cpt];
+                    // keep the same slab ice/snow thicknesses, no preferences for the ridging
+                    double const conc_ratio = new_conc_young / M_conc_young[cpt];
+                    double const new_h_young = conc_ratio * M_h_young[cpt];
+                    double const new_hs_young = conc_ratio * M_hs_young[cpt];
 
-                    newice = M_h_young[cpt]-new_h_young;
-                    del_c   = (M_conc_young[cpt]-new_conc_young)/ridge_young_ice_aspect_ratio;
-                    newsnow = M_hs_young[cpt]-new_hs_young;
+                    constexpr double RIDGE_YOUNG_ICE_ASPECT_RATIO = 10.;
+                    del_c = (M_conc_young[cpt]-new_conc_young) / RIDGE_YOUNG_ICE_ASPECT_RATIO;
+                    double const newice = M_h_young[cpt]-new_h_young;
+                    double const newsnow = M_hs_young[cpt]-new_hs_young;
 
                     M_h_young[cpt]   = new_h_young;
                     M_hs_young[cpt]  = new_hs_young;
@@ -4124,11 +4122,11 @@ FiniteElement::update(std::vector<double> const & UM_P)
         }
 
         // TODO: Remove this "fix"
-        double max_true_thickness = 50.;
+        constexpr double MAX_TRUE_THICKNESS = 50.;
         if(M_conc[cpt]>0.)
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
-            test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
+            test_h_thick = (test_h_thick>MAX_TRUE_THICKNESS) ? MAX_TRUE_THICKNESS : test_h_thick ;
             M_conc[cpt]=std::min(1. - new_conc_young, M_thick[cpt]/test_h_thick);
         }
         else
@@ -10365,8 +10363,6 @@ FiniteElement::explicitSolve()
     M_timer.tick("prep nodes");
 
     // std::vector<double> tau_a(2*M_num_nodes);
-    // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
-    std::vector<double> fcor(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
 #ifdef OASIS
@@ -10412,9 +10408,6 @@ FiniteElement::explicitSolve()
 
         D_tau_a[u_indx] = drag * M_wind[u_indx];
         D_tau_a[v_indx] = drag * M_wind[v_indx];
-
-        // Coriolis term
-        fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
 
         // Post-process mass matrix and nodal mass
         rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
@@ -10523,7 +10516,7 @@ FiniteElement::explicitSolve()
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
-            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
+            double const beta   = dtep*M_fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
             double const tau_x = D_tau_a[u_indx]
@@ -13755,7 +13748,7 @@ void
 FiniteElement::calcCoriolis()
 {
     // Interpolation of the latitude
-    std::vector<double> lat = M_mesh.meanLat();
+    std::vector<double> lat = M_mesh.lat();
 
     for (int i=0; i<M_fcor.size(); ++i)
         M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
