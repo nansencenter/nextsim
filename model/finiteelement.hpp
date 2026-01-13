@@ -586,9 +586,7 @@ private:
 
     double compr_strength;
     double tract_coef;
-    double scale_coef;
     double alea_factor;
-    double C_lab;
     double C_fix;
     double C_alea;
     double tan_phi;
