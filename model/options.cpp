@@ -316,7 +316,13 @@ namespace Nextsim
             ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
-            ("dynamics.C_lab", po::value<double>()->default_value( 2.0e6 ), "Pa")       // Cohesion value at the lab scale (10^6 Pa is the order of magnitude determined by Schulson).
+            ("dynamics.C0", po::value<double>()->default_value( 2.0e6 ), "Pa")          // Cohesion value at 10 cm resolution (from Ólason et al., 2023)
+            ("dynamics.C_scale", po::value<double>()->default_value( 0.1 ), "m")        // The reference scale for dynamics.C0
+            ("dynamics.C_lin_coef", po::value<double>()->default_value( 0.04 ), "Pa/m")        // The reference scale for dynamics.C0
+            ("dynamics.C_scaling", po::value<std::string>()->default_value( "sqrt" ),
+                "How to calculate the cohesion scaling from C0 and C_scale (none, linear, [sqrt])")
+
+
             ("dynamics.nu0", po::value<double>()->default_value( 1./3. ), "")
             ("dynamics.tan_phi", po::value<double>()->default_value( 0.7 ), "")
             ("dynamics.compr_strength", po::value<double>()->default_value( 1e10 ), "Pa")

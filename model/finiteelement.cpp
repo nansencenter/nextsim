@@ -1209,7 +1209,7 @@ FiniteElement::initOptAndParam()
     // scale_coef is now set after initialising the mesh
     compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
-    C_lab = vm["dynamics.C_lab"].as<double>(); //! \param C_lab (double) Cohesion at the lab scale (10 cm) [Pa]
+    C_fix = vm["dynamics.C0"].as<double>(); //! \param C0 (double) Cohesion at the reference scale (10 km) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
 
     //! Sets options on the thermodynamics scheme
@@ -7019,10 +7019,26 @@ FiniteElement::init()
     // We need to set the scale_coef et al after initialising the mesh - this was previously done in initConstants
     // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
-    scale_coef = std::sqrt(0.1/M_res_root_mesh);
-    C_fix    = C_lab*scale_coef;          // C_lab;...  : cohesion (Pa)
+    const std::string C_scaling = vm["dynamics.C_scaling"].as<std::string>();
+
+    if ( C_scaling == "linear" )
+    {
+        const double scale_coef = vm["dynamics.C_lin_coef"].as<double>() * ( vm["dynamics.C_scale"].as<double>() - M_res_root_mesh );
+        C_fix += scale_coef;
+        compr_strength += scale_coef;
+    }
+    else if ( C_scaling == "sqrt" )
+    {
+        const double scale_coef = std::sqrt(vm["dynamics.C_scale"].as<double>()/M_res_root_mesh);
+        C_fix *=  scale_coef;
+        compr_strength *= scale_coef;
+    }
+    else if ( C_scaling != "none" )
+    {
+        throw std::runtime_error("Unknown cohesion scaling dynamics.C_scaling: " + vm["dynamics.C_scaling"].as<std::string>());
+    }
+
     C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
-    compr_strength *= scale_coef;
     LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
 
     if ( M_use_restart )
