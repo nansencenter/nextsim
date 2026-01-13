@@ -8405,9 +8405,11 @@ void FiniteElement::checkMoveDrifters()
     LOG(DEBUG) << "in checkMoveDrifters\n";
     //! - check if we have any active drifters
     int n_drifters = 0;
-    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        n_drifters += it->isInitialised();
-    //TODO rm broadcast - drifters should all be initialised
+    if (M_rank == 0)
+    {
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            n_drifters += it->isInitialised();
+    }
     boost::mpi::broadcast(M_comm, n_drifters, 0);
     if(n_drifters==0)
         return;
