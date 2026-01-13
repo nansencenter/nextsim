@@ -8403,8 +8403,11 @@ void FiniteElement::checkMoveDrifters()
     LOG(DEBUG) << "in checkMoveDrifters\n";
     //! - check if we have any active drifters
     int n_drifters = 0;
-    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        n_drifters += it->isInitialised();
+    if (M_rank == 0)
+    {
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            n_drifters += it->isInitialised();
+    }
     boost::mpi::broadcast(M_comm, n_drifters, 0);
     if(n_drifters==0)
         return;
@@ -9936,6 +9939,15 @@ FiniteElement::readRestart(std::string const& name_str)
 
     // correct the surface area (calculated for M_UM=0 in assignVariables)
     M_surface = this->surface(M_mesh, M_UM, 1.);
+
+    // make sure drifters all have the same init time
+    for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+    {
+        double t_init;
+        if (M_rank == 0) t_init = it->getInitTime();
+        boost::mpi::broadcast(M_comm, t_init, 0);
+        it->setInitTime(t_init);
+    }
 }//readRestart
 
 

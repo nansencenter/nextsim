@@ -26,16 +26,15 @@ void
 Drifters::updateDrifters(GmshMesh const& movedmesh,
                          std::vector<double> & conc, double const& current_time)
 {
-    std::vector<double> conc_drifters(0);
-
     //! 1) Reset temporary (i.e. OSISAF) drifters if needed
-    //! \note this does outputting so needs conc_root
+    //! \note this does outputting so needs conc
     if(this->resetting(current_time))
         this->reset(movedmesh, conc, current_time);
 
     //! 2) Initialize if needed
     //! - need conc on the moved mesh
     //! - \note updates conc_drifters
+    std::vector<double> conc_drifters(0);
     if(this->initialising(current_time))
         this->initialise(movedmesh, conc, conc_drifters);
 
@@ -60,7 +59,7 @@ Drifters::updateDrifters(GmshMesh const& movedmesh,
         }
     }
 
-    //! 4) Add/remove drifters if needed
+    //! 4) Output drifters if needed
     if (this->isOutputTime(current_time))
     {
         int num_drifters = conc_drifters.size();
