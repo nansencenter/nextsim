@@ -141,9 +141,6 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
 {
     M_target_size = RX_in.size();
 
-    // Don't need to do nothing more for a constant dataset
-    if (M_is_constant) return;
-
     M_current_time = current_time;
 
     double current_time_tmp=M_current_time;
@@ -151,6 +148,9 @@ void ExternalData::check_and_reload(std::vector<double> const& RX_in,
     M_factor=1.;
     if((M_current_time-M_StartingTime)<M_SpinUpDuration)
         M_factor=(M_current_time-M_StartingTime)/M_SpinUpDuration;
+
+    // Don't need to do nothing more for a constant dataset
+    if (M_is_constant) return;
 
     bool to_be_reloaded=false;
 
@@ -341,9 +341,9 @@ ExternalData::get(const size_type i)
                     "invalid index for vector (no dataset)");
 
             if(i < M_target_size)
-                value = M_constant_value;
+                value = M_factor*M_constant_value;
             else
-                value = M_constant_valuebis;
+                value = M_factor*M_constant_valuebis;
         }
     }
     else
