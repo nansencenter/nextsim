@@ -199,8 +199,9 @@ public:
     void step();
     void run();
 
+    inline void updateSigmaVP(double const e, double const Pstar, double const C, double const delta_min, double const ralpha1, double const ralpha2);
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
-    inline void updateSigmaMEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min, double const alpha);
+    inline void updateSigmaMEVP(double const e, double const Pstar, double const C, double const delta_min, double const alpha);
     void explicitSolve();
 
     void nestingIce();

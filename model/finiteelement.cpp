@@ -712,7 +712,7 @@ FiniteElement::assignVariables()
     // For drifters:
     M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] += time_step*M_VT[]) [m]
 
-    M_fcor.assign(M_num_elements, 0.);
+    M_fcor.assign(M_num_nodes, 0.);
 
     M_drag_ui.assign(M_num_elements, quad_drag_coef_air);
     const double drag_ice_t = vm["thermo.drag_ice_t"].as<double>();
@@ -5858,6 +5858,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
     bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
 
+    double const cmin_dynamics = vm["dynamics.min_c"].as<double>();
+    double const hmin_dynamics = vm["dynamics.min_h"].as<double>();
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
 
@@ -5958,31 +5961,26 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         /* Young ice category */
         double new_conc_young=0.;
-        double new_h_young=0.;
-        double new_hs_young=0.;
-
-        double newice = 0.;
         double del_c = 0.;
-        double newsnow = 0.;
 
-        double ridge_young_ice_aspect_ratio=10.;
-
-        double conc_young = 0.;
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
             if(M_conc_young[cpt]>0. )
             {
-                new_conc_young   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
+                new_conc_young   = std::min(1., std::max(0., 1. - M_conc[cpt] - open_water_concentration));
 
                 // Ridging
-                if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_young < M_conc_young[cpt] ))
+                if( (M_conc[cpt] > cmin_dynamics) && (M_thick[cpt] > hmin_dynamics) && (new_conc_young < M_conc_young[cpt] ))
                 {
-                    new_h_young      = new_conc_young*M_h_young[cpt]/M_conc_young[cpt]; // so that we keep the same h0, no preferences for the ridging
-                    new_hs_young     = new_conc_young*M_hs_young[cpt]/M_conc_young[cpt];
+                    // keep the same slab ice/snow thicknesses, no preferences for the ridging
+                    double const conc_ratio = new_conc_young / M_conc_young[cpt];
+                    double const new_h_young = conc_ratio * M_h_young[cpt];
+                    double const new_hs_young = conc_ratio * M_hs_young[cpt];
 
-                    newice = M_h_young[cpt]-new_h_young;
-                    del_c   = (M_conc_young[cpt]-new_conc_young)/ridge_young_ice_aspect_ratio;
-                    newsnow = M_hs_young[cpt]-new_hs_young;
+                    constexpr double RIDGE_YOUNG_ICE_ASPECT_RATIO = 10.;
+                    del_c = (M_conc_young[cpt]-new_conc_young) / RIDGE_YOUNG_ICE_ASPECT_RATIO;
+                    double const newice = M_h_young[cpt]-new_h_young;
+                    double const newsnow = M_hs_young[cpt]-new_hs_young;
 
                     M_h_young[cpt]   = new_h_young;
                     M_hs_young[cpt]  = new_hs_young;
@@ -5990,38 +5988,32 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     // Ridging of young ice - conserve level ice volume, but now area is constant
                     // (1-R^n) H^n = (1-R^{n+1}) H^{n+1}
                     M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
-
                     M_thick[cpt]        += newice;
-                    M_conc[cpt]         += del_c;
-                    M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
-
                     M_snow_thick[cpt]   += newsnow;
                 }
-
-                M_conc_young[cpt] = new_conc_young;
             }
             else
             {
-                M_conc_young[cpt]=0.;
                 M_h_young[cpt]=0.;
                 M_hs_young[cpt]=0.;
             }
-            conc_young = M_conc_young[cpt];
         }
 
-        double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
+        M_conc[cpt] = std::min(1.,std::max(0., 1. - new_conc_young - open_water_concentration + del_c));
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+        {
+            // total conc should be <= 1
+            new_conc_young = std::max(0., std::min(new_conc_young, 1.- M_conc[cpt]));
+            M_conc_young[cpt] = new_conc_young;
+        }
 
-        if((new_conc+conc_young)>1.)
-            new_conc=1.-conc_young;
-
-        M_conc[cpt]=new_conc;
-
-        double max_true_thickness = 50.;
+        // TODO: Remove this "fix"
+        constexpr double MAX_TRUE_THICKNESS = 50.;
         if(M_conc[cpt]>0.)
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
-            test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.-conc_young,M_thick[cpt]/test_h_thick);
+            test_h_thick = (test_h_thick>MAX_TRUE_THICKNESS) ? MAX_TRUE_THICKNESS : test_h_thick ;
+            M_conc[cpt]=std::min(1. - new_conc_young, M_thick[cpt]/test_h_thick);
         }
         else
         {
@@ -10310,8 +10302,11 @@ void FiniteElement::checkMoveDrifters()
     LOG(DEBUG) << "in checkMoveDrifters\n";
     //! - check if we have any active drifters
     int n_drifters = 0;
-    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        n_drifters += it->isInitialised();
+    if (M_rank == 0)
+    {
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            n_drifters += it->isInitialised();
+    }
     boost::mpi::broadcast(M_comm, n_drifters, 0);
     if(n_drifters==0)
         return;
@@ -11861,6 +11856,15 @@ FiniteElement::readRestart(std::string const& name_str)
 
     // correct the surface area (calculated for M_UM=0 in assignVariables)
     M_surface = this->surface(M_mesh, M_UM, 1.);
+
+    // make sure drifters all have the same init time
+    for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+    {
+        double t_init;
+        if (M_rank == 0) t_init = it->getInitTime();
+        boost::mpi::broadcast(M_comm, t_init, 0);
+        it->setInitTime(t_init);
+    }
 }//readRestart
 
 //! To build M_mesh_root without bamg
@@ -12326,8 +12330,6 @@ FiniteElement::explicitSolve()
     M_timer.tick("prep nodes");
 
     // std::vector<double> tau_a(2*M_num_nodes);
-    // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
-    std::vector<double> fcor(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
 #ifdef OASIS
@@ -12374,9 +12376,6 @@ FiniteElement::explicitSolve()
         D_tau_a[u_indx] = drag[i] * M_wind[u_indx];
         D_tau_a[v_indx] = drag[i] * M_wind[v_indx];
 
-        // Coriolis term
-        fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
-
         // Post-process mass matrix and nodal mass
         rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
         node_mass[i] *= rlmass_matrix[i];
@@ -12412,7 +12411,7 @@ FiniteElement::explicitSolve()
                 break;
 
             case setup::DynamicsType::mEVP:
-                this->updateSigmaMEVP(dte, e, Pstar, C, delta_min, alpha_mevp);
+                this->updateSigmaMEVP(e, Pstar, C, delta_min, alpha_mevp);
                 break;
 
             case setup::DynamicsType::BBM:
@@ -12459,7 +12458,7 @@ FiniteElement::explicitSolve()
             int u_indx = i;
             int v_indx = i+M_num_nodes;
 
-            // mEVP modificatinos and additional term
+            // mEVP modifications and additional term
             double dtep, delu, delv;
             if ( M_dynamics_type == setup::DynamicsType::mEVP )
             {
@@ -12474,7 +12473,8 @@ FiniteElement::explicitSolve()
             }
 
             /* This is Hunke and Dukowicz's solution to (22), multiplied
-             * with (\Delta t/m)^2 to ensure stability for c' = 0 */
+             * with (\Delta t/m)^2 to ensure stability for c' = 0
+             * NB minus sign error in v equation after decoupling u and v*/
             double const dte_over_mass = dtep/std::max(min_m, node_mass[i]);
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
@@ -12483,7 +12483,7 @@ FiniteElement::explicitSolve()
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
-            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
+            double const beta   = dtep*M_fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
             double const tau_x = D_tau_a[u_indx]
@@ -12501,10 +12501,10 @@ FiniteElement::explicitSolve()
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
             double const grad_y = grad_terms[v_indx]*rlmass_matrix[i];
 
-            M_VT[u_indx]  = alpha*uice + beta*vice + dte_over_mass*( alpha*(grad_x + tau_x) + beta*(grad_y + tau_y) ) + delu;
+            M_VT[u_indx]  = alpha*uice + beta*vice + dte_over_mass*( alpha*(grad_x + tau_x) + beta*(grad_y + tau_y) ) + alpha*delu + beta*delv;
             M_VT[u_indx] *= rdenom;
 
-            M_VT[v_indx]  = alpha*vice - beta*uice + dte_over_mass*( alpha*(grad_y + tau_y) + beta*(grad_x + tau_x) ) + delv;
+            M_VT[v_indx]  = alpha*vice - beta*uice + dte_over_mass*( alpha*(grad_y + tau_y) - beta*(grad_x + tau_x) ) + alpha*delv - beta*delu;
             M_VT[v_indx] *= rdenom;
         }
         M_timer.tock("sub-solve");
@@ -12665,16 +12665,12 @@ FiniteElement::explicitSolve()
 }
 
 //------------------------------------------------------------------------------------------------------
-//! Calculates M_sigma for the EVP model
-//! Called by the explicitSolve function
+//! Calculates M_sigma for the EVP and mEVP models
+//! Called by updateSigmaEVP and updateSigmaMEVP
 inline void
-FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min)
+FiniteElement::updateSigmaVP(double const e, double const Pstar, double const C, double const delta_min, double const ralpha1, double const ralpha2)
 {
     double const re2 = 1./(e*e);
-    double const Tevp_inv = 3./dtime_step;
-
-    double const det1 = 1./( 1. + 0.5*Tevp_inv*dte );
-    double const det2 = 1./( 1. + 0.5*Tevp_inv*dte*e*e );
 
     for ( int cpt=0; cpt<M_num_elements; cpt++ )
     {
@@ -12707,91 +12703,48 @@ FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pst
         double const eps2 = eps11 - eps22;
 
         double const delta = std::sqrt( eps1*eps1 + (eps2*eps2 + 4*eps12*eps12)*re2 );
+        double const P = Pstar*std::exp(-C*(1.-M_conc[cpt]));
+        double const zeta = P / ( delta + delta_min );
 
-        double pressure = Pstar*std::exp(-C*(1.-M_conc[cpt]));
-
-        pressure *= 0.5;
-        double const delta_inv = 1./std::max(delta, delta_min);
-
-        double zeta = pressure*delta_inv;
-        pressure *= delta*delta_inv;
-        pressure *= Tevp_inv;
-        zeta *= Tevp_inv;
-
-        double const r1 = zeta*eps1 - pressure;
-        double const r2 = zeta*eps2;
-        double const r3 = zeta*eps12*re2;
         double sigma1 = M_sigma[0][cpt] + M_sigma[1][cpt];
         double sigma2 = M_sigma[0][cpt] - M_sigma[1][cpt];
 
-        sigma1 = det1*(sigma1 + dte*r1);
-        sigma2 = det2*(sigma2 + dte*r2);
-        M_sigma[2][cpt] = det2*(M_sigma[2][cpt] + dte*r3);
+        // Sylvain's eqs 43--45
+        sigma1 += ralpha1*( zeta*(eps1-delta) - sigma1 );
+        sigma2 += ralpha2*( zeta*eps2*re2 - sigma2 );
+        M_sigma[2][cpt] += ralpha2*( zeta*eps12*re2 - M_sigma[2][cpt] );
+
         M_sigma[0][cpt] = 0.5*(sigma1 + sigma2);
         M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
+
     }
+} //updateSigmaVP
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates M_sigma for the EVP model
+//! Called by the explicitSolve function
+inline void
+FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min)
+{
+    // Sergey's default T
+    double const T = dtime_step / 3.;
+
+    double const ralpha1 = 0.5*dte/T;
+    double const ralpha2 = 0.5*dte/T*e*e;
+
+    this->updateSigmaVP(e, Pstar, C, delta_min, ralpha1, ralpha2);
+
 } //updateSigmaEVP
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates M_sigma for the mEVP
 //! Called by the explicitSolve function
 inline void
-FiniteElement::updateSigmaMEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min, double const alpha)
+FiniteElement::updateSigmaMEVP(double const e, double const Pstar, double const C, double const delta_min, double const alpha)
 {
-    double const re2 = 1./(e*e);
-    double const Tevp_inv = 3./dtime_step;
 
-    double const det2 = 1./( 1. + alpha );
-    double const det1 = alpha*det2;
+    this->updateSigmaVP(e, Pstar, C, delta_min, 1./alpha, 1./alpha);
 
-    for ( int cpt=0; cpt<M_num_elements; cpt++ )
-    {
-        // Skip ice-free elements (it's just a zero term anyway)
-        if ( M_thick[cpt] == 0. )
-        {
-            for ( int i=0; i<M_sigma.size(); ++i )
-                M_sigma[i][cpt] = 0.;
-
-            continue;
-        }
-
-        // Deformation rate tensor on element
-        // Sum up over the nodes of this element
-        double eps11 = 0.;
-        double eps22 = 0.;
-        double eps12 = 0.;
-        for(int i=0; i<3; i++)
-        {
-            double const u = M_VT[(M_elements[cpt]).indices[i]-1];
-            double const v = M_VT[(M_elements[cpt]).indices[i]-1 + M_num_nodes];
-            double const dxN = M_shape_coeff[cpt][i];
-            double const dyN = M_shape_coeff[cpt][i+3];
-            eps11 += dxN*u;
-            eps22 += dyN*v;
-            eps12 += 0.5*( dxN*v + dyN*u );
-        }
-
-        double const eps1 = eps11 + eps22;
-        double const eps2 = eps11 - eps22;
-
-        double const delta = std::sqrt( eps1*eps1 + (eps2*eps2 + 4*eps12*eps12)*re2 );
-
-        double const pressure = Pstar*std::exp(-C*(1.-M_conc[cpt]))/(delta+delta_min);
-
-        double const r1 = pressure*(eps1-delta);
-        double const r2 = pressure*eps2*re2;
-        double const r3 = pressure*eps12*re2;
-
-        double sigma1 = M_sigma[0][cpt] + M_sigma[1][cpt];
-        double sigma2 = M_sigma[0][cpt] - M_sigma[1][cpt];
-
-        sigma1 = det1*sigma1 + det2*r1;
-        sigma2 = det1*sigma2 + det2*r2;
-
-        M_sigma[2][cpt] = det1*M_sigma[2][cpt] + det2*r3;
-        M_sigma[0][cpt] = 0.5*(sigma1 + sigma2);
-        M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
-    }
 } //updateSigmaMEVP
 
 //------------------------------------------------------------------------------------------------------
@@ -15804,7 +15757,7 @@ void
 FiniteElement::calcCoriolis()
 {
     // Interpolation of the latitude
-    std::vector<double> lat = M_mesh.meanLat();
+    std::vector<double> lat = M_mesh.lat();
 
     for (int i=0; i<M_fcor.size(); ++i)
         M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
