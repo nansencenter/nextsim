@@ -64,7 +64,7 @@ mrproper: clean
 $(LIBRARYNAME): $(OBJS)
 	@mkdir -p $(LIBRARYDIR)
 	@echo "============================================"
-	@echo Creating shared library $(LIBRARYDIR)$(LIBRARYNAME)
+	@echo Creating static library $(LIBRARYDIR)$(LIBRARYNAME)
 	@echo "============================================"
 	$(AR) rcs -o $(LIBRARYDIR)$@ $^
 
