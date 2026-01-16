@@ -229,14 +229,14 @@ Metric::find_z1_z2(std::vector<double> const& areas_vertex, std::vector<int> con
     double integral_ = integral[nb_vertices-2] - integral[k1];
     int k = nb_vertices-1;
 
-    while ((this->Nst - area_A*d_min - area_B*d_max) * pow(z2,alpha) / integral_ - d_max > 0)
+    while ((this->Nst - area_A*d_min - area_B*d_max) * pow(z2,alpha) - d_max*integral_ > 0)
     {
         k -= 1;
         area_B = sum_area[nb_vertices-1] - sum_area[k];
         z2 = sum_gamma[order_number[k]];
         k1 = find_z1(order_number, sum_gamma, nb_vertices, d_min, d_max, alpha, z2);
         area_A = sum_area[k1];
-        integral_ = std::max(integral[k] - integral[k1], 1.e-12);
+        integral_ = integral[k] - integral[k1];
     }
 
     double z1 = z2 * pow(d_max/d_min,-1./alpha);
@@ -430,7 +430,7 @@ Metric::compute_optimal_metric(GmshMesh const& mesh, std::vector<double> const& 
     // Check if there is an error on the metric
     double global_constraint = boost::mpi::all_reduce(comm, constraint, std::plus<double>());
     if (comm.rank() == 0 && fabs(global_constraint - this->Nst) > 1.) std::cerr << "INACCURACIES OR ERROR IN THE METRIC COMPUTATION: " <<
-                                                                                   constraint << " is not equal to " << this->Nst << std::endl;
+                                                                                   global_constraint << " is not equal to " << this->Nst << std::endl;
 
     // Last step: compute the metric based on the eigenvalue lambda
     std::vector<double> v1(2);
