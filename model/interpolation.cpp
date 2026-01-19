@@ -76,7 +76,7 @@ InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* b
     *interp_out = new double[n_nodes * nb_var];
 
     // Prepare the Cartesian grid
-    int GRID_SIZE = sqrt(n_background_triangles/20);
+    int GRID_SIZE = std::max(int(sqrt(n_background_triangles/20)), 3);
     double xmax = -1.e20;
     double xmin = 1.e20;
     double ymax = -1.e20;
