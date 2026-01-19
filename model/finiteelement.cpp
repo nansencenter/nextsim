@@ -14479,7 +14479,7 @@ FiniteElement::writeLogFile()
         if ( fs::exists(path1) )
         {
             fs::path path2(M_export_path+ "/" + path1.filename().string());
-            fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
+            fs::copy_file(path1, path2, fs::copy_options::overwrite_existing);
         }
     }
 }//writeLogFile
