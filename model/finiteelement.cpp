@@ -3648,7 +3648,7 @@ FiniteElement::interpFields_parallel(std::vector<double> const& coordX_prv, std:
     double ymax_local = -1.e20;
     double ymin_local = 1.e20;
 
-    for (int k = 0; k <= M_prv_num_nodes; k++)
+    for (int k = 0; k < M_prv_num_nodes; k++)
     {
         if (coordX_prv[k] < xmin_local) xmin_local = coordX_prv[k];
         if (coordX_prv[k] > xmax_local) xmax_local = coordX_prv[k];

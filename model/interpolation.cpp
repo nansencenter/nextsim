@@ -83,7 +83,7 @@ InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* b
     double ymin = 1.e20;
     double EPSILON = 1.e-6;
 
-    for (int k = 0; k <= n_background_nodes; k++)
+    for (int k = 0; k < n_background_nodes; k++)
     {
         if (background_x[k] < xmin) xmin = background_x[k];
         if (background_x[k] > xmax) xmax = background_x[k];
