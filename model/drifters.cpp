@@ -515,7 +515,7 @@ Drifters::find_partition(GmshMesh const& mesh, std::vector<double>& M_local_drif
     std::vector<double> coordX = mesh.coordX();
     std::vector<double> coordY = mesh.coordY();
     std::vector<int> triangles = mesh.indexTr();
-    for (int k = 0; k <= coordX.size(); k++)
+    for (int k = 0; k < coordX.size(); k++)
     {
         if (coordX[k] < xmin) xmin = coordX[k];
         if (coordX[k] > xmax) xmax = coordX[k];
