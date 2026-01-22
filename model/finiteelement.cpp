@@ -5377,7 +5377,7 @@ FiniteElement::convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh
     std::vector<int> actual_point(nbVertices+1, 0);
     for (auto it=Triang.begin(), end=Triang.end(); it!=end; ++it)
     {
-        if (it->is_ghost && partitioned) continue;
+        if (partitioned && it->is_ghost) continue;
 
         nbTriangles++;
         for (int i=0; i<3; ++i)
