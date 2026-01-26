@@ -5749,7 +5749,7 @@ FiniteElement::updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_edges, std::ve
     //! 2) Masks out the boundary nodes and updates Dirichlet and Neumann flag
     M_mask_root.assign(num_nodes, false) ;
     M_mask_root.shrink_to_fit();
-    M_mask_dirichlet_root.assign(num_nodes, false) ;
+    M_mask_dirichlet_root.assign(num_nodes+1, false) ;
     M_mask_dirichlet_root.shrink_to_fit();
 
     for (int i = 1; i < Dirichlet_edges.size(); i++) {
