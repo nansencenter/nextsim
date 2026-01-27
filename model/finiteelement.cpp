@@ -5828,8 +5828,21 @@ FiniteElement::updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_edges, std::ve
 void
 FiniteElement::calcCohesion()
 {
-    for (int i=0; i<M_num_elements; ++i)
-        M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
+    // If the mesh is not uniform, the size resolution is not uniform and must be calculated for each element
+    if (use_MMG && (M_metric.scale_factor_min < 0.95 || M_metric.scale_factor_max > 1.05))
+    {
+        for (int i = 0; i < M_num_elements; ++i)
+        {
+            double scale_coef = pow(0.1 / pow(this->measure(M_mesh.triangles()[i],M_mesh), 0.5) , 0.5);
+            C_fix = C_lab * scale_coef;
+            M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < M_num_elements; ++i)
+            M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
+    }
 
 }//calcCohesion
 
