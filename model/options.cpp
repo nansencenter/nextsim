@@ -101,7 +101,7 @@ namespace Nextsim
             ("numerics.metric_exponent", po::value<int>()->default_value(1),
                 "Exponent of the Lp-norm.")
 
-            ("numerics.metric_field", po::value<std::string>()->default_value( "velocity" ),
+            ("numerics.metric_field", po::value<std::string>()->default_value( "mixed" ),
              "Field that will serve to adapt the mesh")
 
             // Hotfix for issue #53 - we only have pure Lagrangian now.

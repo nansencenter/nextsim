@@ -4657,6 +4657,11 @@ FiniteElement::regrid(bool step)
                     field.resize(M_mesh.numTriangles());
                     for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_thick[i];
                 }
+                else if (vm["numerics.metric_field"].as<std::string>() == "mixed")
+                {
+                    field.resize(M_mesh.numTriangles());
+                    for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = (M_damage[i] + M_thick[i])/2.;
+                }
                 else if (M_nb_regrid == 0)
                 {
                     LOG(ERROR) << "The metric field given is not supported yet. A uniform field is used instead.\n";

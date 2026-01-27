@@ -223,18 +223,20 @@ Metric::find_z1_z2(std::vector<double> const& areas_vertex, std::vector<int> con
 
     double z2 = sum_gamma[order_number[nb_vertices-1]];
 
-    double area_B = sum_area[nb_vertices-1] - sum_area[nb_vertices-2];
+    double area_B = 0.;
     int k1 = find_z1(order_number, sum_gamma, nb_vertices, d_min, d_max, alpha, z2);
     double area_A = sum_area[k1];
-    double integral_ = integral[nb_vertices-2] - integral[k1];
+    double integral_ = integral[nb_vertices-1] - integral[k1];
     int k = nb_vertices-1;
 
     while ((this->Nst - area_A*d_min - area_B*d_max) * pow(z2,alpha) - d_max*integral_ > 0)
     {
         k -= 1;
+        if (k == -1) break; // This may happen if the solution (z1,z2) is smaller than the machine precision
         area_B = sum_area[nb_vertices-1] - sum_area[k];
         z2 = sum_gamma[order_number[k]];
         k1 = find_z1(order_number, sum_gamma, nb_vertices, d_min, d_max, alpha, z2);
+        if (k1 > k) break; // z1 must be smaller than z2, so k must remain greater than k1
         area_A = sum_area[k1];
         integral_ = integral[k] - integral[k1];
     }
@@ -429,8 +431,22 @@ Metric::compute_optimal_metric(GmshMesh const& mesh, std::vector<double> const& 
 
     // Check if there is an error on the metric
     double global_constraint = boost::mpi::all_reduce(comm, constraint, std::plus<double>());
-    if (comm.rank() == 0 && fabs(global_constraint - this->Nst) > 1.) std::cerr << "INACCURACIES OR ERROR IN THE METRIC COMPUTATION: " <<
-                                                                                   global_constraint << " is not equal to " << this->Nst << std::endl;
+    if (comm.rank() == 0 && fabs(global_constraint - this->Nst) > 1.)
+    {
+        // Probably due to a wrong (z1,z2) solution because it is smaller than the machine precision
+        std::cerr << "INACCURACIES OR ERROR IN THE METRIC COMPUTATION: " <<
+                     global_constraint << " is not equal to " << this->Nst << std::endl;
+        if (this->Nst < global_constraint)
+        {
+            std::cout << "The number of vertices will increase of about " <<
+                         100.*(global_constraint - this->Nst)/this->Nst << " %." << std::endl;
+        }
+        else
+        {
+            std::cout << "The number of vertices will decrease of about " <<
+                         100.*(this->Nst - global_constraint)/this->Nst << " %." << std::endl;
+        }
+    }
 
     // Last step: compute the metric based on the eigenvalue lambda
     std::vector<double> v1(2);
@@ -641,8 +657,21 @@ Metric::compute_optimal_metric(GmshMeshSeq const& mesh, std::vector<double> cons
         constraint += d[n]*areas_vertex[n];
     }
 
-    if (fabs(constraint - this->Nst) > 1.) std::cerr << "INACCURACIES OR ERROR IN THE METRIC COMPUTATION: " << 
-                                                        constraint << " is not equal to " << this->Nst << std::endl;
+    if (fabs(constraint - this->Nst) > 1.)
+    {
+        std::cerr << "INACCURACIES OR ERROR IN THE METRIC COMPUTATION: " <<
+                     constraint << " is not equal to " << this->Nst << std::endl;
+        if (this->Nst < constraint)
+        {
+            std::cout << "The number of vertices will increase of about " <<
+                         100.*(constraint - this->Nst)/this->Nst << " %." << std::endl;
+        }
+        else
+        {
+            std::cout << "The number of vertices will decrease of about " <<
+                         100.*(this->Nst - constraint)/this->Nst << " %." << std::endl;
+        }
+    }
 
     // Last step: compute the metric based on the eigenvalue lambda
     std::vector<double> v1(2);
