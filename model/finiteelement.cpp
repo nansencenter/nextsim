@@ -36,7 +36,14 @@ FiniteElement::FiniteElement(Communicator const& comm)
 void
 FiniteElement::initMesh()
 {
-    this->initBamg();
+    if (!use_MMG)
+    {
+        this->initBamg();
+    }
+    else
+    {
+        this->initMMGopts();
+    }
     this->rootMeshProcessing();
     if (!M_use_restart)
         this->distributedMeshProcessing(true);
@@ -49,37 +56,40 @@ FiniteElement::initMesh()
 void
 FiniteElement::distributedMeshProcessing(bool start)
 {
-    M_comm.barrier();
-
-    if (!start)
+    if (!use_MMG)
     {
-        M_mesh = mesh_type();
+        M_comm.barrier();
+    
+        if (!start)
+        {
+            M_mesh = mesh_type();
+        }
+    
+        M_mesh.setOrdering("gmsh");
+    
+        LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
+    
+        chrono.restart();
+        M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
+        LOG(DEBUG)<<"-------------------MESHREAD done in "<< chrono.elapsed() <<"s\n";
+    
+        if (!start)
+        {
+            delete bamggeom;
+            delete bamgmesh;
+    
+            bamggeom = new BamgGeom();
+            bamgmesh = new BamgMesh();
+        }
+    
+        chrono.restart();
+        BamgConvertMeshx(
+                         bamgmesh,bamggeom,
+                         &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+                         M_mesh.numNodes(), M_mesh.numTriangles());
+    
+        LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< chrono.elapsed() <<"s\n";
     }
-
-    M_mesh.setOrdering("gmsh");
-
-    LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
-
-    chrono.restart();
-    M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
-    LOG(DEBUG)<<"-------------------MESHREAD done in "<< chrono.elapsed() <<"s\n";
-
-    if (!start)
-    {
-        delete bamggeom;
-        delete bamgmesh;
-
-        bamggeom = new BamgGeom();
-        bamgmesh = new BamgMesh();
-    }
-
-    chrono.restart();
-    BamgConvertMeshx(
-                     bamgmesh,bamggeom,
-                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                     M_mesh.numNodes(), M_mesh.numTriangles());
-
-    LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< chrono.elapsed() <<"s\n";
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -97,17 +107,23 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->bcMarkedNodes();
     LOG(DEBUG)<<"-------------------BCMARKER done in "<< chrono.elapsed() <<"s\n";
 
-    chrono.restart();
-    this->createGraph();
-    LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< chrono.elapsed() <<"s\n";
+    if (!use_MMG)
+    {
+        chrono.restart();
+        this->createGraph();
+        LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< chrono.elapsed() <<"s\n";
+    }
 
     chrono.restart();
     this->gatherSizes();
     LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< chrono.elapsed() <<"s\n";
 
-    chrono.restart();
-    this->scatterElementConnectivity();
-    LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
+    if (!use_MMG)
+    {
+        chrono.restart();
+        this->scatterElementConnectivity();
+        LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
+    }
 
     chrono.restart();
     this->initUpdateGhosts();
@@ -165,22 +181,29 @@ FiniteElement::bcMarkedNodes()
     //std::cout<<"["<< M_rank << "] NDOFS= "<< M_num_nodes << " --- "<< M_local_ndof <<"\n";
 
     std::vector<int> flags_size_root(2);
+    std::vector<int> flags_size_ordered_root(2);
     if (M_rank == 0)
     {
         flags_size_root = {(int)M_dirichlet_flags_root.size(), (int)M_neumann_flags_root.size()};
+        flags_size_ordered_root = {(int)M_dirichlet_flags_root_ordered.size(), (int)M_neumann_flags_root_ordered.size()};
     }
 
     boost::mpi::broadcast(M_comm, &flags_size_root[0], 2, 0);
+    boost::mpi::broadcast(M_comm, &flags_size_ordered_root[0], 2, 0);
 
     int dir_size = flags_size_root[0];
     int nmn_size = flags_size_root[1];
+    int dir_ordered_size = flags_size_ordered_root[0];
+    int nmn_ordered_size = flags_size_ordered_root[1];
 
-    std::vector<int> flags_root;
+    std::vector<int> flags_root, flags_ordered_root;
     if (M_rank == 0)
     {
         std::copy(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(), std::back_inserter(flags_root));
         std::copy(M_neumann_flags_root.begin(), M_neumann_flags_root.end(), std::back_inserter(flags_root));
 
+        std::copy(M_dirichlet_flags_root_ordered.begin(), M_dirichlet_flags_root_ordered.end(), std::back_inserter(flags_ordered_root));
+        std::copy(M_neumann_flags_root_ordered.begin(), M_neumann_flags_root_ordered.end(), std::back_inserter(flags_ordered_root));
 #if 0
         for (int i=0; i<M_dirichlet_flags_root.size(); ++i)
         {
@@ -202,15 +225,20 @@ FiniteElement::bcMarkedNodes()
     if (M_rank != 0)
     {
         flags_root.resize(dir_size+nmn_size);
+        flags_ordered_root.resize(dir_ordered_size+nmn_ordered_size);
     }
 
     // broadcast the dirichlet and neumann nodes from master process to other processes
     boost::mpi::broadcast(M_comm, &flags_root[0], dir_size+nmn_size, 0);
+    boost::mpi::broadcast(M_comm, &flags_ordered_root[0], dir_ordered_size+nmn_ordered_size, 0);
 
     auto transfer_bimap = M_mesh.transferMapInit();
 
     M_dirichlet_flags.resize(0);
     M_neumann_flags.resize(0);
+
+    M_dirichlet_flags_ordered.resize(0);
+    M_neumann_flags_ordered.resize(0);
 
     // We mask out the boundary nodes
     M_mask.assign(M_num_nodes,false);
@@ -227,11 +255,11 @@ FiniteElement::bcMarkedNodes()
                 // exclude ghost nodes
                 if (lindex < M_local_ndof)
                 {
-                    M_dirichlet_flags.push_back(lindex);
                     //std::cout<<"["<< M_comm.rank() <<"] " << "-----------------here  = "<< flags_root[i]  <<"\n";
                     // add mask for dirichlet nodes
                     M_mask_dirichlet[lindex] = true;
                 }
+                M_dirichlet_flags.push_back(lindex);
             }
             else
             {
@@ -242,6 +270,54 @@ FiniteElement::bcMarkedNodes()
 
             // add mask for boundary nodes
             M_mask[lindex] = true;
+        }
+    }
+
+    for (int i = 0; i < flags_ordered_root.size()/2; i++)
+    {
+        auto first_point = transfer_bimap.left.find(flags_ordered_root[2*i]) != transfer_bimap.left.end();
+        auto second_point = transfer_bimap.left.find(flags_ordered_root[2*i+1]) != transfer_bimap.left.end();
+
+        if (!first_point && !second_point) continue;
+
+        if (first_point && second_point)
+        {
+            if (2*i < dir_ordered_size)
+            {
+                M_dirichlet_flags_ordered.push_back(transfer_bimap.left.find(flags_ordered_root[2*i])->second-1);
+                M_dirichlet_flags_ordered.push_back(transfer_bimap.left.find(flags_ordered_root[2*i+1])->second-1);
+            }
+            else
+            {
+                M_neumann_flags_ordered.push_back(transfer_bimap.left.find(flags_ordered_root[2*i])->second-1);
+                M_neumann_flags_ordered.push_back(transfer_bimap.left.find(flags_ordered_root[2*i+1])->second-1);
+            }
+        }
+        else if (first_point)
+        {
+            if (2*i < dir_ordered_size)
+            {
+                M_dirichlet_flags_ordered.push_back(transfer_bimap.left.find(flags_ordered_root[2*i])->second-1);
+                M_dirichlet_flags_ordered.push_back(-1);
+            }
+            else
+            {
+                M_neumann_flags_ordered.push_back(transfer_bimap.left.find(flags_ordered_root[2*i])->second-1);
+                M_neumann_flags_ordered.push_back(-1);
+            }
+        }
+        else
+        {
+            if (2*i+1 < dir_ordered_size)
+            {
+                M_dirichlet_flags_ordered.push_back(transfer_bimap.left.find(flags_ordered_root[2*i+1])->second-1);
+                M_dirichlet_flags_ordered.push_back(-1);
+            }
+            else
+            {
+                M_neumann_flags_ordered.push_back(transfer_bimap.left.find(flags_ordered_root[2*i+1])->second-1);
+                M_neumann_flags_ordered.push_back(-1);
+            }
         }
     }
 
@@ -256,6 +332,8 @@ FiniteElement::bcMarkedNodes()
 
     M_dirichlet_flags.shrink_to_fit();
     M_neumann_flags.shrink_to_fit();
+    M_dirichlet_flags_ordered.shrink_to_fit();
+    M_neumann_flags_ordered.shrink_to_fit();
 
     M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
     M_dirichlet_nodes.shrink_to_fit();
@@ -298,11 +376,10 @@ FiniteElement::rootMeshProcessing()
         M_mesh_init_root = M_mesh_root;
 
         LOG(DEBUG) <<"Convert mesh starts\n";
-        BamgConvertMeshx(
-                         bamgmesh_root,bamggeom_root,
-                         &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
-                         M_mesh_root.numNodes(), M_mesh_root.numTriangles()
-                         );
+        if (!use_MMG) BamgConvertMeshx(bamgmesh_root,bamggeom_root,
+                                       &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
+                                       M_mesh_root.numNodes(), M_mesh_root.numTriangles()
+                                      );
 
         // ------ Boundary conditions -----------
 
@@ -330,6 +407,13 @@ FiniteElement::rootMeshProcessing()
             {
                 M_dirichlet_flags_root.push_back(it->indices[0]/*-1*/);
                 M_dirichlet_flags_root.push_back(it->indices[1]/*-1*/);
+                M_dirichlet_flags_root_ordered.push_back(it->indices[0]/*-1*/);
+                M_dirichlet_flags_root_ordered.push_back(it->indices[1]/*-1*/);
+            }
+            else
+            {
+                M_neumann_flags_root_ordered.push_back(it->indices[0]/*-1*/);
+                M_neumann_flags_root_ordered.push_back(it->indices[1]/*-1*/);
             }
         }
 
@@ -355,57 +439,123 @@ FiniteElement::rootMeshProcessing()
         {
         case setup::MeshType::FROM_UNREF:
             // For the other meshes, we use a constant hmin and hmax
-            bamgopt->hmin = h[0];
-            bamgopt->hmax = h[1];
+            if (!use_MMG)
+            {
+                bamgopt->hmin = h[0];
+                bamgopt->hmax = h[1];
+            }
+            else
+            {
+                mmgopt->hmin = this->M_metric.scale_factor_min*0.5*(h[0]+h[1]);
+                mmgopt->hmax = this->M_metric.scale_factor_max*0.5*(h[0]+h[1]);
+            }
             break;
         case setup::MeshType::FROM_SPLIT:
-            bamgopt->hmin = h[0];
-            bamgopt->hmax = h[1];
-
-            M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
-            M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
-
-            LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-            LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-            LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
-            LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
-
-            bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
-            bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
-            for (int i=0; i<M_mesh_init_root.numNodes(); ++i)
+            if (!use_MMG)
             {
-                bamgopt->hminVertices[i] = M_hminVertices[i];
-                bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
+                bamgopt->hmin = h[0];
+                bamgopt->hmax = h[1];
+            }
+            else
+            {
+                mmgopt->hmin = this->M_metric.scale_factor_min*0.5*(h[0]+h[1]);
+                mmgopt->hmax = this->M_metric.scale_factor_max*0.5*(h[0]+h[1]);
+            }
+
+            if (!use_MMG)
+            {
+                M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
+                M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
+    
+                LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+                LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+                LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+                LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+    
+                bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
+                bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
+                for (int i=0; i<M_mesh_init_root.numNodes(); ++i)
+                {
+                    bamgopt->hminVertices[i] = M_hminVertices[i];
+                    bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
+                }
             }
             break;
         default:
             LOG(DEBUG)  << "invalid mesh type"<<"\n";
             throw std::logic_error("invalid mesh type");
         }
+    }
 
-        if(M_mesh_type==setup::MeshType::FROM_SPLIT)
+    boost::mpi::broadcast(M_comm, M_flag_fix, 0);
+    if (use_MMG)
+    {
+        boost::mpi::broadcast(M_comm, mmgopt->hmin, 0);
+        boost::mpi::broadcast(M_comm, mmgopt->hmax, 0);
+        this->initMetric();
+    }
+
+    if(M_mesh_type==setup::MeshType::FROM_SPLIT)
+    {
+
+        chrono.restart();
+
+        LOG(DEBUG) <<"First adaptation starts\n";
+
+        // step 1 (only for the first time step) 
+        if (use_MMG)
         {
-
-            chrono.restart();
-            LOG(DEBUG) <<"First adaptation starts\n";
-            // step 1 (only for the first time step): Start by having bamg 'clean' the mesh with KeepVertices=0
+            // Start by having mmg 'clean' the mesh with a constant metric
+            std::vector<double> useless_field;
+            if (!M_rank)
+            {
+                useless_field.resize(M_mesh_root.numNodes());
+                std::iota(useless_field.begin(), useless_field.end(), 1.);
+            }
+#ifdef MMG
+            this->adaptMeshMMG(M_mesh, useless_field, 0);
+#endif
+            LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
+        }
+        else if (!M_rank)
+        {
+            // Start by having bamg 'clean' the mesh with KeepVertices=0
             bamgopt->KeepVertices=0;
             bamgopt->splitcorners=1;
-            this->adaptMesh();
+            this->adaptMeshBamg();
             bamgopt->KeepVertices=1;
             bamgopt->splitcorners=0;
+
             LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
 
             // Interpolate hminVertices and hmaxVertices onto the current mesh
             this->interpVertices();
             M_mesh_root.writeToFile(M_partitioned_mesh_filename);
         }
+    }
 
-        if (!M_use_restart)
+    if (!M_use_restart)
+    {
+        chrono.restart();
+        LOG(DEBUG) <<"AdaptMesh starts\n";
+
+        if (use_MMG)
         {
-            chrono.restart();
-            LOG(DEBUG) <<"AdaptMesh starts\n";
-            this->adaptMesh();
+            // Start by having mmg 'clean' the mesh with a constant metric
+            std::vector<double> useless_field;
+            if (!M_rank)
+            {
+                useless_field.resize(M_mesh_root.numNodes());
+                std::iota(useless_field.begin(), useless_field.end(), 1.);
+            }
+#ifdef MMG
+            this->adaptMeshMMG(M_mesh, useless_field, 0);
+#endif
+            LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+        }
+        else if (!M_rank)
+        {
+            this->adaptMeshBamg();
             LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
             // Add information on the number of partition to mesh filename
@@ -440,8 +590,6 @@ FiniteElement::rootMeshProcessing()
             LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
         }
     }
-
-    boost::mpi::broadcast(M_comm, M_flag_fix, 0);
 
 }//rootMeshProcessing
 
@@ -1042,6 +1190,63 @@ FiniteElement::initBamg()
     bamgopt->Check();
 }//initBamg
 
+//------------------------------------------------------------------------------------------------------
+//! Initialize the metrics.
+//! Called by the initMesh() function.
+void
+FiniteElement::initMetric()
+{
+    if (M_rank == 0)
+    {
+        Metric M_metric_root;
+        this->M_metric_root.Nst = M_mesh_root.numNodes();
+        this->M_metric.Nst = M_mesh_root.numNodes();
+        this->M_metric_root.process = 1000000; // assuming that NextSIM will never be run on more than 1000000 processors
+    }
+
+    Metric M_metric;
+    boost::mpi::broadcast(M_comm, this->M_metric.Nst, 0);
+
+    this->M_metric.process = M_rank;
+} // initMetric
+
+//------------------------------------------------------------------------------------------------------
+//! Initialize the MMG options.
+//! Called by the initMesh() function.   
+void
+FiniteElement::initMMGopts()
+{
+    mmgopt = new mmgOptions();
+
+    mmgopt->hmin = 1e-15; // Minimal element size
+    mmgopt->hmax = 1e15; // Maximal element size
+    mmgopt->tolerance_min = 1.33; // Tolerance on the minimum size during adaptation process
+    mmgopt->tolerance_max = 1.75; // Tolerance on the maximum size during adaptation process
+    mmgopt->boundary_adaptation = 1; // [1/0], Allow a more significant mesh adaptation close to boundaries
+    mmgopt->verbose = vm["debugging.mmg_verbose"].as<int>(); // [-1..10], Tune level of verbosity
+    mmgopt->pmmgverbose = vm["debugging.pmmg_verbose"].as<int>();
+    mmgopt->mem = -1; // [n/-1], Set memory size to n Mbytes or keep the default value  
+    mmgopt->angle = 0; // [1/0], Turn on/off angle detection
+    mmgopt->optim = 0; // [1/0], Optimize mesh keeping its initial edge sizes
+    mmgopt->niter = 2; // [n], Number of iterations
+    mmgopt->nlayers = 3; // [n], Number of triangle layers during front advancing
+    mmgopt->noinsert = 0; // [1/0], Avoid/allow point insertion               
+    mmgopt->noswap = 0; // [1/0], Avoid/allow edge or face flipping
+    mmgopt->nomove = 0; // [1/0], Avoid/allow point relocation
+    mmgopt->nosurf = 1; // [1/0], Avoid/allow surface modifications
+    mmgopt->nreg = 0; // [0/1], Enable normal regularization    
+    mmgopt->xreg = 0; // [0/1], Enable vertices coordinates regularization
+    mmgopt->nosizreq = 0; // [0/1], Allow/avoid overwritten of sizes at required points (advanced usage)
+    mmgopt->debug = 0; // [0/1], Debug mode in MMG
+    mmgopt->isotropic = 1; // [0/1], Isotropic mesh adaptation in MMG2D
+    mmgopt->load_balance = 0.3; // [val], Tolerance for final load balancing in ParMMG
+    mmgopt->limit_angle = 0.4; // Value of the minimal angle in triangles for which they are remeshed
+    mmgopt->angleDetection = 0; // Value for angle detection
+    mmgopt->hausd = 0.01; // Hausdorff distance 0.01 default value
+    mmgopt->hgrad = 1.3; // Control gradation
+    mmgopt->hgradreq = -1; // Control gradation on required entites (advanced usage)
+}//initMMGopts
+
 
 //------------------------------------------------------------------------------------------------------
 //! Defines output options and parameters such as the different time steps (output, thermo, mooring), etc.
@@ -1065,6 +1270,13 @@ FiniteElement::initOptAndParam()
     if ( (!fs::exists(output_path)) && (M_comm.rank()==0) )
     fs::create_directories(output_path);
 
+    use_MMG = false;
+#ifdef MMG
+    if (vm["numerics.regrid"].as<std::string>() == "mmg")
+    {
+        use_MMG = true;
+    }
+#endif
 
     //! Sets Poisson's ratio
     nu0 = vm["dynamics.nu0"].as<double>(); //! \param nu0 (double) Poisson's ratio
@@ -1790,7 +2002,7 @@ FiniteElement::minAngle(FEMeshType const& mesh) const
     }
 
     double min_angle = *std::min_element(all_min_angle.begin(),all_min_angle.end());
-    //return min_angle;
+
     return boost::mpi::all_reduce(M_comm, min_angle, boost::mpi::minimum<double>());
 }//minAngle
 
@@ -1991,13 +2203,13 @@ FiniteElement::interpVertices()
         interp_Vertices_in[2*i+1] = M_hmaxVertices[i];
     }
 
-    InterpFromMeshToMesh2dx(&interp_Vertices_out,
-                            &M_mesh_init_root.indexTr()[0],&M_mesh_init_root.coordX()[0],&M_mesh_init_root.coordY()[0],
-                            M_mesh_init_root.numNodes(),M_mesh_init_root.numTriangles(),
-                            &interp_Vertices_in[0],
-                            M_mesh_init_root.numNodes(),2,
-                            &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
-                            false);
+    InterpFromMeshToMesh2d(&interp_Vertices_out,
+                           &M_mesh_init_root.indexTr()[0],&M_mesh_init_root.coordX()[0],&M_mesh_init_root.coordY()[0],
+                           M_mesh_init_root.numNodes(),M_mesh_init_root.numTriangles(),
+                           &interp_Vertices_in[0],
+                           M_mesh_init_root.numNodes(),2,
+                           &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
+                           false);
 
     bamgopt->hminVertices = new double[M_mesh_root.numNodes()];
     bamgopt->hmaxVertices = new double[M_mesh_root.numNodes()];
@@ -2757,7 +2969,6 @@ FiniteElement::advectRoot(std::vector<double> const& interp_elt_in, std::vector<
 }//advectRoot
 #endif
 
-
 //------------------------------------------------------------------------------------------------------
 //! Adds diffusion in slab ocean (for sst and sss).
 //! Called by the update() function.
@@ -2783,31 +2994,26 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
         // get the global number of nodes
         int num_elements = M_mesh_root.numTriangles();
 
+        // get the neighbour elements
+        std::vector<std::vector<int>> list_neighbours(num_elements, std::vector<int>(3,-1));
+        compute_list_element_neighbours(list_neighbours);
+
         for (int cpt=0; cpt < num_elements; ++cpt)
         {
             /* some variables used for the advection*/
             double fluxes_source[3];
             int fluxes_source_id;
 
-            int neighbour_int;
-            double neighbour_double;
-
             for(int i=0;i<3;i++)
             {
-                neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
-                neighbour_int    = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
-
-                // neighbour_double = M_element_connectivity[cpt*3+i];
-                // neighbour_int = (int)M_element_connectivity[cpt*3+i];
-
-                if (!std::isnan(neighbour_double) && neighbour_int>0)
+                if (list_neighbours[cpt][i] != -1)
                 {
-                    fluxes_source_id=neighbour_int-1;
-                    fluxes_source[i]=factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
+                    fluxes_source_id = list_neighbours[cpt][i];
+                    fluxes_source[i] = factor*(old_variable_elt[fluxes_source_id]-old_variable_elt[cpt]);
                 }
                 else // no diffusion crosses open nor closed boundaries
                 {
-                    fluxes_source[i]=0.;
+                    fluxes_source[i] = 0.;
                 }
             }
 
@@ -2817,7 +3023,9 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
 
     // scatter back verctor from root to all processes
     this->scatterElementField(variable_elt_root, variable_elt);
+
 }//diffuse
+
 //------------------------------------------------------------------------------------------------------
 //! ?? Has to do with the parallel computing.
 //! Called by distributedMeshProcessing(), initMesh and  functions.
@@ -2898,6 +3106,114 @@ FiniteElement::scatterElementConnectivity()
     }
 }//scatterElementConnectivity
 
+//------------------------------------------------------------------------------------------------------
+//! Compute the list of neighbours of each triangle
+//! Called by the diffuse() function
+void
+FiniteElement::compute_list_element_neighbours(std::vector<std::vector<int>>& list_neighbours)
+{
+    if (!use_MMG)
+    {
+        for (int cpt = 0; cpt < M_mesh_root.numTriangles(); ++cpt)
+        {
+            for(int i = 0; i < 3; i++)
+            {
+                double neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
+                int neighbour_int       = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
+
+                if (!std::isnan(neighbour_double) && neighbour_int > 0)
+                    list_neighbours[cpt][i] = neighbour_int;
+            }
+        }
+
+        return;
+    }
+
+    std::vector<std::vector<int>> list_triangles_nodes(M_mesh_root.numNodes());
+    int n_nodes;
+    // List of triangles associated with each node
+    for (int i = 0; i < M_mesh_root.numTriangles(); i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            n_nodes = M_mesh_root.triangles()[i].indices[j]-1;
+            list_triangles_nodes[n_nodes].push_back(i);
+        }
+    }
+
+    // List of triangles associated with each edge
+    bool exit_loop;
+    std::vector<std::vector<int>> list_triangles_edges(3*M_mesh_root.numTriangles());
+    int n_nodes1, n_nodes2;
+    for (int i = 0; i < M_mesh_root.numTriangles(); i++)
+    {
+        for (int l = 0; l < 3; l++)
+        {
+            n_nodes1 = M_mesh_root.triangles()[i].indices[l]-1;
+            n_nodes2 = M_mesh_root.triangles()[i].indices[(l+1)%3]-1;
+            exit_loop = false;
+
+            for (int j = 0; j < list_triangles_nodes[n_nodes1].size() && !exit_loop; j++)
+            {
+                for (int k = 0; k < list_triangles_nodes[n_nodes2].size(); k++)
+                {
+                    if (list_triangles_nodes[n_nodes1][j] == list_triangles_nodes[n_nodes2][k] && list_triangles_nodes[n_nodes1][j] != i)
+                    {
+                        list_triangles_edges[3*i+l].push_back(i);
+                        list_triangles_edges[3*i+l].push_back(list_triangles_nodes[n_nodes1][j]);
+                        exit_loop = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // List of neighbours
+    int n_elt1, n_elt2, index;
+    for (int i = 0; i < list_triangles_edges.size(); i++)
+    {
+        // Check whether the edge is on a boundary
+        if (list_triangles_edges[i].empty()) {continue;}
+
+        n_elt1 = list_triangles_edges[i][0];
+        n_elt2 = list_triangles_edges[i][1];
+
+        // Check whether the edge has already been treated (occurs once for each edge)
+        if (std::find(list_neighbours[n_elt1].begin(), list_neighbours[n_elt1].end(), n_elt2) != list_neighbours[n_elt1].end()) {continue;}
+
+        index = std::distance(list_neighbours[n_elt1].begin(), std::min_element(list_neighbours[n_elt1].begin(), list_neighbours[n_elt1].end()));
+        list_neighbours[n_elt1][index] = n_elt2;
+        index = std::distance(list_neighbours[n_elt2].begin(), std::min_element(list_neighbours[n_elt2].begin(), list_neighbours[n_elt2].end()));
+        list_neighbours[n_elt2][index] = n_elt1;
+    }
+
+}//compute_list_element_neighbours
+
+//------------------------------------------------------------------------------------------------------
+//! Compute the list of neighbours of each node
+//! Called by explicitSolve()
+void
+FiniteElement::compute_list_node_neighbours(std::vector<std::vector<int>>& list_neighbours)
+{
+    for (int i = 0; i < M_mesh.numTriangles(); i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            if (std::find(list_neighbours[M_mesh.triangles()[i].indices[j]-1].begin(),
+                          list_neighbours[M_mesh.triangles()[i].indices[j]-1].end(),
+                          M_mesh.triangles()[i].indices[(j+1)%3]-1)
+                          == list_neighbours[M_mesh.triangles()[i].indices[j]-1].end())
+               {list_neighbours[M_mesh.triangles()[i].indices[j]-1].push_back(M_mesh.triangles()[i].indices[(j+1)%3]-1);}
+
+            if (std::find(list_neighbours[M_mesh.triangles()[i].indices[j]-1].begin(),
+                          list_neighbours[M_mesh.triangles()[i].indices[j]-1].end(),
+                          M_mesh.triangles()[i].indices[(j+2)%3]-1)
+                          == list_neighbours[M_mesh.triangles()[i].indices[j]-1].end())
+               {list_neighbours[M_mesh.triangles()[i].indices[j]-1].push_back(M_mesh.triangles()[i].indices[(j+2)%3]-1);}
+        }
+    }
+} //compute_list_node_neighbours
 
 //------------------------------------------------------------------------------------------------------
 //! Gathers information about the fields for interpolation onto the mesh grid.
@@ -3138,13 +3454,13 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
 #endif
 
         // Interpolate nodes
-        InterpFromMeshToMesh2dx(&interp_nd_out,
-                                &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
-                                M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
-                                &interp_in_nodes[0],
-                                M_mesh_previous_root.numNodes(),M_nb_var_node,
-                                &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
-                                false);
+        InterpFromMeshToMesh2d(&interp_nd_out,
+                               &M_mesh_previous_root.indexTr()[0],&M_mesh_previous_root.coordX()[0],&M_mesh_previous_root.coordY()[0],
+                               M_mesh_previous_root.numNodes(),M_mesh_previous_root.numTriangles(),
+                               &interp_in_nodes[0],
+                               M_mesh_previous_root.numNodes(),M_nb_var_node,
+                               &M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],M_mesh_root.numNodes(),
+                               false);
     } // rank 0
 
     chrono.restart();
@@ -3163,6 +3479,547 @@ FiniteElement::interpFields(std::vector<int> const& rmap_nodes, std::vector<int>
     }
 }//interpFields
 
+//------------------------------------------------------------------------------------------------------
+//! Builds a cartesian grid and store each triangle in the corresponding cell.
+//! Called by the interpFields_parallel() function.
+std::vector<std::vector<std::vector<int>>> FiniteElement::cartesian_discretization(int num, std::vector<double> const &coordX,
+                                                                                   std::vector<double> const &coordY,
+                                                                                   std::vector<int> const &triangles,
+                                                                                   int GRID_SIZE, double xmax, double xmin,
+                                                                                   double ymax, double ymin)
+{
+    double cellWidth = (xmax - xmin) / GRID_SIZE;
+    double cellHeight = (ymax - ymin) / GRID_SIZE;
+    std::vector<std::vector<std::vector<int>>> list(GRID_SIZE, std::vector<std::vector<int>>(GRID_SIZE, std::vector<int>(0,0)));
+    std::vector<int> list_idx(6), list_idy(6);
+    int minx, maxx, miny, maxy;
+    int index;
+    double EPSILON = 1.e-6;
+
+    for (int k = 0; k < num; k++)
+    {
+        for (int i = 0; i < 3; i++) {
+            index = triangles[3*k+i]-1;
+            list_idx[i] = (int)((coordX[index] - xmin) / cellWidth + EPSILON);
+            list_idy[i] = (int)((coordY[index] - ymin) / cellHeight + EPSILON);
+            list_idx[3+i] = (int)((coordX[index] - xmin) / cellWidth - EPSILON);
+            list_idy[3+i] = (int)((coordY[index] - ymin) / cellHeight - EPSILON);
+        }
+
+        minx = *std::min_element(list_idx.begin(), list_idx.end());
+        if (minx < 0) minx = 0;
+        maxx = *std::max_element(list_idx.begin(), list_idx.end());
+        if (maxx >= GRID_SIZE) maxx = GRID_SIZE-1;
+        miny = *std::min_element(list_idy.begin(), list_idy.end());
+        if (miny < 0) miny = 0;
+        maxy = *std::max_element(list_idy.begin(), list_idy.end());
+        if (maxy >= GRID_SIZE) maxy = GRID_SIZE-1;
+
+        for (int idx = minx; idx <= maxx; idx++) {
+            for (int idy = miny; idy <= maxy; idy++) {
+                list[idx][idy].push_back(k);
+            }
+        }
+    }
+
+    return list;
+}//cartesian_discretization
+
+//------------------------------------------------------------------------------------------------------
+//! Builds a cartesian grid and store each triangle in the corresponding cell.
+//! Called by the interpFields_parallel() function.
+std::vector<int> FiniteElement::check_cartesian_discretization(int num, std::vector<double> const &coordX,
+                                                               std::vector<double> const &coordY,
+                                                               std::vector<int> const &triangles,
+                                                               int GRID_SIZE, double xmax, double xmin,
+                                                               double ymax, double ymin)
+{
+    double cellWidth = (xmax - xmin) / GRID_SIZE;
+    double cellHeight = (ymax - ymin) / GRID_SIZE;
+    std::vector<int> list(GRID_SIZE*GRID_SIZE,0);
+    std::vector<int> list_idx(6), list_idy(6);
+    int minx, maxx, miny, maxy;
+    int index;
+    double EPSILON = 1.e-6;
+
+    for (int k = 0; k < num; k++)
+    {
+        for (int i = 0; i < 3; i++) {
+            index = triangles[3*k+i]-1;
+            list_idx[i] = (int)((coordX[index] - xmin) / cellWidth + EPSILON);
+            list_idy[i] = (int)((coordY[index] - ymin) / cellHeight + EPSILON);
+            list_idx[3+i] = (int)((coordX[index] - xmin) / cellWidth - EPSILON);
+            list_idy[3+i] = (int)((coordY[index] - ymin) / cellHeight - EPSILON);
+        }
+
+        minx = *std::min_element(list_idx.begin(), list_idx.end());
+        if (minx < 0) minx = 0;
+        maxx = *std::max_element(list_idx.begin(), list_idx.end());
+        if (maxx >= GRID_SIZE) maxx = GRID_SIZE-1;
+        miny = *std::min_element(list_idy.begin(), list_idy.end());
+        if (miny < 0) miny = 0;
+        maxy = *std::max_element(list_idy.begin(), list_idy.end());
+        if (maxy >= GRID_SIZE) maxy = GRID_SIZE-1;
+
+        for (int idx = minx; idx <= maxx; idx++) {
+            for (int idy = miny; idy <= maxy; idy++) {
+                list[idx*GRID_SIZE + idy] = 1;
+            }
+        }
+    }
+
+    return list;
+}//cartesian_discretization
+
+//------------------------------------------------------------------------------------------------------
+//! Interpolates fields in parallel onto the mesh grid, e.g., after remeshing.
+//! Called by the regrid() function.
+void
+FiniteElement::interpFields_parallel(std::vector<double> const& coordX_prv, std::vector<double> const& coordY_prv, std::vector<int> const& triangles_prv,
+                                     std::vector<int> const& list_global_nodes_prv_local, std::vector<double> const& interp_elt_in_local)
+{
+    M_nb_var_node = 6;
+    int M_nb_var_elt = M_prognostic_variables_elt.size();
+    M_elements = M_mesh.triangles();
+    M_nodes = M_mesh.nodes();
+
+    M_num_elements = M_mesh.numTriangles();
+    M_ndof = M_mesh.numGlobalNodes();
+
+    M_local_ndof = M_mesh.numLocalNodesWithoutGhost();
+    M_local_ndof_ghost = M_mesh.numLocalNodesWithGhost();
+
+    M_local_nelements = M_mesh.numTrianglesWithoutGhost();
+    M_num_nodes = M_local_ndof_ghost;
+
+    chrono.restart();
+    this->bcMarkedNodes();
+    LOG(DEBUG)<<"-------------------BCMARKER done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+    this->gatherSizes();
+    LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+    this->initUpdateGhosts();
+    LOG(DEBUG)<<"-------------------INITUPDATEGHOSTS done in "<< chrono.elapsed() <<"s\n";
+
+    std::vector<double> coordX = M_mesh.coordX();
+    std::vector<double> coordY = M_mesh.coordY();
+    std::vector<int> triangles = M_mesh.indexTr();
+
+    // Gather node fields
+    chrono.restart();
+    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_num_nodes,0.);
+    for (int i = 0; i < M_prv_num_nodes; i++)
+    {
+        int tmp_nb_var = 0;
+
+        // VT
+        interp_node_in_local[M_nb_var_node*i] = M_VT[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i + M_prv_num_nodes];
+        tmp_nb_var++;
+
+        // UM
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i + M_prv_num_nodes];
+        tmp_nb_var++;
+
+        // UT
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
+        tmp_nb_var++;
+        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i + M_prv_num_nodes];
+        tmp_nb_var++;
+
+        if ( tmp_nb_var != M_nb_var_node )
+            throw std::logic_error("tmp_nb_var not equal to nb_var");
+    }
+
+    // Number of cells for the Cartesian grid
+    int global_num_elements = boost::mpi::all_reduce(M_comm, M_local_nelements, std::plus<int>());
+    int GRID_SIZE = sqrt(global_num_elements/20); // Compromise between too much grid cells (which leads to many duplicate triangles in each cell)
+    int GRID_SIZE2 = GRID_SIZE*GRID_SIZE;     // and not enough cells (which leads to big cells containing too many triangles)
+
+    // Find the bounding box
+    double xmax_local = -1.e20;
+    double xmin_local = 1.e20;
+    double ymax_local = -1.e20;
+    double ymin_local = 1.e20;
+
+    for (int k = 0; k < M_prv_num_nodes; k++)
+    {
+        if (coordX_prv[k] < xmin_local) xmin_local = coordX_prv[k];
+        if (coordX_prv[k] > xmax_local) xmax_local = coordX_prv[k];
+        if (coordY_prv[k] < ymin_local) ymin_local = coordY_prv[k];
+        if (coordY_prv[k] > ymax_local) ymax_local = coordY_prv[k];
+    }
+
+    double xmax;
+    double xmin;
+    double ymax;
+    double ymin;
+    boost::mpi::all_reduce(M_comm, xmin_local, xmin, boost::mpi::minimum<double>());
+    boost::mpi::all_reduce(M_comm, ymin_local, ymin, boost::mpi::minimum<double>());
+    boost::mpi::all_reduce(M_comm, xmax_local, xmax, boost::mpi::maximum<double>());
+    boost::mpi::all_reduce(M_comm, ymax_local, ymax, boost::mpi::maximum<double>());
+
+    // Tag the cell containing a part of the (previous) mesh
+    double cellWidth = (xmax - xmin) / GRID_SIZE;
+    double cellHeight = (ymax - ymin) / GRID_SIZE;
+
+    // List of current triangles with ghosts
+    std::vector<int> list_triangles = check_cartesian_discretization(M_num_elements, coordX, coordY, triangles,
+                                                                     GRID_SIZE, xmax, xmin, ymax, ymin);
+
+    std::vector<int> list_triangles_local;
+    for (int k = 0; k < GRID_SIZE2; k++)
+    {
+        if (list_triangles[k]) list_triangles_local.push_back(k);
+    }
+
+    list_triangles.clear();
+    list_triangles.shrink_to_fit();
+
+    // Gather information
+    int s;
+    boost::mpi::all_reduce(M_comm, int(list_triangles_local.size()), s, boost::mpi::maximum<int>());
+    std::vector<int> rcounts(M_comm.size());
+    boost::mpi::all_gather(M_comm, int(list_triangles_local.size()), rcounts);
+
+    std::vector<std::vector<int>> list_triangles_send(M_comm.size());
+    std::vector<boost::mpi::request> request;
+    std::vector<std::vector<int>> list_triangles_global(M_comm.size());
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        if (k != M_rank)
+        {
+            request.push_back(M_comm.isend(k, M_rank, list_triangles_local));
+            request.push_back(M_comm.irecv(k, k, list_triangles_global[k]));
+        }
+    }
+
+    boost::mpi::wait_all(request.begin(), request.end());
+    request.clear();
+
+    for (int i = 0; i < list_triangles_local.size(); i++) list_triangles_global[M_rank].push_back(list_triangles_local[i]);
+
+    list_triangles_local.clear();
+    list_triangles_local.shrink_to_fit();
+
+    // List of background triangles without ghost
+    std::vector<std::vector<std::vector<int>>> list_triangles_prv = cartesian_discretization(M_prv_num_elements, coordX_prv, coordY_prv,
+                                                                                             triangles_prv, GRID_SIZE, xmax, xmin, ymax, ymin);
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        for (int i = 0; i < list_triangles_global[k].size(); i++)
+        {
+            int i1 = list_triangles_global[k][i]/GRID_SIZE;
+            int i2 = list_triangles_global[k][i]%GRID_SIZE;
+            if (list_triangles_prv[i1][i2].empty()) continue;
+            list_triangles_send[k].push_back(list_triangles_global[k][i]);
+        }
+    }
+
+    list_triangles_global.clear();
+    list_triangles_global.shrink_to_fit();
+
+    // Exchange the data
+    std::vector<int> background_triangles;
+    std::vector<double> background_coordX;
+    std::vector<double> background_coordY;
+    std::vector<double> background_interp_nodes;
+    std::vector<double> background_interp_elt;
+    std::vector<std::vector<int>> background_triangles_temp(M_comm.size());
+    std::vector<std::vector<double>> background_coordX_temp(M_comm.size());
+    std::vector<std::vector<double>> background_coordY_temp(M_comm.size());
+    std::vector<std::vector<double>> background_interp_nodes_temp(M_comm.size());
+    std::vector<std::vector<double>> background_interp_elt_temp(M_comm.size());
+
+    std::vector<int> triangles_to_send;
+    std::vector<std::vector<int>> triangles_to_send_copy(M_comm.size());
+    std::vector<double> coordX_to_send;
+    std::vector<std::vector<double>> coordX_to_send_copy(M_comm.size());
+    std::vector<double> coordY_to_send;
+    std::vector<std::vector<double>> coordY_to_send_copy(M_comm.size());
+    std::vector<double> interp_nodes_to_send;
+    std::vector<std::vector<double>> interp_nodes_to_send_copy(M_comm.size());
+    std::vector<double> interp_elt_to_send;
+    std::vector<std::vector<double>> interp_elt_to_send_copy(M_comm.size());
+
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        // Build the arrays to send
+        int n = 0;
+
+        std::vector<int> triangle_tag(triangles_prv.size()+1,0);
+
+        for (int i = 0; i < list_triangles_send[k].size(); i++)
+        {
+            int row = list_triangles_send[k][i] / GRID_SIZE;
+            int column = list_triangles_send[k][i]%GRID_SIZE;
+
+            for (int j = 0; j < list_triangles_prv[row][column].size(); j++)
+            {
+                int indexTr = list_triangles_prv[row][column][j];
+
+                if (triangle_tag[indexTr]) continue;
+                triangle_tag[indexTr] = 1;
+
+                // Element fields
+                for (int m = 0; m < M_nb_var_elt; m++)
+                {
+                    interp_elt_to_send.push_back(interp_elt_in_local[M_nb_var_elt*indexTr+m]);
+                }
+
+                for (int l = 0; l < 3; l++)
+                {
+                    // The three nodes of the triangle
+                    triangles_to_send.push_back(list_global_nodes_prv_local[triangles_prv[3*indexTr+l]]);
+
+                    // Coordinates of each point
+                    coordX_to_send.push_back(coordX_prv[triangles_prv[3*indexTr+l]-1]);
+                    coordY_to_send.push_back(coordY_prv[triangles_prv[3*indexTr+l]-1]);
+
+                    // Node fields
+                    for (int m = 0; m < M_nb_var_node; m++)
+                    {
+                        interp_nodes_to_send.push_back(interp_node_in_local[M_nb_var_node*(triangles_prv[3*indexTr+l]-1)+m]);
+                    }
+                }
+            }
+        }
+
+        std::copy(triangles_to_send.begin(), triangles_to_send.end(), std::back_inserter(triangles_to_send_copy[k]));
+        std::copy(coordX_to_send.begin(), coordX_to_send.end(), std::back_inserter(coordX_to_send_copy[k]));
+        std::copy(coordY_to_send.begin(), coordY_to_send.end(), std::back_inserter(coordY_to_send_copy[k]));
+        std::copy(interp_nodes_to_send.begin(), interp_nodes_to_send.end(), std::back_inserter(interp_nodes_to_send_copy[k]));
+        std::copy(interp_elt_to_send.begin(), interp_elt_to_send.end(), std::back_inserter(interp_elt_to_send_copy[k]));
+
+        triangles_to_send.clear();
+        triangles_to_send.shrink_to_fit();
+        coordX_to_send.clear();
+        coordX_to_send.shrink_to_fit();
+        coordY_to_send.clear();
+        coordY_to_send.shrink_to_fit();
+        interp_nodes_to_send.clear();
+        interp_nodes_to_send.shrink_to_fit();
+        interp_elt_to_send.clear();
+        interp_elt_to_send.shrink_to_fit();
+
+    }
+
+    list_triangles_prv.clear();
+    list_triangles_prv.shrink_to_fit();
+    list_triangles_send.clear();
+    list_triangles_send.shrink_to_fit();
+    interp_node_in_local.clear();
+    interp_node_in_local.shrink_to_fit();
+
+    // Exchange the arrays
+    std::vector<boost::mpi::request> requests;
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        if (k != M_rank)
+        {
+            requests.push_back(M_comm.isend(k, M_rank, triangles_to_send_copy[k]));
+            requests.push_back(M_comm.irecv(k, k, background_triangles_temp[k]));
+        }
+        else
+        {
+            std::copy(triangles_to_send_copy[k].begin(), triangles_to_send_copy[k].end(), std::back_inserter(background_triangles));
+            std::copy(coordX_to_send_copy[k].begin(), coordX_to_send_copy[k].end(), std::back_inserter(background_coordX));
+            std::copy(coordY_to_send_copy[k].begin(), coordY_to_send_copy[k].end(), std::back_inserter(background_coordY));
+            std::copy(interp_nodes_to_send_copy[k].begin(), interp_nodes_to_send_copy[k].end(), std::back_inserter(background_interp_nodes));
+            std::copy(interp_elt_to_send_copy[k].begin(), interp_elt_to_send_copy[k].end(), std::back_inserter(background_interp_elt));
+        }
+    }
+
+    boost::mpi::wait_all(requests.begin(), requests.end());
+    requests.clear();
+    triangles_to_send_copy.clear();
+    triangles_to_send_copy.shrink_to_fit();
+
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        if (k != M_rank)
+        {
+            requests.push_back(M_comm.isend(k, M_rank + M_comm.size(), coordX_to_send_copy[k]));
+            requests.push_back(M_comm.irecv(k, k + M_comm.size(), background_coordX_temp[k]));
+        }
+    }
+
+    boost::mpi::wait_all(requests.begin(), requests.end());
+    requests.clear();
+    coordX_to_send_copy.clear();
+    coordX_to_send_copy.shrink_to_fit();
+
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        if (k != M_rank)
+        {
+            requests.push_back(M_comm.isend(k, M_rank + 2*M_comm.size(), coordY_to_send_copy[k]));
+            requests.push_back(M_comm.irecv(k, k + 2*M_comm.size(), background_coordY_temp[k]));
+        }
+    }
+
+    boost::mpi::wait_all(requests.begin(), requests.end());
+    requests.clear();
+    coordY_to_send_copy.clear();
+    coordY_to_send_copy.shrink_to_fit();
+
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        if (k != M_rank)
+        {
+            requests.push_back(M_comm.isend(k, M_rank + 3*M_comm.size(), interp_nodes_to_send_copy[k]));
+            requests.push_back(M_comm.irecv(k, k + 3*M_comm.size(), background_interp_nodes_temp[k]));
+        }
+    }
+
+    boost::mpi::wait_all(requests.begin(), requests.end());
+    requests.clear();
+    interp_nodes_to_send_copy.clear();
+    interp_nodes_to_send_copy.shrink_to_fit();
+
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        if (k != M_rank)
+        {
+            requests.push_back(M_comm.isend(k, M_rank + 4*M_comm.size(), interp_elt_to_send_copy[k]));
+            requests.push_back(M_comm.irecv(k, k + 4*M_comm.size(), background_interp_elt_temp[k]));
+        }
+    }
+
+    boost::mpi::wait_all(requests.begin(), requests.end());
+    requests.clear();
+    interp_elt_to_send_copy.clear();
+    interp_elt_to_send_copy.shrink_to_fit();
+
+    for (int k = 0; k < M_comm.size(); k++)
+    {
+        if (k != M_rank && !background_triangles_temp[k].empty())
+        {
+            for (int n = 0; n < background_triangles_temp[k].size(); n++) background_triangles.push_back(background_triangles_temp[k][n]);
+            for (int n = 0; n < background_coordX_temp[k].size(); n++) background_coordX.push_back(background_coordX_temp[k][n]);
+            for (int n = 0; n < background_coordY_temp[k].size(); n++) background_coordY.push_back(background_coordY_temp[k][n]);
+            for (int n = 0; n < background_interp_nodes_temp[k].size(); n++) background_interp_nodes.push_back(background_interp_nodes_temp[k][n]);
+            for (int n = 0; n < background_interp_elt_temp[k].size(); n++) background_interp_elt.push_back(background_interp_elt_temp[k][n]);
+        }
+    }
+
+    background_triangles_temp.clear();
+    background_triangles_temp.shrink_to_fit();
+    background_coordX_temp.clear();
+    background_coordX_temp.shrink_to_fit();
+    background_coordY_temp.clear();
+    background_coordY_temp.shrink_to_fit();
+    background_interp_nodes_temp.clear();
+    background_interp_nodes_temp.shrink_to_fit();
+    background_interp_elt_temp.clear();
+    background_interp_elt_temp.shrink_to_fit();
+
+    // Reorder background mesh
+    std::vector<int> background_nodes(*std::max_element(background_triangles.begin(), background_triangles.end())+1, 0);
+    std::vector<double> coordX_back, coordY_back, interp_nodes_back;
+    int new_node = 1;
+    for (int i = 0; i < background_triangles.size(); i++)
+    {
+        if (!background_nodes[background_triangles[i]])
+        {
+            background_nodes[background_triangles[i]] = new_node;
+            coordX_back.push_back(background_coordX[i]);
+            coordY_back.push_back(background_coordY[i]);
+
+            for (int m = 0; m < M_nb_var_node; m++)
+            {
+                interp_nodes_back.push_back(background_interp_nodes[M_nb_var_node*i+m]);
+            }
+
+            background_triangles[i] = new_node++;
+        }
+        else
+        {
+            background_triangles[i] = background_nodes[background_triangles[i]];
+        }
+    }
+
+    background_nodes.clear();
+    background_nodes.shrink_to_fit();
+    background_interp_nodes.clear();
+    background_interp_nodes.shrink_to_fit();
+
+    M_comm.barrier();
+    LOG(DEBUG)<<"-------------------CONFIGURING PARALLEL DATA TO INTERPOLATE done in "<< chrono.elapsed() <<"s\n";
+
+    // Interpolation
+    double* interp_elt_out;
+    double* interp_nd_out;
+
+    // Interpolate nodes
+    InterpFromMeshToMesh2d(&interp_nd_out,
+                           &background_triangles[0], &coordX_back[0], &coordY_back[0],
+                           new_node-1, int(background_triangles.size()/3),
+                           &interp_nodes_back[0],
+                           new_node-1, M_nb_var_node,
+                           &coordX[0], &coordY[0], M_mesh.numNodes(),
+                           false);
+
+    interp_nodes_back.clear();
+    interp_nodes_back.shrink_to_fit();
+
+    M_VT.resize(2*M_num_nodes);
+    M_UM.resize(2*M_num_nodes);
+    M_UT.resize(2*M_num_nodes);
+    M_VT.shrink_to_fit();
+    M_UM.shrink_to_fit();
+    M_UT.shrink_to_fit();
+
+    D_tau_w.assign(2*M_num_nodes,0.);
+    D_tau_a.assign(2*M_num_nodes,0.);
+    D_tau_w.shrink_to_fit();
+    D_tau_a.shrink_to_fit();
+
+    for (int i=0; i<M_num_nodes; ++i)
+    {
+        // VT
+        M_VT[i] = interp_nd_out[M_nb_var_node*i];
+        M_VT[i+M_num_nodes] = interp_nd_out[M_nb_var_node*i+1];
+
+        // UM
+        M_UM[i] = interp_nd_out[M_nb_var_node*i+2];
+        M_UM[i+M_num_nodes] = interp_nd_out[M_nb_var_node*i+3];
+
+        // UT
+        M_UT[i] = interp_nd_out[M_nb_var_node*i+4];
+        M_UT[i+M_num_nodes] = interp_nd_out[M_nb_var_node*i+5];
+    }
+
+    // Interpolate elements
+    ConservativeRemappingFromMeshToMesh(interp_elt_out, background_interp_elt, M_nb_var_elt, background_triangles,
+                                        coordX_back, coordY_back, triangles, coordX, coordY);
+
+    for(auto ptr: M_variables_elt)
+    {
+        if(ptr->isPrognostic())
+            // resize prognostic variables
+            // - they are set in redistributeVariables
+            ptr->resize(M_num_elements);
+        else
+            // assign diagnostic variables
+            // - they are not interpolated
+            ptr->assign(M_num_elements, 0.);
+        ptr->shrink_to_fit();
+    }
+
+    std::vector<double> interp_elt_out_copy(interp_elt_out, interp_elt_out + M_num_elements*M_nb_var_elt);
+    this->redistributeVariables(interp_elt_out_copy, true);//apply maxima during interpolation
+
+    xDelete<double>(interp_nd_out);
+    xDelete<double>(interp_elt_out);
+
+} //interpFields_parallel
 
 //------------------------------------------------------------------------------------------------------
 //! Gathers field values (velocities, displacements) at the nodes into a single structure, interp_node_in_local.
@@ -3654,7 +4511,7 @@ FiniteElement::regrid(bool step)
     this->gatherNodalField(M_UM,um_root);
     M_timer.tock("gatherNodalField");
 
-    if (M_rank == 0)
+    if (M_rank == 0 || use_MMG)
     {
         chrono.restart();
         LOG(DEBUG) <<"Flip starts\n";
@@ -3665,10 +4522,24 @@ FiniteElement::regrid(bool step)
             displacement_factor /= 2.;
             step_order++;
 
-            flip = this->flip(M_mesh_root,um_root,displacement_factor);
+            if (use_MMG) {
+                flip = this->flip(M_mesh,M_UM,displacement_factor);
+            }
+            else {
+                flip = this->flip(M_mesh_root,um_root,displacement_factor);
+            }
 
             if (substep > 1)
                 LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
+        }
+
+        if (use_MMG) {
+            double min_displacement_factor;
+            int max_step_order;
+            boost::mpi::all_reduce(M_comm, displacement_factor, min_displacement_factor, boost::mpi::minimum<double>());
+            boost::mpi::all_reduce(M_comm, step_order, max_step_order, boost::mpi::maximum<int>());
+            displacement_factor = min_displacement_factor;
+            step_order = max_step_order;
         }
 
         LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
@@ -3695,25 +4566,40 @@ FiniteElement::regrid(bool step)
         {
             //LOG(DEBUG) <<"substep_nb= "<< substep_nb <<"\n";
 
+            if (substep_i > 0) this->gatherNodalField(M_UM,um_root);
+
             chrono.restart();
             LOG(DEBUG) <<"Move starts\n";
-            M_mesh_root.move(um_root,displacement_factor);
+
+            if (use_MMG) {
+                M_mesh.move(M_UM, displacement_factor);
+            }
+            if (M_rank == 0 && M_use_mesh_root) {
+                M_mesh_root.move(um_root,displacement_factor);
+            }
+
+            displacement_factor = 1;
+
             LOG(DEBUG) <<"Move done in "<< chrono.elapsed() <<"s\n";
 
             chrono.restart();
-            LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
-            auto RX = M_mesh_root.coordX();
-            auto RY = M_mesh_root.coordY();
 
-            for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
+            if (M_rank == 0 && !use_MMG) 
             {
-                bamgmesh_root->Vertices[3*id] = RX[id];
-                bamgmesh_root->Vertices[3*id+1] = RY[id] ;
+                LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
+                auto RX = M_mesh_root.coordX();
+                auto RY = M_mesh_root.coordY();
+
+                for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
+                {
+                    bamgmesh_root->Vertices[3*id] = RX[id];
+                    bamgmesh_root->Vertices[3*id+1] = RY[id] ;
+                }
+
+                LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
             }
 
-            LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
-
-            if(M_mesh_type==setup::MeshType::FROM_SPLIT)
+            if(M_mesh_type==setup::MeshType::FROM_SPLIT  && !use_MMG)
             {
                 chrono.restart();
                 LOG(DEBUG) <<"Interp vertices starts\n";
@@ -3723,62 +4609,163 @@ FiniteElement::regrid(bool step)
 
             M_timer.tick("adaptMesh");
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
-            this->adaptMesh();
-            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
-            M_timer.tock("adaptMesh");
 
+            if (use_MMG) {
+                // Store the previous mesh mostly for interpolation
+                M_prv_local_ndof = M_local_ndof;
+                M_prv_num_nodes = M_num_nodes;
+                M_prv_num_elements = M_local_nelements;
+                M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+                M_prv_global_num_elements = M_mesh.numGlobalElements();
+                std::vector<double> coordX_prv = M_mesh.coordX();
+                std::vector<double> coordY_prv = M_mesh.coordY();
+                std::vector<int> triangles_prv = M_mesh.indexTr();
 
-            // save mesh (only root process)
+                // List of nodes with global id
+                std::vector<int> list_global_nodes_prv_local(M_mesh.numNodes()+1);
+                int n = 1;
+                for (auto it=M_mesh.nodes().begin(), en=M_mesh.nodes().end(); it!=en; ++it)
+                {
+                    list_global_nodes_prv_local[n] = it->second.id;
+                    n++;
+                }
 
-            LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-            LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-            LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-            LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-            LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+                // Gather element fields 
+                std::vector<double> interp_elt_in_local;
+                bool ghosts = false;
+                this->collectVariables(interp_elt_in_local, ghosts);
 
-            M_timer.tick("partition");
-            // Environment::logMemoryUsage("before partitioning...");
-            chrono.restart();
-            LOG(DEBUG) <<"Saving mesh starts\n";
-            if (M_partition_space == mesh::PartitionSpace::MEMORY)
-                M_mesh_root.writeToGModel();
-            else if (M_partition_space == mesh::PartitionSpace::DISK)
-                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-            LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+                std::vector<double> field;
+                if (vm["numerics.metric_field"].as<std::string>() == "velocity")
+                {
+                    field.resize(M_mesh.numNodes());
+                    for (int i = 0; i < M_mesh.numNodes(); ++i)
+                        field[i] = pow(M_VT[i]*M_VT[i] + M_VT[i+M_mesh.numNodes()]*M_VT[i+M_mesh.numNodes()], 0.5);
+                }
+                else if (vm["numerics.metric_field"].as<std::string>() == "conc")
+                {
+                    field.resize(M_mesh.numTriangles());
+                    for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_conc[i];
+                }
+                else if (vm["numerics.metric_field"].as<std::string>() == "damage")
+                {
+                    field.resize(M_mesh.numTriangles());
+                    for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_damage[i];
+                }
+                else if (vm["numerics.metric_field"].as<std::string>() == "thick")
+                {
+                    field.resize(M_mesh.numTriangles());
+                    for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_thick[i];
+                }
+                else if (vm["numerics.metric_field"].as<std::string>() == "mixed")
+                {
+                    field.resize(M_mesh.numTriangles());
+                    for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = (M_damage[i] + M_thick[i])/2.;
+                }
+                else if (M_nb_regrid == 0)
+                {
+                    LOG(ERROR) << "The metric field given is not supported yet. A uniform field is used instead.\n";
+                    this->M_metric.A_max = 1.;
+                    mmgopt->hmin = mmgopt->hmin / this->M_metric.scale_factor_min;
+                    mmgopt->hmax = mmgopt->hmax / this->M_metric.scale_factor_max;
+                }
 
-            // partition the mesh on root process (rank 0)
-            chrono.restart();
-            LOG(DEBUG) <<"Partitioning mesh starts\n";
-            M_mesh_root.partition(M_partitioned_mesh_filename,
-                    M_partitioner, M_partition_space, M_mesh_fileformat);
-            LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-            M_timer.tock("partition");
+#ifdef MMG
+                this->adaptMeshMMG(M_mesh, field, 1);
+                LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+                M_timer.tock("adaptMesh");
+#endif
 
-            // Environment::logMemoryUsage("after partitioning...");
+                M_timer.tick("interpFields");
+                this->interpFields_parallel(coordX_prv, coordY_prv, triangles_prv, list_global_nodes_prv_local, interp_elt_in_local);
+                LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
+                M_timer.tock("interpFields");
+
+                if (displacement_factor != 1) {
+                    step_order = -1;
+                    substep = 0;
+                    displacement_factor *= 2;
+                    flip = true;
+                    while (flip /*|| (minang<(vm["numerics.regrid_angle"].as<double>())/10.)*/)
+                    {
+                        ++substep;
+                        displacement_factor /= 2.;
+                        step_order++;
+
+                        flip = this->flip(M_mesh,M_UM,displacement_factor);
+
+                        if (substep > 1)
+                            LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
+                    }
+
+                    double min_displacement_factor;
+                    int max_step_order;
+                    boost::mpi::all_reduce(M_comm, displacement_factor, min_displacement_factor, boost::mpi::minimum<double>());
+                    boost::mpi::all_reduce(M_comm, step_order, max_step_order, boost::mpi::maximum<int>());
+                    displacement_factor = min_displacement_factor;
+                    step_order = max_step_order;
+
+                    if (step_order > 0) substep_nb += std::pow(2,step_order-1);
+                }
+
+            }
+            else
+            {
+
+                this->adaptMeshBamg();
+                LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+                M_timer.tock("adaptMesh");
+
+                // save mesh (only root process)
+                LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+                LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+                LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+                LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+                LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+
+                M_timer.tick("partition");
+                // Environment::logMemoryUsage("before partitioning...");
+                chrono.restart();
+                LOG(DEBUG) <<"Saving mesh starts\n";
+                if (M_partition_space == mesh::PartitionSpace::MEMORY)
+                    M_mesh_root.writeToGModel();
+                else if (M_partition_space == mesh::PartitionSpace::DISK)
+                    M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+                LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+
+                // partition the mesh on root process (rank 0)
+                chrono.restart();
+                LOG(DEBUG) <<"Partitioning mesh starts\n";
+                M_mesh_root.partition(M_partitioned_mesh_filename,
+                        M_partitioner, M_partition_space, M_mesh_fileformat);
+                LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+                M_timer.tock("partition");
+            }
         }
-    } // rank 0
+    } // rank 0 || use_MMG
 
     // --------------------------------BEGINNING-------------------------
+    if (!use_MMG) {
+        M_prv_local_ndof = M_local_ndof;
+        M_prv_num_nodes = M_num_nodes;
+        M_prv_num_elements = M_local_nelements;
+        //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
+        std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
+        M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+        M_prv_global_num_elements = M_mesh.numGlobalElements();
+        std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    M_prv_local_ndof = M_local_ndof;
-    M_prv_num_nodes = M_num_nodes;
-    M_prv_num_elements = M_local_nelements;
-    //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
-    std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
-    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
-    M_prv_global_num_elements = M_mesh.numGlobalElements();
-    std::vector<int> sizes_nodes = M_sizes_nodes;
-
-    M_timer.tick("interpFields");
-    this->interpFields(prv_rmap_nodes, sizes_nodes);
-    LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
-    M_timer.tock("interpFields");
-
+        M_timer.tick("interpFields");
+        this->interpFields(prv_rmap_nodes, sizes_nodes);
+        LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
+        M_timer.tock("interpFields");
+    }
     // --------------------------------END-------------------------------
 
     LOG(DEBUG) <<"TIMER REGRIDDING= "<< chrono.elapsed() <<"s\n";
 
     this->assignVariables();
+
 }//regrid
 
 
@@ -3786,7 +4773,7 @@ FiniteElement::regrid(bool step)
 //! Adapts the mesh grid.
 //! Called by the regrid() function.
 void
-FiniteElement::adaptMesh()
+FiniteElement::adaptMeshBamg()
 {
     delete bamgopt_previous;
     delete bamggeom_previous;
@@ -3931,14 +4918,931 @@ FiniteElement::updateBoundaryFlags()
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
 }//updateBoundaryFlags
 
+#ifdef MMG
+//------------------------------------------------------------------------------------------------------
+//! Adapts the mesh grid with MMG.
+//! Called by the regrid() function.
+template<typename FEMeshType>
+void
+FiniteElement::adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field, int partitioned)
+{
+    chrono.restart();
+
+    bool write_mmg_mesh = false;
+
+    // Compute the optimal metric for anisotropic remeshing
+    if (partitioned) {
+        this->M_metric.compute_optimal_metric(mesh, field, mmgopt->hmin, mmgopt->hmax, M_comm);
+    }
+    else if (!M_rank) {
+        this->M_metric_root.compute_optimal_metric(M_mesh_root, field, mmgopt->hmin, mmgopt->hmax, M_comm);
+    }
+
+    LOG(DEBUG) <<"\n";
+    LOG(DEBUG) <<"Computation of the metric done\n";
+    LOG(DEBUG) <<"\n";
+
+    if (M_rank == 0 && M_use_mesh_root) M_mesh_previous_root = M_mesh_root;
+
+    // Convert M_mesh in MMG mesh
+    PMMG2D_pParMesh parmesh = nullptr;
+    if (partitioned || M_rank)
+    {
+        this->convert_mesh_MMG(parmesh, mesh, partitioned);
+    }
+    else
+    {
+        this->convert_mesh_MMG(parmesh, M_mesh_root, partitioned);
+    }
+
+    LOG(DEBUG) <<"\n";
+    LOG(DEBUG) <<"MMG conversion of the mesh done\n";
+    LOG(DEBUG) <<"\n";
+
+    // To write the input mmgmesh
+    if (write_mmg_mesh)
+    {
+        std::string String = "MMG_initial_mesh_" + std::to_string(M_rank) + ".msh";
+        const char* meshout0 = String.c_str();
+        char* meshout = new char[String.length()+1];
+        std::copy(String.begin(), String.end(), meshout);
+        meshout[String.length()] = '\0';
+
+        MMG2D_Set_outputMeshName(parmesh->mesh, meshout);
+        MMG2D_saveGenericMesh(parmesh->mesh, parmesh->met, parmesh->mesh->nameout);
+    }
+
+    int node_prv = mesh.numGlobalNodes();
+    int elem_prv = mesh.numGlobalElements();
+
+    // Compute the new mesh with MMG
+    if (partitioned) 
+    {
+        this->anisotropic_remeshing(parmesh, mesh, this->M_metric.components, partitioned);
+    }
+    else 
+    {
+        std::vector<std::vector<double>> metric_field;
+        if (!M_rank) metric_field = this->M_metric_root.components;
+
+        // Trick to switch off remeshing when restart is used
+        if (M_rank == 0 && field[0] < 0.5)
+        {
+            parmesh->niter = 0;
+        }
+        boost::mpi::broadcast(M_comm, parmesh->niter, 0);
+        if (M_rank == 0)
+        {
+            this->anisotropic_remeshing(parmesh, M_mesh_root, metric_field, partitioned);
+        }
+        else
+        {
+            this->anisotropic_remeshing(parmesh, mesh, metric_field, partitioned);
+        }
+    }
+
+    LOG(DEBUG) <<"\n";
+    LOG(DEBUG) <<"Previous  NumNodes     = "<< node_prv <<"\n";
+    LOG(DEBUG) <<"Previous  NumTriangles = "<< elem_prv <<"\n";
+
+    LOG(DEBUG) <<"\n";
+    LOG(DEBUG) <<"Current  NumNodes      = "<< M_mesh.numGlobalNodes() <<"\n";
+    LOG(DEBUG) <<"Current  NumTriangles  = "<< M_mesh.numGlobalElements() <<"\n";
+    LOG(DEBUG) <<"\n";
+}//adaptMeshMMG
+
+//------------------------------------------------------------------------------------------------------
+//! Anisotropic remeshing
+//! Called by the adaptMeshMMG() function
+template<typename FEMeshType>
+void
+FiniteElement::anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh,
+                                     std::vector<std::vector<double>> const& metric_components, int partitioned)
+{
+    int nbVertices;
+    int nbTriangles;
+    int nbTriangles_glob = 0;
+    int nbEdges;
+    bool write_mmg_mesh = false;
+    int not_restart = parmesh->niter;
+
+    // Give the tensor field to MMG
+    MMG2D_Set_solSize(parmesh->mesh, parmesh->met, MMG5_Vertex, mesh.numNodes(), MMG5_Tensor);
+
+    for (int i = 0 ; i < mesh.numNodes() ; i++)
+        MMG2D_Set_tensorSol(parmesh->met, metric_components[i][0], metric_components[i][1], metric_components[i][2], i+1);
+
+    chrono.restart();
+
+    // Compute anisotropic remeshing
+    int ier;
+    if (partitioned)
+    {
+        if (M_regrid_old > 0.5) { // Extended remeshing
+          MMG2D_Set_dparameter(parmesh->mesh, parmesh->met, MMG2D_DPARAM_limit_angle, M_regrid_old*mmgopt->limit_angle);
+          ier = PMMG2D_parmmg2dlib_distributed(parmesh, M_VT.data());
+        }
+        else {
+          MMG2D_Set_dparameter(parmesh->mesh, parmesh->met, MMG2D_DPARAM_limit_angle, mmgopt->limit_angle);
+          ier = PMMG2D_parmmg2dlib_distributed(parmesh, M_VT.data());
+        }
+    }
+    else
+    {
+        ier = PMMG2D_parmmg2dlib_centralized(parmesh, nullptr);
+    }
+
+    if (ier == MMG5_STRONGFAILURE)
+    {
+        std::cout << "BAD ENDING OF MMG2DLIB: UNABLE TO SAVE MESH" << std::endl;
+        exit(1);
+    }
+    else if (ier == MMG5_LOWFAILURE)
+    {
+        std::cout << "BAD ENDING OF MMG2DLIB" << std::endl;
+    }
+
+    LOG(DEBUG) <<"---MMG REMESHING done in "<< chrono.elapsed() <<"s\n";
+
+    chrono.restart();
+
+    // Store the new mesh in temporary variables
+    // Local mesh size
+    MMG2D_Get_meshSize(parmesh->mesh, &nbVertices, &nbTriangles, nullptr, &nbEdges);
+
+    // Find global mesh size
+    boost::mpi::all_reduce(M_comm, nbTriangles, nbTriangles_glob, std::plus<int>());
+    int sum_vertices;
+    boost::mpi::all_reduce(M_comm, nbVertices, sum_vertices, std::plus<int>());
+
+    // Find duplicate vertices
+    std::vector<int> ref_vertices(sum_vertices,0);
+    for (int k = 1; k <= parmesh->mesh->np; k++) ref_vertices[parmesh->mesh->point[k].ref-1] = 1;
+    std::vector<int> ref_global_vertices(sum_vertices);
+    ier = MPI_Allreduce(&ref_vertices[0], &ref_global_vertices[0], sum_vertices, MPI_INT, MPI_MAX, MPI_Comm(M_comm));
+    nbVertices = 0;
+    for (int k = 0; k < sum_vertices; k++) nbVertices += ref_global_vertices[k];
+
+    std::vector<double> vertices_local(2 * nbVertices, -1.e15);
+    std::vector<double> vertices(2 * nbVertices);
+    std::vector<int> triangles(3 * nbTriangles);
+    std::vector<int> triangles_root(3 * nbTriangles_glob);
+    int** ghosts = new int*[nbTriangles];
+    for (int i = 0; i < nbTriangles; i++) ghosts[i] = nullptr;
+
+    std::vector<int> Dirichlet_nodes;
+    std::vector<int> Neumann_nodes;
+    std::vector<int> Mask_Dirichlet_local(nbVertices + 1, 0);
+    std::vector<int> Mask_Neumann_local(nbVertices + 1, 0);
+    std::vector<int> Mask_Dirichlet(nbVertices + 1);
+    std::vector<int> Mask_Neumann(nbVertices + 1);
+
+    // Store the local mesh and retrieve the boundary conditions
+    for (int k = 1; k <= parmesh->mesh->np; k++) {
+        vertices_local[2*(parmesh->mesh->point[k].ref-1)] = parmesh->mesh->point[k].c[0];
+        vertices_local[2*(parmesh->mesh->point[k].ref-1)+1] = parmesh->mesh->point[k].c[1];
+
+        if (parmesh->mesh->point[k].xp%MG_NEUMANN == MG_DIRICHLET) Mask_Dirichlet_local[parmesh->mesh->point[k].ref] = 1;
+        if (parmesh->mesh->point[k].xp >= MG_NEUMANN) Mask_Neumann_local[parmesh->mesh->point[k].ref] = 1;
+    }
+
+    ier = MPI_Allreduce(&vertices_local[0], &vertices[0], 2 * nbVertices, MPI_DOUBLE, MPI_MAX, MPI_Comm(M_comm));
+    ier = MPI_Allreduce(&Mask_Dirichlet_local[0], &Mask_Dirichlet[0], nbVertices+1, MPI_INT, MPI_MAX, MPI_Comm(M_comm));
+    ier = MPI_Allreduce(&Mask_Neumann_local[0], &Mask_Neumann[0], nbVertices+1, MPI_INT, MPI_MAX, MPI_Comm(M_comm));
+
+    if (M_rank == 0)
+    {
+        for (int k = 1; k <= nbVertices; k++)
+        {
+            if (Mask_Dirichlet[k]) Dirichlet_nodes.push_back(k);
+            if (Mask_Neumann[k]) Neumann_nodes.push_back(k);
+        }
+    }
+
+    MMG2D_Get_triangles(parmesh->mesh, &triangles[0], nullptr, nullptr);
+    std::vector<int> size_ghost(nbTriangles);
+    PMMG2D_Get_ghosts(parmesh, ghosts, &size_ghost[0]); // Find the ghost elements
+
+    // Gather the number of triangles to correct the global indices of the triangles
+    std::vector<int> rcounts(M_comm.size());
+    boost::mpi::all_gather(M_comm, 3*nbTriangles, rcounts);
+    std::vector<int> displs(M_comm.size());
+    displs[0] = 0;
+    for ( int k = 1; k < M_comm.size(); k++ ) {
+        displs[k] = displs[k-1] + rcounts[k-1];
+    }
+
+    // Correct the indices with global reference
+    for (int k = 0; k < 3*nbTriangles; k++) {
+        triangles[k] = parmesh->mesh->point[triangles[k]].ref;
+    }
+
+    ier = MPI_Gatherv(&triangles[0], 3*nbTriangles, MPI_INT, &triangles_root[0], 
+                      &rcounts[0], &displs[0], MPI_INT, 0, MPI_Comm(M_comm));
+
+    std::vector<int> local_id_triangles(nbTriangles);
+    if (!not_restart)
+    {
+        for (int k = 1; k <= nbTriangles; k++) local_id_triangles[k-1] = parmesh->mesh->tria[k].ref;
+    }
+    else
+    {
+        for (int k = 1; k <= nbTriangles; k++) local_id_triangles[k-1] = k + displs[M_rank]/3;
+    }
+
+    // Store the list of ghost triangles to send to the neighbouring processes
+    std::vector<boost::mpi::request> requests;
+    std::vector<std::vector<int>> ghost_triangles;
+    ghost_triangles.resize(M_comm.size());
+    std::vector<std::vector<int>> recv_triangles(M_comm.size());
+    for (int k = 0; k < nbTriangles; k++)
+    {
+        for (int j = 0; j < size_ghost[k]; j++)
+        {
+            ghost_triangles[ghosts[k][j]].push_back(local_id_triangles[k]);
+
+            for (int i = 0; i < 3; i++) ghost_triangles[ghosts[k][j]].push_back(triangles[3*k+i]);
+
+            ghost_triangles[ghosts[k][j]].push_back(M_rank);
+            for (int i = 0; i < size_ghost[k] && i != j; i++) ghost_triangles[ghosts[k][j]].push_back(ghosts[k][i]);
+            ghost_triangles[ghosts[k][j]].push_back(-1);
+        }
+    }
+
+    // Exchange the ghosts
+    for (int k = 0; k < M_comm.size(); k++) {
+
+        if (k == M_rank) continue;
+
+        requests.push_back(M_comm.isend(k, M_rank, ghost_triangles[k]));
+        requests.push_back(M_comm.irecv(k, k, recv_triangles[k]));
+
+    }
+
+    boost::mpi::wait_all(requests.begin(), requests.end());
+
+    // Clear as soon as possible each vector
+    // For very fine meshes, this part needs a lot of memory
+    ghost_triangles.clear();
+    ghost_triangles.shrink_to_fit();
+
+    std::vector<int> ghost_triangle_proc;
+    for (int k = 0; k < M_comm.size(); k++) {
+        if (k == M_rank) continue;
+        std::copy(recv_triangles[k].begin(), recv_triangles[k].end(), std::back_inserter(ghost_triangle_proc));
+    }
+
+    recv_triangles.clear();
+    recv_triangles.shrink_to_fit();
+
+    // To check the output mmgmesh
+    if (write_mmg_mesh) {
+        std::string String = "MMG_final_mesh_" + std::to_string(M_rank) + ".msh";
+        const char* meshout0 = String.c_str();
+        char* meshout = new char[String.length()+1];
+        std::copy(String.begin(), String.end(), meshout);
+        meshout[String.length()] = '\0';
+
+        MMG2D_Set_outputMeshName(parmesh->mesh, meshout);
+        MMG2D_saveGenericMesh(parmesh->mesh, parmesh->met, parmesh->mesh->nameout);
+    }
+
+    // Free the MMG structure
+    ier = PMMG2D_Free_all(PMMG2D_ARG_start, PMMG2D_ARG_ppParMesh, &parmesh, PMMG2D_ARG_end);
+    parmesh = NULL;
+
+    // Conversion in GMSH format
+    std::vector<point_type> mesh_nodes(nbVertices);
+
+    // Nodes
+    if (M_rank == 0 && M_use_mesh_root) M_mesh_root.resize_node(nbVertices);
+    for (int i = 0; i < nbVertices; i++)
+    {
+        mesh_nodes[i].id = i+1;
+        mesh_nodes[i].coords = {vertices[2 * i], vertices[2 * i + 1]};
+        if (M_rank == 0 && M_use_mesh_root) M_mesh_root.update_node(i, mesh_nodes[i]);
+    }
+
+    vertices.clear();
+    vertices.shrink_to_fit();
+
+    int type = 2;
+    int physical = 0;
+    int elementary = 0;
+    int numVertices = 3;
+    std::vector<int> indices(3);
+
+    // Global triangles
+    if (M_rank == 0) {
+
+        std::vector<std::vector<int>> list_edges(nbVertices+1);
+
+        if (M_use_mesh_root) M_mesh_root.resize_triangle(nbTriangles_glob);
+
+        for (int i = 0; i < nbTriangles_glob; i++)
+        {
+            indices[0] = triangles_root[3*i];
+            indices[1] = triangles_root[3*i+1];
+            indices[2] = triangles_root[3*i+2];
+
+            int boundary = 0;
+            for (int j = 0; j < 3; j++) boundary += Mask_Dirichlet[indices[j]] + Mask_Neumann[indices[j]];
+
+            if (boundary)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    list_edges[indices[j]].push_back(indices[(j+1)%3]);
+                    list_edges[indices[j]].push_back(indices[(j+2)%3]);
+                }
+            }
+
+            if (!M_use_mesh_root) continue;
+
+            element_type gmshElt (i+1, type, physical, elementary, numVertices, indices);
+
+            M_mesh_root.update_triangle(i, gmshElt);
+
+        }
+
+        LOG(DEBUG) <<"---MMG CONVERSION OF ROOT MESH TO GMSH FORMAT done in "<< chrono.elapsed() <<"s\n";
+
+        // Update the boundary flags
+        boundary_flags(list_edges, Dirichlet_nodes, Neumann_nodes, Mask_Dirichlet, Mask_Neumann);
+
+    }
+
+    // Clear as soon as possible each vector
+    // For very fine meshes, this part needs a lot of memory
+    triangles_root.clear();
+    triangles_root.shrink_to_fit();
+    Dirichlet_nodes.clear();
+    Dirichlet_nodes.shrink_to_fit();
+    Neumann_nodes.clear();
+    Neumann_nodes.shrink_to_fit();
+    Mask_Dirichlet.clear();
+    Mask_Dirichlet.shrink_to_fit();
+    Mask_Neumann.clear();
+    Mask_Neumann.shrink_to_fit();
+
+    // Local triangles
+    std::vector<element_type> mesh_triangles;
+    std::vector<int> neighbour_partitions;
+    for (int i = 0; i < nbTriangles; i++)
+    {
+        indices[0] = triangles[3*i];
+        indices[1] = triangles[3*i+1];
+        indices[2] = triangles[3*i+2];
+
+        for (int j = 0; j < size_ghost[i]; j++) neighbour_partitions.push_back(ghosts[i][j]);
+
+        std::vector<bool> ghostNodes;
+        element_type gmshElt (local_id_triangles[i], type, physical, elementary, neighbour_partitions.size(), 
+                              M_rank, neighbour_partitions, ghostNodes, numVertices, indices, M_rank, M_comm.size());
+        mesh_triangles.push_back(gmshElt);
+        neighbour_partitions.clear();
+        neighbour_partitions.shrink_to_fit();
+    }
+
+    // Local ghost triangles
+    int i = 0;
+    while (i < ghost_triangle_proc.size())
+    {
+        indices[0] = ghost_triangle_proc[i+1];
+        indices[1] = ghost_triangle_proc[i+2];
+        indices[2] = ghost_triangle_proc[i+3];
+
+        neighbour_partitions.push_back(M_rank);
+        int j = 5;
+        while (ghost_triangle_proc[i+j] != -1) neighbour_partitions.push_back(ghost_triangle_proc[i+j++]);
+
+        std::vector<bool> ghostNodes;
+        element_type gmshElt (ghost_triangle_proc[i], type, physical, elementary, neighbour_partitions.size(), ghost_triangle_proc[i+4], neighbour_partitions, ghostNodes, numVertices, indices, M_rank, M_comm.size());
+
+        mesh_triangles.push_back(gmshElt);
+
+        neighbour_partitions.clear();
+        neighbour_partitions.shrink_to_fit();
+
+        i += j+1;
+    }
+
+    // Clear
+    triangles.clear();
+    triangles.shrink_to_fit();
+    for(int i = 0; i < nbTriangles; ++i) free(ghosts[i]);
+    delete[] ghosts;
+    local_id_triangles.clear();
+    local_id_triangles.shrink_to_fit();
+    ghost_triangle_proc.clear();
+    ghost_triangle_proc.shrink_to_fit();
+
+    if (partitioned) {
+        M_elements.clear();
+        M_elements.shrink_to_fit();
+        M_nodes.clear();
+    }
+
+    // Update the local mesh
+    if (not_restart) M_mesh = mesh_type();
+    M_mesh.setOrdering("gmsh");
+    M_mesh.update(mesh_nodes, mesh_triangles, nbTriangles_glob);
+    M_comm.barrier();
+
+    if (M_comm.size() > 1) M_mesh.nodalGrid();
+
+    chrono.restart();
+
+}// anisotropic_remeshing
+
+//------------------------------------------------------------------------------------------------------
+//! Convert GMSH mesh to MMG mesh
+//! Called by the adaptMeshMMG() function
+template<typename FEMeshType>
+void
+FiniteElement::convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh, int partitioned)
+{
+    int nbVertices = mesh.numNodes();
+    std::vector<double> vertices(2 * nbVertices);
+
+    // get vertices from M_mesh
+    std::vector<double> coordX = mesh.coordX();
+    std::vector<double> coordY = mesh.coordY();
+
+    for (int i = 0; i < nbVertices; i++)
+    {
+        vertices[2 * i] = coordX[i];
+        vertices[2 * i + 1] = coordY[i];
+    }
+
+    // get triangles from M_mesh. Indices of the points of the triangles in the order
+    std::vector<int> triangles;
+    std::vector<element_type> Triang = mesh.triangles();
+    int nbTriangles = 0;
+    std::vector<int> actual_point(nbVertices+1, 0);
+    for (auto it=Triang.begin(), end=Triang.end(); it!=end; ++it)
+    {
+        if (partitioned && it->is_ghost) continue;
+
+        nbTriangles++;
+        for (int i=0; i<3; ++i)
+        {
+            triangles.push_back(it->indices[i]);
+            actual_point[it->indices[i]] = 1;
+        }
+    }
+
+    MPI_Comm comm = MPI_Comm(M_comm);
+    PMMG2D_Init_parMesh( PMMG2D_ARG_start, PMMG2D_ARG_ppParMesh, &parmesh, PMMG2D_ARG_dim, 2, PMMG2D_ARG_MPIComm, comm, PMMG2D_ARG_end, 120 );
+    MMG5_pMesh mmgMesh = parmesh->mesh;
+    MMG5_pSol mmgSol = parmesh->met;
+    chrono.restart();
+
+    // Define options
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_verbose, mmgopt->verbose);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_angle, mmgopt->angle);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_optim, mmgopt->optim);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_noinsert, mmgopt->noinsert);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_noswap, mmgopt->noswap);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_nomove, mmgopt->nomove);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_nosurf, mmgopt->nosurf);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_nreg, mmgopt->nreg);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_xreg, mmgopt->xreg);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_nosizreq, mmgopt->nosizreq);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_debug, mmgopt->debug);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_isotropic, mmgopt->isotropic);
+    MMG2D_Set_iparameter(mmgMesh, mmgSol, MMG2D_IPARAM_bdy_adaptation, mmgopt->boundary_adaptation);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hmin, mmgopt->hmin);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hmax, mmgopt->hmax);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_angleDetection, mmgopt->angleDetection);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hausd, mmgopt->hausd);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hgrad, mmgopt->hgrad);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hgradreq, mmgopt->hgradreq);
+    PMMG2D_Set_iparameter(parmesh, PMMG2D_IPARAM_niter, mmgopt->niter);
+    PMMG2D_Set_iparameter(parmesh, PMMG2D_IPARAM_ifcLayers, mmgopt->nlayers);
+    PMMG2D_Set_iparameter(parmesh, PMMG2D_IPARAM_verbose, mmgopt->pmmgverbose);
+    PMMG2D_Set_iparameter(parmesh, PMMG2D_IPARAM_distributedOutput, 1);
+    PMMG2D_Set_dparameter(parmesh, PMMG2D_DPARAM_load_balance, mmgopt->load_balance);
+    mmgMesh->info.min[2] = mmgopt->tolerance_min;
+    mmgMesh->info.max[2] = mmgopt->tolerance_max;
+
+    // Store M_mesh in mmgMesh 
+    // Set edges and boundary conditions
+    const int MG_BDY = 1 << 4;
+    int nbEdges = 0;
+    if (partitioned)
+    {
+        for (int i = 0; i < M_dirichlet_flags_ordered.size()/2; i++)
+        {
+            if (M_dirichlet_flags_ordered[2*i+1] != -1) nbEdges++;
+        }
+        for (int i = 0; i < M_neumann_flags_ordered.size()/2; i++)
+        {
+            if (M_neumann_flags_ordered[2*i+1] != -1) nbEdges++;
+        }
+    }
+    else if (!M_rank)
+    {
+        if (M_use_restart)
+        {
+            for (int i = 0; i < M_dirichlet_flags_root_ordered.size()/2; i++)
+            {
+                if (M_dirichlet_flags_root_ordered[2*i+1] != -1) nbEdges++;
+            }
+            for (int i = 0; i < M_neumann_flags_root_ordered.size()/2; i++)
+            {
+                if (M_neumann_flags_root_ordered[2*i+1] != -1) nbEdges++;
+            }
+        }
+        else nbEdges = M_mesh_root.numEdges();
+    }
+
+    std::vector<int> edges(2 * nbEdges,0);
+
+    MMG2D_Set_meshSize(mmgMesh, nbVertices, nbTriangles, 0, nbEdges);
+    MMG2D_Set_vertices(mmgMesh, &vertices[0], nullptr);
+    MMG2D_Set_triangles(mmgMesh, &triangles[0], nullptr);
+
+
+    for (int i = 1; i <= mmgMesh->np; i++) {
+        mmgMesh->point[i].tag = 0;
+        mmgMesh->point[i].xp = 0;
+    }
+
+    // Store the nature of the boundary condition in xp
+    if (partitioned)
+    {
+        int j = 0;
+        for (int i = 0; i < M_dirichlet_flags_ordered.size()/2; ++i)
+        {
+            if (actual_point[M_dirichlet_flags_ordered[2*i]+1])
+            {
+                mmgMesh->point[M_dirichlet_flags_ordered[2*i]+1].tag |= MG_BDY;
+                mmgMesh->point[M_dirichlet_flags_ordered[2*i]+1].xp = MG_DIRICHLET;
+            }
+
+            if (M_dirichlet_flags_ordered[2*i+1] == -1) continue;
+
+            if (actual_point[M_dirichlet_flags_ordered[2*i+1]+1])
+            {
+                mmgMesh->point[M_dirichlet_flags_ordered[2*i+1]+1].tag |= MG_BDY;
+                mmgMesh->point[M_dirichlet_flags_ordered[2*i+1]+1].xp = MG_DIRICHLET;
+            }
+
+            if (!actual_point[M_dirichlet_flags_ordered[2*i]+1] || !actual_point[M_dirichlet_flags_ordered[2*i+1]+1]) continue;
+            edges[2*j] = M_dirichlet_flags_ordered[2*i]+1;
+            edges[2*j+1] = M_dirichlet_flags_ordered[2*i+1]+1;
+            j++;
+        }
+        for (int i = 0; i < M_neumann_flags_ordered.size()/2; ++i)
+        {
+            if (actual_point[M_neumann_flags_ordered[2*i]+1])
+            {
+                mmgMesh->point[M_neumann_flags_ordered[2*i]+1].tag |= MG_BDY;
+                mmgMesh->point[M_neumann_flags_ordered[2*i]+1].xp += MG_NEUMANN;
+            }
+
+            if (M_neumann_flags_ordered[2*i+1] == -1) continue;
+
+            if (actual_point[M_neumann_flags_ordered[2*i+1]+1])
+            {
+                mmgMesh->point[M_neumann_flags_ordered[2*i+1]+1].tag |= MG_BDY;
+                mmgMesh->point[M_neumann_flags_ordered[2*i+1]+1].xp += MG_NEUMANN;
+            }
+
+            if (!actual_point[M_neumann_flags_ordered[2*i]+1] || !actual_point[M_neumann_flags_ordered[2*i+1]+1]) continue;
+            edges[2*j] = M_neumann_flags_ordered[2*i]+1;
+            edges[2*j+1] = M_neumann_flags_ordered[2*i+1]+1;
+            j++;
+        }
+    }
+
+    else if (!M_rank)
+    {
+        if (M_use_restart)
+        {
+            int j = 0;
+            for (int i = 0; i < M_dirichlet_flags_root_ordered.size()/2; ++i)
+            {
+                if (actual_point[M_dirichlet_flags_root_ordered[2*i]])
+                {
+                    mmgMesh->point[M_dirichlet_flags_root_ordered[2*i]].tag |= MG_BDY;
+                    mmgMesh->point[M_dirichlet_flags_root_ordered[2*i]].xp = MG_DIRICHLET;
+                }
+
+                if (M_dirichlet_flags_root_ordered[2*i+1] == -1) continue;
+
+                if (actual_point[M_dirichlet_flags_root_ordered[2*i+1]])
+                {
+                    mmgMesh->point[M_dirichlet_flags_root_ordered[2*i+1]].tag |= MG_BDY;
+                    mmgMesh->point[M_dirichlet_flags_root_ordered[2*i+1]].xp = MG_DIRICHLET;
+                }
+
+                if (!actual_point[M_dirichlet_flags_root_ordered[2*i]] || !actual_point[M_dirichlet_flags_root_ordered[2*i+1]]) continue;
+                edges[2*j] = M_dirichlet_flags_root_ordered[2*i];
+                edges[2*j+1] = M_dirichlet_flags_root_ordered[2*i+1];
+                j++;
+            }
+            for (int i = 0; i < M_neumann_flags_root_ordered.size()/2; ++i)
+            {
+                if (actual_point[M_neumann_flags_root_ordered[2*i]])
+                {
+                    mmgMesh->point[M_neumann_flags_root_ordered[2*i]].tag |= MG_BDY;
+                    mmgMesh->point[M_neumann_flags_root_ordered[2*i]].xp += MG_NEUMANN;
+                }
+
+                if (M_neumann_flags_root_ordered[2*i+1] == -1) continue;
+
+                if (actual_point[M_neumann_flags_root_ordered[2*i+1]])
+                {
+                    mmgMesh->point[M_neumann_flags_root_ordered[2*i+1]].tag |= MG_BDY;
+                    mmgMesh->point[M_neumann_flags_root_ordered[2*i+1]].xp += MG_NEUMANN;
+                }
+
+                if (!actual_point[M_neumann_flags_root_ordered[2*i]] || !actual_point[M_neumann_flags_root_ordered[2*i+1]]) continue;
+                edges[2*j] = M_neumann_flags_root_ordered[2*i];
+                edges[2*j+1] = M_neumann_flags_root_ordered[2*i+1];
+                j++;
+            }
+        }
+        else
+        {
+            int i = 0;
+            for (auto it = M_mesh_root.edges().begin(), end = M_mesh_root.edges().end(); it != end; ++it)
+            {
+                mmgMesh->point[it->indices[0]].tag |= MG_BDY;
+                mmgMesh->point[it->indices[1]].tag |= MG_BDY;
+
+                if (it->physical==M_flag_fix)
+                {
+                    if (mmgMesh->point[it->indices[0]].xp%MG_NEUMANN != MG_DIRICHLET) mmgMesh->point[it->indices[0]].xp += MG_DIRICHLET;
+                    if (mmgMesh->point[it->indices[1]].xp%MG_NEUMANN != MG_DIRICHLET) mmgMesh->point[it->indices[1]].xp += MG_DIRICHLET;
+                }
+                else
+                {
+                    if (mmgMesh->point[it->indices[0]].xp < MG_NEUMANN) mmgMesh->point[it->indices[0]].xp += MG_NEUMANN;
+                    if (mmgMesh->point[it->indices[1]].xp < MG_NEUMANN) mmgMesh->point[it->indices[1]].xp += MG_NEUMANN;
+                }
+
+                edges[2*i] = it->indices[0];
+                edges[2*i+1] = it->indices[1];
+                i++;
+            }
+        }
+    }
+
+    if (nbEdges == 0) return;
+
+    MMG2D_Set_edges(mmgMesh, &edges[0], nullptr);//&edges_tag[0]);
+
+} // convert_mesh_MMG
+
+//------------------------------------------------------------------------------------------------------
+//! Updates the boundary flags (Neumann vs Dirichlet) after regriding and mesh adaptation.
+//! Called by the anisotropic_remeshing() functions.
+void FiniteElement::boundary_flags(std::vector<std::vector<int>> list_edges, std::vector<int> Dirichlet_nodes,
+                                   std::vector<int> Neumann_nodes, std::vector<int> Mask_Dirichlet, std::vector<int> Mask_Neumann)
+{
+    std::vector<int> Dirichlet_edges;
+    std::vector<int> Neumann_edges;
+
+    // Dirichlet boundaries
+    if (!Dirichlet_nodes.empty())
+    {
+        Dirichlet_edges.push_back(Dirichlet_nodes[0]);
+        int node = Dirichlet_nodes[0];
+        int initial_node = node;
+        int old_node;
+        int i = 0;
+        int j;
+        int is_reversed = 0;
+
+        while (true)
+        {
+            old_node = node;
+
+            // Find the next boundary node by searching through the edges containing old_node
+            for (j = 0; j < list_edges[node].size(); j++)
+            {
+                if (Mask_Dirichlet[list_edges[node][j]] && appear_once(list_edges[node], list_edges[node][j])
+                                                        && (i != 1 || list_edges[node][j] != initial_node))
+                {
+                    node = list_edges[node][j];
+                    Dirichlet_edges.push_back(node);
+                    Mask_Dirichlet[node] = 0;
+                    break;
+                }
+            }
+
+            // Check whether a next boundary node has been found
+            if (j == list_edges[old_node].size())
+            {
+                // Reverse the list of nodes and go in the other side
+                if (node != initial_node && !is_reversed)
+                {
+                    std::reverse(Dirichlet_edges.end()-i-1, Dirichlet_edges.end());
+                    node = initial_node;
+                    Mask_Dirichlet[node] = 0;
+                    is_reversed = 1;
+                }
+                // The list of edges is complete, start a new list of edges
+                else
+                {
+                    i = -1;
+                    initial_node = -1;
+                    is_reversed = 0;
+                    for (j = 1; j < Dirichlet_nodes.size(); j++)
+                    {
+                        if (!Mask_Dirichlet[Dirichlet_nodes[j]]) continue;
+                        initial_node = Dirichlet_nodes[j];
+                        node = initial_node;
+                        Dirichlet_edges.push_back(-1); // To know that we begin another contour
+                        Dirichlet_edges.push_back(initial_node);
+                        break;
+                    }
+                    if (initial_node == -1) break; // All the nodes have been added, stop the loop
+                }
+            }
+            i++;
+        }
+
+       LOG(DEBUG) <<"---DIRICHLET NODES READING done\n";
+
+    }
+
+    // Neumann boundaries
+    if (!Neumann_nodes.empty())
+    {
+        Neumann_edges.push_back(Neumann_nodes[0]);
+        int node = Neumann_nodes[0];
+        int initial_node = node;
+        int old_node;
+        int i = 0;
+        int j;
+        int is_reversed = 0;
+
+        while (true)
+        {
+            old_node = node;
+            for (j = 0; j < list_edges[node].size(); j++)
+            {
+                if (Mask_Neumann[list_edges[node][j]] && appear_once(list_edges[node], list_edges[node][j])
+                                                      && (i != 1 || list_edges[node][j] != initial_node))
+                {
+                    node = list_edges[node][j];
+                    Neumann_edges.push_back(node);
+                    Mask_Neumann[node] = 0;
+                    break;
+                }
+            }
+
+            if (j == list_edges[old_node].size())
+            {
+                if (node != initial_node && !is_reversed)
+                {
+                    std::reverse(Neumann_edges.end()-i-1, Neumann_edges.end());
+                    node = initial_node;
+                    Mask_Neumann[node] = 0;
+                    is_reversed = 1;
+                }
+                else
+                {
+                    i = -1;
+                    initial_node = -1;
+                    is_reversed = 0;
+                    for (j = 1; j < Neumann_nodes.size(); j++)
+                    {
+                        if (!Mask_Neumann[Neumann_nodes[j]]) continue;
+                        initial_node = Neumann_nodes[j];
+                        node = initial_node;
+                        Neumann_edges.push_back(-1); // To know that we begin another contour
+                        Neumann_edges.push_back(initial_node);
+                        break;
+                    }
+                    if (initial_node == -1) break; // All the nodes have been added
+                }
+            }
+            i++;
+        }
+
+        LOG(DEBUG) <<"---NEUMANN NODES READING done\n";
+    }
+
+    this->updateBoundaryFlagsMMG(Dirichlet_edges, Neumann_edges, Mask_Neumann.size()-1);
+
+} // boundary_flags
+
+//------------------------------------------------------------------------------------------------------
+//! Updates the boundary flags (Neumann vs Dirichlet) after regriding and mesh adaptation.
+//! Called by the adaptMeshMMG() functions.
+void
+FiniteElement::updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_edges, std::vector<int> &Neumann_edges, int num_nodes)
+{
+    LOG(DEBUG) <<"CLOSED: FLAGS SIZE BEFORE= "<< M_dirichlet_flags_root.size() <<"\n";
+    LOG(DEBUG) <<"OPEN  : FLAGS SIZE BEFORE= "<< M_neumann_flags_root.size() <<"\n";
+
+    //! 1) Updates Dirichlet nodes
+    M_dirichlet_flags_root.resize(0);
+    M_dirichlet_flags_root.shrink_to_fit();
+    M_neumann_flags_root.resize(0);
+    M_neumann_flags_root.shrink_to_fit();
+    M_dirichlet_flags_root_ordered.resize(0);
+    M_dirichlet_flags_root_ordered.shrink_to_fit();
+    M_neumann_flags_root_ordered.resize(0);
+    M_neumann_flags_root_ordered.shrink_to_fit();
+
+    //! 2) Masks out the boundary nodes and updates Dirichlet and Neumann flag
+    M_mask_root.assign(num_nodes, false) ;
+    M_mask_root.shrink_to_fit();
+    M_mask_dirichlet_root.assign(num_nodes+1, false) ;
+    M_mask_dirichlet_root.shrink_to_fit();
+
+    for (int i = 1; i < Dirichlet_edges.size(); i++) {
+
+        if (Dirichlet_edges[i] == -1)
+        {
+            i++;
+            continue;
+        }
+
+        M_mask_root[Dirichlet_edges[i-1]-1] = true;
+        M_mask_root[Dirichlet_edges[i]-1] = true;
+        M_dirichlet_flags_root.push_back(Dirichlet_edges[i-1]);
+        M_dirichlet_flags_root.push_back(Dirichlet_edges[i]);
+
+    }
+
+    for (int i = 1; i < Neumann_edges.size(); i++) {
+
+        if (Neumann_edges[i] == -1)
+        {
+            i++;
+            continue;
+        }
+
+        M_mask_root[Neumann_edges[i-1]-1] = true;
+        M_mask_root[Neumann_edges[i]-1] = true;
+        M_neumann_flags_root.push_back(Neumann_edges[i-1]);
+        M_neumann_flags_root.push_back(Neumann_edges[i]);
+
+    }
+
+    std::copy(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end(), std::back_inserter(M_dirichlet_flags_root_ordered));
+    std::copy(M_neumann_flags_root.begin(), M_neumann_flags_root.end(), std::back_inserter(M_neumann_flags_root_ordered));
+
+    std::sort(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end());
+    M_dirichlet_flags_root.erase(std::unique(M_dirichlet_flags_root.begin(), M_dirichlet_flags_root.end() ), M_dirichlet_flags_root.end());
+
+    std::sort(M_neumann_flags_root.begin(), M_neumann_flags_root.end());
+    M_neumann_flags_root.erase(std::unique(M_neumann_flags_root.begin(), M_neumann_flags_root.end() ), M_neumann_flags_root.end());
+
+    //! 3) Updates Dirichlet nodes
+    M_dirichlet_nodes_root.resize(2*(M_dirichlet_flags_root.size()));
+    M_dirichlet_nodes_root.shrink_to_fit();
+    for (int i = 0; i < M_dirichlet_flags_root.size(); ++i)
+    {
+        M_dirichlet_nodes_root[2*i] = M_dirichlet_flags_root[i];
+        M_dirichlet_nodes_root[2*i+1] = M_dirichlet_flags_root[i] + num_nodes;
+        M_mask_dirichlet_root[M_dirichlet_flags_root[i]] = true;
+    }
+
+    //! 4) Updates Neumann nodes
+    M_neumann_nodes_root.resize(2*(M_neumann_flags_root.size()));
+    M_neumann_nodes_root.shrink_to_fit();
+    for (int i = 0; i < M_neumann_flags_root.size(); ++i)
+    {
+        M_neumann_nodes_root[2*i] = M_neumann_flags_root[i];
+        M_neumann_nodes_root[2*i+1] = M_neumann_flags_root[i] + num_nodes;
+    }
+
+    LOG(DEBUG) <<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
+    LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
+
+} // updateBoundaryFlagsMMG
+
+#endif
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the cohesion field (sum of a fixed value and a random component) and the maximum compressive strength of sea ice.
 //! Called by the step() function.
 void
 FiniteElement::calcCohesion()
 {
-    for (int i=0; i<M_num_elements; ++i)
-        M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
+    // If the mesh is not uniform, the size resolution is not uniform and must be calculated for each element
+    if (use_MMG && (M_metric.scale_factor_min < 0.95 || M_metric.scale_factor_max > 1.05))
+    {
+        for (int i = 0; i < M_num_elements; ++i)
+        {
+            double scale_coef = pow(0.1 / pow(this->measure(M_mesh.triangles()[i],M_mesh), 0.5) , 0.5);
+            C_fix = C_lab * scale_coef;
+            M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < M_num_elements; ++i)
+            M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
+    }
 
 }//calcCohesion
 
@@ -7032,6 +8936,7 @@ FiniteElement::init()
         if ( res_str.empty() )
             throw std::runtime_error("Please provide restart.basename");
         this->readRestart(res_str);
+
         if ( this->checkRegridding() )
             this->regrid(pcpt); // The input for this function is no longer active
     }
@@ -7108,6 +9013,16 @@ FiniteElement::init()
     // 3. check if writing outputs, and do it if it's time
     // 4. check if writing restart, and do it if it's time
     this->checkOutputs(true);
+
+#ifndef OASIS
+    if (M_rank == 0 && use_MMG && (!M_use_moorings || !vm["moorings.use_conservative_remapping"].as<bool>()) && 
+        vm["thermo.diffusivity_sst"].as<double>() <= 0. && vm["thermo.diffusivity_sss"].as<double>() <= 0.) 
+    {
+        M_use_mesh_root = false;
+        M_mesh_root.clear_mesh();
+        M_mesh_previous_root.clear_mesh();
+    }
+#endif
 
     //! - 10) Initialise timers
     M_timer = Timer();
@@ -8008,7 +9923,7 @@ FiniteElement::step()
 
     //! 1) Remeshes and remaps the prognostic variables
     M_regrid = false;
-    if (vm["numerics.regrid"].as<std::string>() == "bamg")
+    if (vm["numerics.regrid"].as<std::string>() == "bamg" || vm["numerics.regrid"].as<std::string>() == "mmg")
     {
         M_timer.tick("checkRegridding");
         M_regrid = this->checkRegridding();
@@ -8099,8 +10014,10 @@ FiniteElement::step()
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
 
+        if (use_MMG) M_regrid_old = pow(M_extended_coef, M_regrid_old) * M_regrid;
+
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-    }//bamg-regrid
+    }//bamg/mmg-regrid
 
     M_comm.barrier();
     M_timer.tock("remesh");
@@ -9639,6 +11556,12 @@ FiniteElement::writeRestart(std::string const& name_str)
                         rmap_nodes, M_local_ndof, M_num_nodes, 1);
     exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags", "int", M_comm, base_offset,
                         rmap_nodes, M_local_ndof, M_num_nodes, 1);
+    exporter.writeField(outbin, M_neumann_flags_root, "M_neumann_flags", "int", M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
+    exporter.writeField(outbin, M_dirichlet_flags_root_ordered, "M_dirichlet_flags_ordered", "int", M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
+    exporter.writeField(outbin, M_neumann_flags_root_ordered, "M_neumann_flags_ordered", "int", M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
     std::vector<double> timevec(1);// time always written as double
     timevec[0] = M_current_time;
@@ -9669,13 +11592,16 @@ FiniteElement::writeRestart(std::string const& name_str)
 
     // Add the previous numbering to the restart file
     // - used in adaptMesh (updateNodeIds)
-    std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
-    if (M_rank == 0)
-        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
-            PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
+    if (!use_MMG)
+    {
+        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+        if (M_rank == 0)
+            for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+                PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
 
-    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering", precision, M_comm, base_offset,
-                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
+        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering", precision, M_comm, base_offset,
+                            rmap_nodes, M_local_ndof, M_num_nodes, 1);
+    }
 
     MPI_File_close(&outbin);
 
@@ -9774,14 +11700,6 @@ FiniteElement::readRestart(std::string const& name_str)
         exp_field.loadFile(inbin, field_map_int, field_map_dbl);
         inbin.close();
 
-        //! - Recreates the mesh grid
-        // Create bamgmesh and bamggeom
-        BamgConvertMeshx(
-                         bamgmesh_root,bamggeom_root,
-                         &indexTr[0],&coordX[0],&coordY[0],
-                         coordX.size(), indexTr.size()/3.
-                         );
-
         // read time and misc_int
         time_vec = field_map_dbl["Time"];
         misc_int = field_map_int["Misc_int"];
@@ -9789,32 +11707,49 @@ FiniteElement::readRestart(std::string const& name_str)
         // Fix boundaries
         M_flag_fix = misc_int[1];
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
-
-        for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
+        if (!use_MMG) 
         {
-            int fnd = bamgmesh_root->Edges[3*edg];
+            //! - Recreates the mesh grid
+            // Create bamgmesh and bamggeom
+            BamgConvertMeshx(bamgmesh_root,bamggeom_root,&indexTr[0],&coordX[0],&coordY[0],coordX.size(),indexTr.size()/3.);
 
-            if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
+            for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
             {
-                bamggeom_root->Edges[3*edg+2] = M_flag_fix;
-                bamgmesh_root->Edges[3*edg+2] = M_flag_fix;
+                int fnd = bamgmesh_root->Edges[3*edg];
+    
+                if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
+                {
+                    bamggeom_root->Edges[3*edg+2] = M_flag_fix;
+                    bamgmesh_root->Edges[3*edg+2] = M_flag_fix;
+                }
+                else
+                {
+                    bamggeom_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+                    bamgmesh_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+                }
             }
-            else
-            {
-                bamggeom_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-                bamgmesh_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-            }
+    
+            //! - Imports the bamg structs
+            this->importBamg(bamgmesh_root);
+            this->updateBoundaryFlags();// update boundary flags
+    
+            //! - Adds the previous numbering from the restart file used in adaptMesh (updateNodeIds)
+            std::vector<double> PreviousNumbering = field_map_dbl["PreviousNumbering"];
+            for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+                bamgmesh_root->PreviousNumbering[i] = PreviousNumbering[i];
+        }
+        else 
+        {
+            M_dirichlet_flags_root = field_map_int["M_dirichlet_flags"];
+            M_neumann_flags_root = field_map_int["M_neumann_flags"];
+            M_dirichlet_flags_root_ordered = field_map_int["M_dirichlet_flags_ordered"];
+            M_neumann_flags_root_ordered = field_map_int["M_neumann_flags_ordered"];
+            std::vector<int> neumann_flags = field_map_int["M_neumann_flags"];
+            build_mesh_mmg(coordX, coordY, indexTr, dirichlet_flags, neumann_flags);
         }
 
-        //! - Imports the bamg structs
-        this->importBamg(bamgmesh_root);
-        this->updateBoundaryFlags();// update boundary flags
         M_mesh_root.setId(nodeId);  // set the node id's
 
-        //! - Adds the previous numbering from the restart file used in adaptMesh (updateNodeIds)
-        std::vector<double> PreviousNumbering = field_map_dbl["PreviousNumbering"];
-        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
-            bamgmesh_root->PreviousNumbering[i] = PreviousNumbering[i];
     }//M_rank==0
 
     // mesh partitioning
@@ -9950,6 +11885,43 @@ FiniteElement::readRestart(std::string const& name_str)
     }
 }//readRestart
 
+//! To build M_mesh_root without bamg
+//! called by readRestart()
+void
+FiniteElement::build_mesh_mmg(std::vector<double>& coordX, std::vector<double>& coordY, std::vector<int>& triangles, 
+                              std::vector<int>& dirichlet_flags, std::vector<int>& neumann_flags)
+{
+    // Conversion in GMSH format
+    std::vector<point_type> mesh_nodes;
+    mesh_nodes.resize(coordX.size());
+    std::vector<element_type> mesh_triangles;
+    mesh_triangles.resize(triangles.size()/3);
+
+    for (int i = 0; i < coordX.size(); i++)
+    {
+        mesh_nodes[i].id = i+1;
+        mesh_nodes[i].coords = {coordX[i], coordY[i]};
+    }
+
+    int type = 2;
+    int physical = 0;
+    int elementary = 0;
+    int numVertices = 3;
+    std::vector<int> indices(3);
+
+    for (int i = 0; i < triangles.size()/3; i++)
+    {
+        indices[0] = triangles[3*i];
+        indices[1] = triangles[3*i+1];
+        indices[2] = triangles[3*i+2];
+
+        element_type gmshElt (i, type, physical, elementary, numVertices, indices);
+
+        mesh_triangles[i] = gmshElt;
+    }
+
+    M_mesh_root.update(mesh_nodes, mesh_triangles);
+}
 
 //! make sure OSISAF drifters are consistent with each other
 //! called by readRestart()
@@ -10018,7 +11990,29 @@ FiniteElement::partitionMeshRestart()
 {
     M_comm.barrier();
 
-    if (M_rank == 0)
+    M_prv_local_ndof = M_local_ndof;
+    M_prv_num_nodes = M_num_nodes;
+    M_prv_num_elements = M_local_nelements;
+    //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
+    std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
+    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+    M_prv_global_num_elements = M_mesh.numGlobalElements();
+    std::vector<int> sizes_nodes = M_sizes_nodes;
+
+    if (use_MMG)
+    {
+        std::vector<double> useless_field;
+        if (!M_rank)
+        {
+            useless_field.resize(M_mesh_root.numNodes());
+            std::iota(useless_field.begin(), useless_field.end(), 0.);
+        }
+        // Used to decompose the mesh, no mesh adaptation here
+#ifdef MMG
+        this->adaptMeshMMG(M_mesh, useless_field, 0);
+#endif
+    }
+    else if (M_rank == 0)
     {
         LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
         LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
@@ -10048,15 +12042,6 @@ FiniteElement::partitionMeshRestart()
                 M_partitioner, M_partition_space, M_mesh_fileformat);
         LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
-
-    M_prv_local_ndof = M_local_ndof;
-    M_prv_num_nodes = M_num_nodes;
-    M_prv_num_elements = M_local_nelements;
-    //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
-    std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
-    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
-    M_prv_global_num_elements = M_mesh.numGlobalElements();
-    std::vector<int> sizes_nodes = M_sizes_nodes;
 
     this->distributedMeshProcessing(true);
 }//partitionMeshRestart
@@ -10369,6 +12354,26 @@ FiniteElement::explicitSolve()
     std::vector<double> tau_wi(2*M_num_nodes, 0.);
 #endif
 
+    // Atmospheric drag
+    // Surface weighted average drag
+    std::vector<double> drag(M_num_nodes,0.);
+    std::vector<double> surface(M_num_nodes,0.);
+    for ( int cpt=0; cpt<M_mesh.numTriangles(); ++cpt )
+    {
+        double dragp = M_drag_ui[cpt];
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE && M_conc[cpt]+M_conc_young[cpt] > 0. )
+            dragp = (M_drag_ui[cpt]*M_conc[cpt]+M_drag_ui_young[cpt]*M_conc_young[cpt])
+                   /(M_conc[cpt]+M_conc_young[cpt]);
+
+        // Loop over the nodes of the element to build the gradient terms themselves
+        for (int i=0; i<3; ++i)
+        {
+            int const i_indx = M_mesh.triangles()[cpt].indices[i]-1; // (M_elements[cpt]).indices[i]-1;
+            drag[i_indx] += dragp * M_surface[cpt];
+            surface[i_indx] += M_surface[cpt];
+        }
+    }
+
     for ( int i=0; i<M_num_nodes; ++i )
     {
         const int u_indx = i;
@@ -10385,29 +12390,9 @@ FiniteElement::explicitSolve()
             M_VT[v_indx] = 0.;
         }
 
-        // Atmospheric drag
-        // Surface weighted average drag
-        double drag = 0.;
-        double surface = 0;
-        int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-        for (int j=0; j<num_elements; j++)
-        {
-            int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-            // Skip negative elt_num
-            if ( elt_num < 0 ) continue;
-
-            double dragp = M_drag_ui[elt_num];
-            if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE && M_conc[elt_num]+M_conc_young[elt_num] > 0. )
-                dragp = (M_drag_ui[elt_num]*M_conc[elt_num]+M_drag_ui_young[elt_num]*M_conc_young[elt_num])
-                    /(M_conc[elt_num]+M_conc_young[elt_num]);
-
-            drag += dragp * M_surface[elt_num];
-            surface += M_surface[elt_num];
-        }
-        drag *= physical::rhoa * std::hypot(M_wind[u_indx],M_wind[v_indx]) / surface;
-
-        D_tau_a[u_indx] = drag * M_wind[u_indx];
-        D_tau_a[v_indx] = drag * M_wind[v_indx];
+        drag[i] *= physical::rhoa * std::hypot(M_wind[u_indx],M_wind[v_indx]) / surface[i];
+        D_tau_a[u_indx] = drag[i] * M_wind[u_indx];
+        D_tau_a[v_indx] = drag[i] * M_wind[v_indx];
 
         // Post-process mass matrix and nodal mass
         rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
@@ -10588,39 +12573,74 @@ FiniteElement::explicitSolve()
     // Finally we smooth the ice velocities into the open water to act as a buffer for the moving mesh
     M_timer.tick("OW smoother");
 
-    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
     // nit<50 gives about 50 nodes of buffer
-    for ( int nit=0; nit<50; ++nit )
+    if (use_MMG)
     {
-        std::vector<double> const u = M_VT;
-        for ( int i=0; i<M_local_ndof; ++i )
+        // get the neighbour points 
+        std::vector<std::vector<int>> list_neighbours(M_num_nodes);
+        compute_list_node_neighbours(list_neighbours);
+        for ( int nit=0; nit<50; ++nit )
         {
-            int const u_indx = i;
-            int const v_indx = i+M_num_nodes;
-
-            // Skip ice and boundary nodes
-            if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
-                continue;
-
-            // Reset M_VT for the averaging
-            M_VT[u_indx] = 0.;
-            M_VT[v_indx] = 0.;
-
-            // Loop over neighbouring nodes
-            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
-            double w = 0;
-            for ( int j=0; j<num_neighbours; ++j )
+            std::vector<double> const u = M_VT;
+            for ( int i=0; i<M_local_ndof; ++i )
             {
-                // neigbour node index
-                int const nni = bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
-                M_VT[u_indx] += u[nni];
-                M_VT[v_indx] += u[nni + M_num_nodes];
+                int const u_indx = i;
+                int const v_indx = i+M_num_nodes;
+    
+                // Skip ice and boundary nodes
+                if ( M_mask_dirichlet[i] || node_mass[i] != 0. )
+                    continue;
+    
+                // Reset M_VT for the averaging
+                M_VT[u_indx] = 0.;
+                M_VT[v_indx] = 0.;
+    
+                // Loop over neighbouring nodes
+                for (int j = 0; j < list_neighbours[i].size(); j++)
+                {
+                    M_VT[u_indx] += u[list_neighbours[i][j]]/list_neighbours[i].size();
+                    M_VT[v_indx] += u[list_neighbours[i][j] + M_num_nodes]/list_neighbours[i].size();
+                }
             }
-            M_VT[u_indx] /= num_neighbours;
-            M_VT[v_indx] /= num_neighbours;
+    
+            this->updateGhosts(M_VT);
         }
-
-        this->updateGhosts(M_VT);
+    }
+    else
+    {
+        int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+        for ( int nit=0; nit<50; ++nit )
+        {
+            std::vector<double> const u = M_VT;
+            for ( int i=0; i<M_local_ndof; ++i )
+            {
+                int const u_indx = i;
+                int const v_indx = i+M_num_nodes;
+    
+                // Skip ice and boundary nodes
+                if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
+                    continue;
+    
+                // Reset M_VT for the averaging
+                M_VT[u_indx] = 0.;
+                M_VT[v_indx] = 0.;
+    
+                // Loop over neighbouring nodes
+                int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
+                double w = 0;
+                for ( int j=0; j<num_neighbours; ++j )
+                {
+                    // neigbour node index
+                    int const nni = bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                    M_VT[u_indx] += u[nni];
+                    M_VT[v_indx] += u[nni + M_num_nodes];
+                }
+                M_VT[u_indx] /= num_neighbours;
+                M_VT[v_indx] /= num_neighbours;
+            }
+    
+            this->updateGhosts(M_VT);
+        }
     }
 
     // Move the mesh in the open water part
@@ -10651,6 +12671,13 @@ FiniteElement::explicitSolve()
 
     for (const int& nd : M_neumann_nodes)
         M_UM[nd] = UM_P[nd];
+
+    // MMG uses local mesh, so the displacement at the interfaces between processors must be the same
+    if (use_MMG) 
+    {
+        this->updateGhosts(M_UM);
+        this->updateGhosts(M_UT);
+    }
 
     M_timer.tock("OW smoother");
 }
@@ -14501,41 +16528,84 @@ FiniteElement::checkVelocityFields()
     // minimum speed to trigger velocity check
     double const spd_lim = 0.5;
 
-    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
-
-    std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
-    for (int i=0; i<M_num_nodes; ++i)
+    if (use_MMG)
     {
-        uv[0] = M_VT[i];
-        uv[1] = M_VT[i+M_num_nodes];
-        double const spd = std::hypot(uv[0], uv[1]);
-        if ( spd > spd_lim )
+        // get the neighbour points 
+        std::vector<std::vector<int>> list_neighbours(M_num_nodes);
+        compute_list_node_neighbours(list_neighbours);
+    
+        std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
+        for (int i=0; i<M_num_nodes; ++i)
         {
-            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
-            // for U and V
-            for (int k=0; k<2; ++k)
+            uv[0] = M_VT[i];
+            uv[1] = M_VT[i+M_num_nodes];
+            double const spd = std::hypot(uv[0], uv[1]);
+            if ( spd > spd_lim )
             {
-                // one pass algorithm for standard deviation of velocities in neighbours
-                // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-                double avg_old = 0;
-                for (int j=0; j<num_neighbours; ++j)
+                // for U and V
+                for (int k=0; k<2; ++k)
                 {
-                    // neigbour node index for U (k=0) or V (k=1)
-                    int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
-                    avg_old = avg_spd[k];
-                    avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
-                    std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
+                    // one pass algorithm for standard deviation of velocities in neighbours
+                    // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+                    double avg_old = 0;
+                    for (int j=0; j < list_neighbours[i].size(); ++j)
+                    {
+                        // neigbour node index for U (k=0) or V (k=1)
+                        avg_old = avg_spd[k];
+                        avg_spd[k] += (M_VT[list_neighbours[i][j]] - avg_spd[k]) / (j + 1.);
+                        std_spd[k] += (M_VT[list_neighbours[i][j]] - avg_spd[k]) * (M_VT[list_neighbours[i][j]] - avg_old);
+                    }
+                    // standard deviation of velocities
+                    std_spd[k] = std::sqrt(std_spd[k] / (list_neighbours[i].size() - 1.));
+                    // relative error of velocities
+                    rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
                 }
-                // standard deviation of velocities
-                std_spd[k] = std::sqrt(std_spd[k] / (num_neighbours - 1.));
-                // relative error of velocities
-                rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
+                LOG(DEBUG) << "Rogue velocity step=" << pcpt
+                           << " node=" << i
+                           << " speed=" << spd
+                           << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
+                           << "\n";
             }
-            LOG(DEBUG) << "Rogue velocity step=" << pcpt
-                       << " node=" << i
-                       << " speed=" << spd
-                       << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
-                       << "\n";
+        }
+    }
+    else
+    {
+        int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+    
+        std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
+        for (int i=0; i<M_num_nodes; ++i)
+        {
+            uv[0] = M_VT[i];
+            uv[1] = M_VT[i+M_num_nodes];
+            double const spd = std::hypot(uv[0], uv[1]);
+            if ( spd > spd_lim )
+            {
+                int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
+                // for U and V
+                for (int k=0; k<2; ++k)
+                {
+                    // one pass algorithm for standard deviation of velocities in neighbours
+                    // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+                    double avg_old = 0;
+                    for (int j=0; j<num_neighbours; ++j)
+                    {
+                        // neigbour node index for U (k=0) or V (k=1)
+                        int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+                        avg_old = avg_spd[k];
+                        avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
+                        std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
+                    }
+                    // standard deviation of velocities
+                    std_spd[k] = std::sqrt(std_spd[k] / (num_neighbours - 1.));
+                    // relative error of velocities
+                    rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
+                }
+                LOG(DEBUG) << "Rogue velocity step=" << pcpt
+                           << " node=" << i
+                           << " speed=" << spd
+                           << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
+                           << "\n";
+            }
         }
     }
 }
@@ -14888,23 +16958,34 @@ FiniteElement::finalise(std::string current_time_system)
     // Clear pointers etc
     M_comm.barrier();
 
-    delete bamgmesh;
-    delete bamggeom;
+    if (!use_MMG) 
+    {
+        delete bamgmesh;
+        delete bamggeom;
+    }
 
     if (M_mesh.comm().rank() == 0)
     {
-        delete bamgopt;
-        delete bamggeom_root;
-        delete bamgmesh_root;
+        if (use_MMG) 
+        {
+            delete mmgopt;
+        }
+        else
+        {
 
-        // We need to point these to NULL because 'delete bamgopt' clears the
-        // memory they were pointing to before
-        bamgopt_previous->hminVertices      = NULL;
-        bamgopt_previous->hmaxVertices      = NULL;
+            delete bamgopt;
+            delete bamggeom_root;
+            delete bamgmesh_root;
 
-        delete bamgmesh_previous;
-        delete bamggeom_previous;
-        delete bamgopt_previous;
+            // We need to point these to NULL because 'delete bamgopt' clears the
+            // memory they were pointing to before
+            bamgopt_previous->hminVertices      = NULL;
+            bamgopt_previous->hmaxVertices      = NULL;
+
+            delete bamgmesh_previous;
+            delete bamggeom_previous;
+            delete bamgopt_previous;
+        }
 
         // clear GModel from mesh data structure
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
