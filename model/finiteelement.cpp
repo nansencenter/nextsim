@@ -36,14 +36,14 @@ FiniteElement::FiniteElement(Communicator const& comm)
 void
 FiniteElement::initMesh()
 {
-    if (!use_MMG)
-    {
-        this->initBamg();
-    }
-    else
-    {
+    //if (!use_MMG)
+    //{
+    //    this->initBamg();
+    //}
+    //else
+    //{
         this->initMMGopts();
-    }
+    //}
     this->rootMeshProcessing();
     if (!M_use_restart)
         this->distributedMeshProcessing(true);
@@ -56,40 +56,40 @@ FiniteElement::initMesh()
 void
 FiniteElement::distributedMeshProcessing(bool start)
 {
-    if (!use_MMG)
-    {
-        M_comm.barrier();
-    
-        if (!start)
-        {
-            M_mesh = mesh_type();
-        }
-    
-        M_mesh.setOrdering("gmsh");
-    
-        LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
-    
-        chrono.restart();
-        M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
-        LOG(DEBUG)<<"-------------------MESHREAD done in "<< chrono.elapsed() <<"s\n";
-    
-        if (!start)
-        {
-            delete bamggeom;
-            delete bamgmesh;
-    
-            bamggeom = new BamgGeom();
-            bamgmesh = new BamgMesh();
-        }
-    
-        chrono.restart();
-        BamgConvertMeshx(
-                         bamgmesh,bamggeom,
-                         &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
-                         M_mesh.numNodes(), M_mesh.numTriangles());
-    
-        LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< chrono.elapsed() <<"s\n";
-    }
+    //if (!use_MMG)
+    //{
+    //    M_comm.barrier();
+    //
+    //    if (!start)
+    //    {
+    //        M_mesh = mesh_type();
+    //    }
+    //
+    //    M_mesh.setOrdering("gmsh");
+    //
+    //    LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
+    //
+    //    chrono.restart();
+    //    M_mesh.readFromFile(M_partitioned_mesh_filename, M_mesh_fileformat);
+    //    LOG(DEBUG)<<"-------------------MESHREAD done in "<< chrono.elapsed() <<"s\n";
+    //
+    //    if (!start)
+    //    {
+    //        delete bamggeom;
+    //        delete bamgmesh;
+    //
+    //        bamggeom = new BamgGeom();
+    //        bamgmesh = new BamgMesh();
+    //    }
+    //
+    //    chrono.restart();
+    //    BamgConvertMeshx(
+    //                     bamgmesh,bamggeom,
+    //                     &M_mesh.indexTr()[0],&M_mesh.coordX()[0],&M_mesh.coordY()[0],
+    //                     M_mesh.numNodes(), M_mesh.numTriangles());
+    //
+    //    LOG(DEBUG)<<"-------------------CREATEBAMG done in "<< chrono.elapsed() <<"s\n";
+    //}
 
     M_elements = M_mesh.triangles();
     M_nodes = M_mesh.nodes();
@@ -107,23 +107,23 @@ FiniteElement::distributedMeshProcessing(bool start)
     this->bcMarkedNodes();
     LOG(DEBUG)<<"-------------------BCMARKER done in "<< chrono.elapsed() <<"s\n";
 
-    if (!use_MMG)
-    {
-        chrono.restart();
-        this->createGraph();
-        LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< chrono.elapsed() <<"s\n";
-    }
+    //if (!use_MMG)
+    //{
+    //    chrono.restart();
+    //    this->createGraph();
+    //    LOG(DEBUG)<<"-------------------CREATEGRAPH done in "<< chrono.elapsed() <<"s\n";
+    //}
 
     chrono.restart();
     this->gatherSizes();
     LOG(DEBUG)<<"-------------------GATHERSIZE done in "<< chrono.elapsed() <<"s\n";
 
-    if (!use_MMG)
-    {
-        chrono.restart();
-        this->scatterElementConnectivity();
-        LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
-    }
+    //if (!use_MMG)
+    //{
+    //    chrono.restart();
+    //    this->scatterElementConnectivity();
+    //    LOG(DEBUG)<<"-------------------CONNECTIVITY done in "<< chrono.elapsed() <<"s\n";
+    //}
 
     chrono.restart();
     this->initUpdateGhosts();
@@ -376,10 +376,10 @@ FiniteElement::rootMeshProcessing()
         M_mesh_init_root = M_mesh_root;
 
         LOG(DEBUG) <<"Convert mesh starts\n";
-        if (!use_MMG) BamgConvertMeshx(bamgmesh_root,bamggeom_root,
-                                       &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
-                                       M_mesh_root.numNodes(), M_mesh_root.numTriangles()
-                                      );
+        //if (!use_MMG) BamgConvertMeshx(bamgmesh_root,bamggeom_root,
+        //                               &M_mesh_root.indexTr()[0],&M_mesh_root.coordX()[0],&M_mesh_root.coordY()[0],
+        //                               M_mesh_root.numNodes(), M_mesh_root.numTriangles()
+        //                              );
 
         // ------ Boundary conditions -----------
 
@@ -439,47 +439,47 @@ FiniteElement::rootMeshProcessing()
         {
         case setup::MeshType::FROM_UNREF:
             // For the other meshes, we use a constant hmin and hmax
-            if (!use_MMG)
-            {
-                bamgopt->hmin = h[0];
-                bamgopt->hmax = h[1];
-            }
-            else
-            {
+            //if (!use_MMG)
+            //{
+            //    bamgopt->hmin = h[0];
+            //    bamgopt->hmax = h[1];
+            //}
+            //else
+            //{
                 mmgopt->hmin = this->M_metric.scale_factor_min*0.5*(h[0]+h[1]);
                 mmgopt->hmax = this->M_metric.scale_factor_max*0.5*(h[0]+h[1]);
-            }
+            //}
             break;
         case setup::MeshType::FROM_SPLIT:
-            if (!use_MMG)
-            {
-                bamgopt->hmin = h[0];
-                bamgopt->hmax = h[1];
-            }
-            else
-            {
+            //if (!use_MMG)
+            //{
+            //    bamgopt->hmin = h[0];
+            //    bamgopt->hmax = h[1];
+            //}
+            //else
+            //{
                 mmgopt->hmin = this->M_metric.scale_factor_min*0.5*(h[0]+h[1]);
                 mmgopt->hmax = this->M_metric.scale_factor_max*0.5*(h[0]+h[1]);
-            }
+            //}
 
-            if (!use_MMG)
-            {
-                M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
-                M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
+            //if (!use_MMG)
+            //{
+            //    M_hminVertices = this->hminVertices(M_mesh_init_root, bamgmesh_root);
+            //    M_hmaxVertices = this->hmaxVertices(M_mesh_init_root, bamgmesh_root);
     
-                LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-                LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
-                LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
-                LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+            //    LOG(DEBUG) <<"HMIN MIN= "<< *std::min_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+            //    LOG(DEBUG) <<"HMIN MAX= "<< *std::max_element(M_hminVertices.begin(), M_hminVertices.end()) <<"\n";
+            //    LOG(DEBUG) <<"HMAX MIN= "<< *std::min_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
+            //    LOG(DEBUG) <<"HMAX MAX= "<< *std::max_element(M_hmaxVertices.begin(), M_hmaxVertices.end()) <<"\n";
     
-                bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
-                bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
-                for (int i=0; i<M_mesh_init_root.numNodes(); ++i)
-                {
-                    bamgopt->hminVertices[i] = M_hminVertices[i];
-                    bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
-                }
-            }
+            //    bamgopt->hminVertices = new double[M_mesh_init_root.numNodes()];
+            //    bamgopt->hmaxVertices = new double[M_mesh_init_root.numNodes()];
+            //    for (int i=0; i<M_mesh_init_root.numNodes(); ++i)
+            //    {
+            //        bamgopt->hminVertices[i] = M_hminVertices[i];
+            //        bamgopt->hmaxVertices[i] = M_hmaxVertices[i];
+            //    }
+            //}
             break;
         default:
             LOG(DEBUG)  << "invalid mesh type"<<"\n";
@@ -488,12 +488,12 @@ FiniteElement::rootMeshProcessing()
     }
 
     boost::mpi::broadcast(M_comm, M_flag_fix, 0);
-    if (use_MMG)
-    {
+    //if (use_MMG)
+    //{
         boost::mpi::broadcast(M_comm, mmgopt->hmin, 0);
         boost::mpi::broadcast(M_comm, mmgopt->hmax, 0);
         this->initMetric();
-    }
+    //}
 
     if(M_mesh_type==setup::MeshType::FROM_SPLIT)
     {
@@ -503,8 +503,8 @@ FiniteElement::rootMeshProcessing()
         LOG(DEBUG) <<"First adaptation starts\n";
 
         // step 1 (only for the first time step) 
-        if (use_MMG)
-        {
+        //if (use_MMG)
+        //{
             // Start by having mmg 'clean' the mesh with a constant metric
             std::vector<double> useless_field;
             if (!M_rank)
@@ -512,26 +512,26 @@ FiniteElement::rootMeshProcessing()
                 useless_field.resize(M_mesh_root.numNodes());
                 std::iota(useless_field.begin(), useless_field.end(), 1.);
             }
-#ifdef MMG
+//#ifdef MMG
             this->adaptMeshMMG(M_mesh, useless_field, 0);
-#endif
+//#endif
             LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
-        }
-        else if (!M_rank)
-        {
-            // Start by having bamg 'clean' the mesh with KeepVertices=0
-            bamgopt->KeepVertices=0;
-            bamgopt->splitcorners=1;
-            this->adaptMeshBamg();
-            bamgopt->KeepVertices=1;
-            bamgopt->splitcorners=0;
+        //}
+        //else if (!M_rank)
+        //{
+        //    // Start by having bamg 'clean' the mesh with KeepVertices=0
+        //    bamgopt->KeepVertices=0;
+        //    bamgopt->splitcorners=1;
+        //    this->adaptMeshBamg();
+        //    bamgopt->KeepVertices=1;
+        //    bamgopt->splitcorners=0;
 
-            LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
+        //    LOG(DEBUG) <<"First adaptation done in "<< chrono.elapsed() <<"s\n";
 
-            // Interpolate hminVertices and hmaxVertices onto the current mesh
-            this->interpVertices();
-            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-        }
+        //    // Interpolate hminVertices and hmaxVertices onto the current mesh
+        //    this->interpVertices();
+        //    M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+        //}
     }
 
     if (!M_use_restart)
@@ -539,8 +539,8 @@ FiniteElement::rootMeshProcessing()
         chrono.restart();
         LOG(DEBUG) <<"AdaptMesh starts\n";
 
-        if (use_MMG)
-        {
+        //if (use_MMG)
+        //{
             // Start by having mmg 'clean' the mesh with a constant metric
             std::vector<double> useless_field;
             if (!M_rank)
@@ -548,47 +548,47 @@ FiniteElement::rootMeshProcessing()
                 useless_field.resize(M_mesh_root.numNodes());
                 std::iota(useless_field.begin(), useless_field.end(), 1.);
             }
-#ifdef MMG
+//#ifdef MMG
             this->adaptMeshMMG(M_mesh, useless_field, 0);
-#endif
+//#endif
             LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
-        }
-        else if (!M_rank)
-        {
-            this->adaptMeshBamg();
-            LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+        //}
+        //else if (!M_rank)
+        //{
+        //    this->adaptMeshBamg();
+        //    LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
 
-            // Add information on the number of partition to mesh filename
-            LOG(DEBUG) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
+        //    // Add information on the number of partition to mesh filename
+        //    LOG(DEBUG) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
-            LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-            LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-            LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-            LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-            LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+        //    LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+        //    LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+        //    LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+        //    LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+        //    LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
 
-            // save mesh (only root process)
-            chrono.restart();
-            if (M_partition_space == mesh::PartitionSpace::MEMORY)
-            {
-                // Environment::logMemoryUsage("before gmodel...");
-                M_mesh_root.initGModel();
-                M_mesh_root.writeToGModel();
-                // Environment::logMemoryUsage("before after...");
-            }
-            else if (M_partition_space == mesh::PartitionSpace::DISK)
-                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-            //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
-            LOG(DEBUG) <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
+        //    // save mesh (only root process)
+        //    chrono.restart();
+        //    if (M_partition_space == mesh::PartitionSpace::MEMORY)
+        //    {
+        //        // Environment::logMemoryUsage("before gmodel...");
+        //        M_mesh_root.initGModel();
+        //        M_mesh_root.writeToGModel();
+        //        // Environment::logMemoryUsage("before after...");
+        //    }
+        //    else if (M_partition_space == mesh::PartitionSpace::DISK)
+        //        M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+        //    //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+        //    LOG(DEBUG) <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
 
-            // partition the mesh on root process (rank 0)
-            chrono.restart();
-            M_mesh_root.partition(M_partitioned_mesh_filename,
-                    M_partitioner, M_partition_space, M_mesh_fileformat);
-            //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-            LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-        }
+        //    // partition the mesh on root process (rank 0)
+        //    chrono.restart();
+        //    M_mesh_root.partition(M_partitioned_mesh_filename,
+        //            M_partitioner, M_partition_space, M_mesh_fileformat);
+        //    //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+        //    LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+        //}
     }
 
 }//rootMeshProcessing
@@ -1270,13 +1270,14 @@ FiniteElement::initOptAndParam()
     if ( (!fs::exists(output_path)) && (M_comm.rank()==0) )
     fs::create_directories(output_path);
 
-    use_MMG = false;
-#ifdef MMG
-    if (vm["numerics.regrid"].as<std::string>() == "mmg")
-    {
-        use_MMG = true;
-    }
-#endif
+//    use_MMG = false;
+//#ifdef MMG
+//    if (vm["numerics.regrid"].as<std::string>() == "mmg")
+//    {
+//        use_MMG = true;
+//    }
+//#endif
+    M_no_regridding = vm["numerics.no_regridding"].as<bool>(); //! \param M_no_regridding (bool) Used to turn off regridding
 
     //! Sets Poisson's ratio
     nu0 = vm["dynamics.nu0"].as<double>(); //! \param nu0 (double) Poisson's ratio
@@ -3112,22 +3113,22 @@ FiniteElement::scatterElementConnectivity()
 void
 FiniteElement::compute_list_element_neighbours(std::vector<std::vector<int>>& list_neighbours)
 {
-    if (!use_MMG)
-    {
-        for (int cpt = 0; cpt < M_mesh_root.numTriangles(); ++cpt)
-        {
-            for(int i = 0; i < 3; i++)
-            {
-                double neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
-                int neighbour_int       = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
+    //if (!use_MMG)
+    //{
+    //    for (int cpt = 0; cpt < M_mesh_root.numTriangles(); ++cpt)
+    //    {
+    //        for(int i = 0; i < 3; i++)
+    //        {
+    //            double neighbour_double = bamgmesh_root->ElementConnectivity[cpt*3+i];
+    //            int neighbour_int       = (int)bamgmesh_root->ElementConnectivity[cpt*3+i];
 
-                if (!std::isnan(neighbour_double) && neighbour_int > 0)
-                    list_neighbours[cpt][i] = neighbour_int;
-            }
-        }
+    //            if (!std::isnan(neighbour_double) && neighbour_int > 0)
+    //                list_neighbours[cpt][i] = neighbour_int;
+    //        }
+    //    }
 
-        return;
-    }
+    //    return;
+    //}
 
     std::vector<std::vector<int>> list_triangles_nodes(M_mesh_root.numNodes());
     int n_nodes;
@@ -4511,8 +4512,8 @@ FiniteElement::regrid(bool step)
     this->gatherNodalField(M_UM,um_root);
     M_timer.tock("gatherNodalField");
 
-    if (M_rank == 0 || use_MMG)
-    {
+    //if (M_rank == 0 || use_MMG)
+    //{
         chrono.restart();
         LOG(DEBUG) <<"Flip starts\n";
 
@@ -4522,25 +4523,25 @@ FiniteElement::regrid(bool step)
             displacement_factor /= 2.;
             step_order++;
 
-            if (use_MMG) {
+            //if (use_MMG) {
                 flip = this->flip(M_mesh,M_UM,displacement_factor);
-            }
-            else {
-                flip = this->flip(M_mesh_root,um_root,displacement_factor);
-            }
+            //}
+            //else {
+            //    flip = this->flip(M_mesh_root,um_root,displacement_factor);
+            //}
 
             if (substep > 1)
                 LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
         }
 
-        if (use_MMG) {
+        //if (use_MMG) {
             double min_displacement_factor;
             int max_step_order;
             boost::mpi::all_reduce(M_comm, displacement_factor, min_displacement_factor, boost::mpi::minimum<double>());
             boost::mpi::all_reduce(M_comm, step_order, max_step_order, boost::mpi::maximum<int>());
             displacement_factor = min_displacement_factor;
             step_order = max_step_order;
-        }
+        //}
 
         LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
 
@@ -4571,9 +4572,9 @@ FiniteElement::regrid(bool step)
             chrono.restart();
             LOG(DEBUG) <<"Move starts\n";
 
-            if (use_MMG) {
+            //if (use_MMG) {
                 M_mesh.move(M_UM, displacement_factor);
-            }
+            //}
             if (M_rank == 0 && M_use_mesh_root) {
                 M_mesh_root.move(um_root,displacement_factor);
             }
@@ -4584,33 +4585,33 @@ FiniteElement::regrid(bool step)
 
             chrono.restart();
 
-            if (M_rank == 0 && !use_MMG) 
-            {
-                LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
-                auto RX = M_mesh_root.coordX();
-                auto RY = M_mesh_root.coordY();
+            //if (M_rank == 0 && !use_MMG) 
+            //{
+            //    LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
+            //    auto RX = M_mesh_root.coordX();
+            //    auto RY = M_mesh_root.coordY();
 
-                for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
-                {
-                    bamgmesh_root->Vertices[3*id] = RX[id];
-                    bamgmesh_root->Vertices[3*id+1] = RY[id] ;
-                }
+            //    for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
+            //    {
+            //        bamgmesh_root->Vertices[3*id] = RX[id];
+            //        bamgmesh_root->Vertices[3*id+1] = RY[id] ;
+            //    }
 
-                LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
-            }
+            //    LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
+            //}
 
-            if(M_mesh_type==setup::MeshType::FROM_SPLIT  && !use_MMG)
-            {
-                chrono.restart();
-                LOG(DEBUG) <<"Interp vertices starts\n";
-                this->interpVertices();
-                LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
-            }
+            //if(M_mesh_type==setup::MeshType::FROM_SPLIT  && !use_MMG)
+            //{
+            //    chrono.restart();
+            //    LOG(DEBUG) <<"Interp vertices starts\n";
+            //    this->interpVertices();
+            //    LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
+            //}
 
             M_timer.tick("adaptMesh");
             LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
 
-            if (use_MMG) {
+            //if (use_MMG) {
                 // Store the previous mesh mostly for interpolation
                 M_prv_local_ndof = M_local_ndof;
                 M_prv_num_nodes = M_num_nodes;
@@ -4670,11 +4671,11 @@ FiniteElement::regrid(bool step)
                     mmgopt->hmax = mmgopt->hmax / this->M_metric.scale_factor_max;
                 }
 
-#ifdef MMG
+//#ifdef MMG
                 this->adaptMeshMMG(M_mesh, field, 1);
                 LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
                 M_timer.tock("adaptMesh");
-#endif
+//#endif
 
                 M_timer.tick("interpFields");
                 this->interpFields_parallel(coordX_prv, coordY_prv, triangles_prv, list_global_nodes_prv_local, interp_elt_in_local);
@@ -4708,58 +4709,58 @@ FiniteElement::regrid(bool step)
                     if (step_order > 0) substep_nb += std::pow(2,step_order-1);
                 }
 
-            }
-            else
-            {
+            //}
+            //else
+            //{
 
-                this->adaptMeshBamg();
-                LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
-                M_timer.tock("adaptMesh");
+            //    this->adaptMeshBamg();
+            //    LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+            //    M_timer.tock("adaptMesh");
 
-                // save mesh (only root process)
-                LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-                LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-                LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-                LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-                LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+            //    // save mesh (only root process)
+            //    LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+            //    LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+            //    LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+            //    LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+            //    LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
-                M_timer.tick("partition");
-                // Environment::logMemoryUsage("before partitioning...");
-                chrono.restart();
-                LOG(DEBUG) <<"Saving mesh starts\n";
-                if (M_partition_space == mesh::PartitionSpace::MEMORY)
-                    M_mesh_root.writeToGModel();
-                else if (M_partition_space == mesh::PartitionSpace::DISK)
-                    M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-                LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+            //    M_timer.tick("partition");
+            //    // Environment::logMemoryUsage("before partitioning...");
+            //    chrono.restart();
+            //    LOG(DEBUG) <<"Saving mesh starts\n";
+            //    if (M_partition_space == mesh::PartitionSpace::MEMORY)
+            //        M_mesh_root.writeToGModel();
+            //    else if (M_partition_space == mesh::PartitionSpace::DISK)
+            //        M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+            //    LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
-                // partition the mesh on root process (rank 0)
-                chrono.restart();
-                LOG(DEBUG) <<"Partitioning mesh starts\n";
-                M_mesh_root.partition(M_partitioned_mesh_filename,
-                        M_partitioner, M_partition_space, M_mesh_fileformat);
-                LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-                M_timer.tock("partition");
-            }
+            //    // partition the mesh on root process (rank 0)
+            //    chrono.restart();
+            //    LOG(DEBUG) <<"Partitioning mesh starts\n";
+            //    M_mesh_root.partition(M_partitioned_mesh_filename,
+            //            M_partitioner, M_partition_space, M_mesh_fileformat);
+            //    LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            //    M_timer.tock("partition");
+            //}
         }
-    } // rank 0 || use_MMG
+    //} // rank 0 || use_MMG
 
     // --------------------------------BEGINNING-------------------------
-    if (!use_MMG) {
-        M_prv_local_ndof = M_local_ndof;
-        M_prv_num_nodes = M_num_nodes;
-        M_prv_num_elements = M_local_nelements;
-        //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
-        std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
-        M_prv_global_num_nodes = M_mesh.numGlobalNodes();
-        M_prv_global_num_elements = M_mesh.numGlobalElements();
-        std::vector<int> sizes_nodes = M_sizes_nodes;
+    //if (!use_MMG) {
+    //    M_prv_local_ndof = M_local_ndof;
+    //    M_prv_num_nodes = M_num_nodes;
+    //    M_prv_num_elements = M_local_nelements;
+    //    //bimap_type prv_rmap_nodes = M_mesh.mapNodes();
+    //    std::vector<int> prv_rmap_nodes = M_mesh.mapNodes();
+    //    M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+    //    M_prv_global_num_elements = M_mesh.numGlobalElements();
+    //    std::vector<int> sizes_nodes = M_sizes_nodes;
 
-        M_timer.tick("interpFields");
-        this->interpFields(prv_rmap_nodes, sizes_nodes);
-        LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
-        M_timer.tock("interpFields");
-    }
+    //    M_timer.tick("interpFields");
+    //    this->interpFields(prv_rmap_nodes, sizes_nodes);
+    //    LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
+    //    M_timer.tock("interpFields");
+    //}
     // --------------------------------END-------------------------------
 
     LOG(DEBUG) <<"TIMER REGRIDDING= "<< chrono.elapsed() <<"s\n";
@@ -4918,7 +4919,8 @@ FiniteElement::updateBoundaryFlags()
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
 }//updateBoundaryFlags
 
-#ifdef MMG
+
+//#ifdef MMG
 //------------------------------------------------------------------------------------------------------
 //! Adapts the mesh grid with MMG.
 //! Called by the regrid() function.
@@ -5010,6 +5012,7 @@ FiniteElement::adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field, 
     LOG(DEBUG) <<"Current  NumTriangles  = "<< M_mesh.numGlobalElements() <<"\n";
     LOG(DEBUG) <<"\n";
 }//adaptMeshMMG
+
 
 //------------------------------------------------------------------------------------------------------
 //! Anisotropic remeshing
@@ -5355,6 +5358,7 @@ FiniteElement::anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const&
 
 }// anisotropic_remeshing
 
+
 //------------------------------------------------------------------------------------------------------
 //! Convert GMSH mesh to MMG mesh
 //! Called by the adaptMeshMMG() function
@@ -5597,6 +5601,7 @@ FiniteElement::convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh
 
 } // convert_mesh_MMG
 
+
 //------------------------------------------------------------------------------------------------------
 //! Updates the boundary flags (Neumann vs Dirichlet) after regriding and mesh adaptation.
 //! Called by the anisotropic_remeshing() functions.
@@ -5732,6 +5737,7 @@ void FiniteElement::boundary_flags(std::vector<std::vector<int>> list_edges, std
 
 } // boundary_flags
 
+
 //------------------------------------------------------------------------------------------------------
 //! Updates the boundary flags (Neumann vs Dirichlet) after regriding and mesh adaptation.
 //! Called by the adaptMeshMMG() functions.
@@ -5819,8 +5825,7 @@ FiniteElement::updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_edges, std::ve
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
 
 } // updateBoundaryFlagsMMG
-
-#endif
+//#endif
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates the cohesion field (sum of a fixed value and a random component) and the maximum compressive strength of sea ice.
@@ -5829,7 +5834,8 @@ void
 FiniteElement::calcCohesion()
 {
     // If the mesh is not uniform, the size resolution is not uniform and must be calculated for each element
-    if (use_MMG && (M_metric.scale_factor_min < 0.95 || M_metric.scale_factor_max > 1.05))
+    //if (use_MMG && (M_metric.scale_factor_min < 0.95 || M_metric.scale_factor_max > 1.05))
+    if (M_metric.scale_factor_min < 0.95 || M_metric.scale_factor_max > 1.05)
     {
         for (int i = 0; i < M_num_elements; ++i)
         {
@@ -9023,7 +9029,8 @@ FiniteElement::init()
     this->checkOutputs(true);
 
 #ifndef OASIS
-    if (M_rank == 0 && use_MMG && (!M_use_moorings || !vm["moorings.use_conservative_remapping"].as<bool>()) && 
+    //if (M_rank == 0 && use_MMG && (!M_use_moorings || !vm["moorings.use_conservative_remapping"].as<bool>()) && 
+    if (M_rank == 0 && (!M_use_moorings || !vm["moorings.use_conservative_remapping"].as<bool>()) &&
         vm["thermo.diffusivity_sst"].as<double>() <= 0. && vm["thermo.diffusivity_sss"].as<double>() <= 0.) 
     {
         M_use_mesh_root = false;
@@ -9931,7 +9938,8 @@ FiniteElement::step()
 
     //! 1) Remeshes and remaps the prognostic variables
     M_regrid = false;
-    if (vm["numerics.regrid"].as<std::string>() == "bamg" || vm["numerics.regrid"].as<std::string>() == "mmg")
+    //if (vm["numerics.regrid"].as<std::string>() == "bamg" || vm["numerics.regrid"].as<std::string>() == "mmg")
+    if(!M_no_regridding)
     {
         M_timer.tick("checkRegridding");
         M_regrid = this->checkRegridding();
@@ -10022,7 +10030,7 @@ FiniteElement::step()
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
 
-        if (use_MMG) M_regrid_old = pow(M_extended_coef, M_regrid_old) * M_regrid;
+        /*if (use_MMG)*/ M_regrid_old = pow(M_extended_coef, M_regrid_old) * M_regrid;
 
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     }//bamg/mmg-regrid
@@ -11597,16 +11605,16 @@ FiniteElement::writeRestart(std::string const& name_str)
 
     // Add the previous numbering to the restart file
     // - used in adaptMesh (updateNodeIds)
-    if (!use_MMG)
-    {
-        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
-        if (M_rank == 0)
-            for ( int i=0; i<M_mesh_root.numNodes(); ++i )
-                PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
+    //if (!use_MMG)
+    //{
+    //    std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+    //    if (M_rank == 0)
+    //        for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+    //            PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
 
-        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering", precision, M_comm, base_offset,
-                            rmap_nodes, M_local_ndof, M_num_nodes, 1);
-    }
+    //    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering", precision, M_comm, base_offset,
+    //                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
+    //}
 
     MPI_File_close(&outbin);
 
@@ -11712,46 +11720,46 @@ FiniteElement::readRestart(std::string const& name_str)
         // Fix boundaries
         M_flag_fix = misc_int[1];
         std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
-        if (!use_MMG) 
-        {
-            //! - Recreates the mesh grid
-            // Create bamgmesh and bamggeom
-            BamgConvertMeshx(bamgmesh_root,bamggeom_root,&indexTr[0],&coordX[0],&coordY[0],coordX.size(),indexTr.size()/3.);
+        //if (!use_MMG) 
+        //{
+        //    //! - Recreates the mesh grid
+        //    // Create bamgmesh and bamggeom
+        //    BamgConvertMeshx(bamgmesh_root,bamggeom_root,&indexTr[0],&coordX[0],&coordY[0],coordX.size(),indexTr.size()/3.);
 
-            for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
-            {
-                int fnd = bamgmesh_root->Edges[3*edg];
+        //    for (int edg=0; edg<bamgmesh_root->EdgesSize[0]; ++edg)
+        //    {
+        //        int fnd = bamgmesh_root->Edges[3*edg];
     
-                if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
-                {
-                    bamggeom_root->Edges[3*edg+2] = M_flag_fix;
-                    bamgmesh_root->Edges[3*edg+2] = M_flag_fix;
-                }
-                else
-                {
-                    bamggeom_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-                    bamgmesh_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-                }
-            }
+        //        if ((std::binary_search(dirichlet_flags.begin(),dirichlet_flags.end(),fnd)))
+        //        {
+        //            bamggeom_root->Edges[3*edg+2] = M_flag_fix;
+        //            bamgmesh_root->Edges[3*edg+2] = M_flag_fix;
+        //        }
+        //        else
+        //        {
+        //            bamggeom_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+        //            bamgmesh_root->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
+        //        }
+        //    }
     
-            //! - Imports the bamg structs
-            this->importBamg(bamgmesh_root);
-            this->updateBoundaryFlags();// update boundary flags
+        //    //! - Imports the bamg structs
+        //    this->importBamg(bamgmesh_root);
+        //    this->updateBoundaryFlags();// update boundary flags
     
-            //! - Adds the previous numbering from the restart file used in adaptMesh (updateNodeIds)
-            std::vector<double> PreviousNumbering = field_map_dbl["PreviousNumbering"];
-            for ( int i=0; i<M_mesh_root.numNodes(); ++i )
-                bamgmesh_root->PreviousNumbering[i] = PreviousNumbering[i];
-        }
-        else 
-        {
+        //    //! - Adds the previous numbering from the restart file used in adaptMesh (updateNodeIds)
+        //    std::vector<double> PreviousNumbering = field_map_dbl["PreviousNumbering"];
+        //    for ( int i=0; i<M_mesh_root.numNodes(); ++i )
+        //        bamgmesh_root->PreviousNumbering[i] = PreviousNumbering[i];
+        //}
+        //else 
+        //{
             M_dirichlet_flags_root = field_map_int["M_dirichlet_flags"];
             M_neumann_flags_root = field_map_int["M_neumann_flags"];
             M_dirichlet_flags_root_ordered = field_map_int["M_dirichlet_flags_ordered"];
             M_neumann_flags_root_ordered = field_map_int["M_neumann_flags_ordered"];
             std::vector<int> neumann_flags = field_map_int["M_neumann_flags"];
             build_mesh_mmg(coordX, coordY, indexTr, dirichlet_flags, neumann_flags);
-        }
+        //}
 
         M_mesh_root.setId(nodeId);  // set the node id's
 
@@ -11995,8 +12003,8 @@ FiniteElement::partitionMeshRestart()
     M_prv_global_num_elements = M_mesh.numGlobalElements();
     std::vector<int> sizes_nodes = M_sizes_nodes;
 
-    if (use_MMG)
-    {
+    //if (use_MMG)
+    //{
         std::vector<double> useless_field;
         if (!M_rank)
         {
@@ -12004,40 +12012,40 @@ FiniteElement::partitionMeshRestart()
             std::iota(useless_field.begin(), useless_field.end(), 0.);
         }
         // Used to decompose the mesh, no mesh adaptation here
-#ifdef MMG
+//#ifdef MMG
         this->adaptMeshMMG(M_mesh, useless_field, 0);
-#endif
-    }
-    else if (M_rank == 0)
-    {
-        LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-        LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-        LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-        LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-        LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
+//#endif
+    //}
+    //else if (M_rank == 0)
+    //{
+    //    LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+    //    LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+    //    LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+    //    LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+    //    LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
-        // Environment::logMemoryUsage("before partitioning...");
-        chrono.restart();
-        LOG(DEBUG) <<"Saving mesh starts\n";
-        if (M_partition_space == mesh::PartitionSpace::MEMORY)
-        {
-            M_mesh_root.initGModel();
-            M_mesh_root.writeToGModel();
-        }
-        else if (M_partition_space == mesh::PartitionSpace::DISK)
-        {
-            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-        }
+    //    // Environment::logMemoryUsage("before partitioning...");
+    //    chrono.restart();
+    //    LOG(DEBUG) <<"Saving mesh starts\n";
+    //    if (M_partition_space == mesh::PartitionSpace::MEMORY)
+    //    {
+    //        M_mesh_root.initGModel();
+    //        M_mesh_root.writeToGModel();
+    //    }
+    //    else if (M_partition_space == mesh::PartitionSpace::DISK)
+    //    {
+    //        M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+    //    }
 
-        LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+    //    LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
-        // partition the mesh on root process (rank 0)
-        chrono.restart();
-        LOG(DEBUG) <<"Partitioning mesh starts\n";
-        M_mesh_root.partition(M_partitioned_mesh_filename,
-                M_partitioner, M_partition_space, M_mesh_fileformat);
-        LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-    }
+    //    // partition the mesh on root process (rank 0)
+    //    chrono.restart();
+    //    LOG(DEBUG) <<"Partitioning mesh starts\n";
+    //    M_mesh_root.partition(M_partitioned_mesh_filename,
+    //            M_partitioner, M_partition_space, M_mesh_fileformat);
+    //    LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+    //}
 
     this->distributedMeshProcessing(true);
 }//partitionMeshRestart
@@ -12574,8 +12582,8 @@ FiniteElement::explicitSolve()
     M_timer.tick("OW smoother");
 
     // nit<50 gives about 50 nodes of buffer
-    if (use_MMG)
-    {
+    //if (use_MMG)
+    //{
         // get the neighbour points 
         std::vector<std::vector<int>> list_neighbours(M_num_nodes);
         compute_list_node_neighbours(list_neighbours);
@@ -12605,43 +12613,43 @@ FiniteElement::explicitSolve()
     
             this->updateGhosts(M_VT);
         }
-    }
-    else
-    {
-        int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
-        for ( int nit=0; nit<50; ++nit )
-        {
-            std::vector<double> const u = M_VT;
-            for ( int i=0; i<M_local_ndof; ++i )
-            {
-                int const u_indx = i;
-                int const v_indx = i+M_num_nodes;
-    
-                // Skip ice and boundary nodes
-                if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
-                    continue;
-    
-                // Reset M_VT for the averaging
-                M_VT[u_indx] = 0.;
-                M_VT[v_indx] = 0.;
-    
-                // Loop over neighbouring nodes
-                int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
-                double w = 0;
-                for ( int j=0; j<num_neighbours; ++j )
-                {
-                    // neigbour node index
-                    int const nni = bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
-                    M_VT[u_indx] += u[nni];
-                    M_VT[v_indx] += u[nni + M_num_nodes];
-                }
-                M_VT[u_indx] /= num_neighbours;
-                M_VT[v_indx] /= num_neighbours;
-            }
-    
-            this->updateGhosts(M_VT);
-        }
-    }
+    //}
+    //else
+    //{
+    //    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+    //    for ( int nit=0; nit<50; ++nit )
+    //    {
+    //        std::vector<double> const u = M_VT;
+    //        for ( int i=0; i<M_local_ndof; ++i )
+    //        {
+    //            int const u_indx = i;
+    //            int const v_indx = i+M_num_nodes;
+    //
+    //            // Skip ice and boundary nodes
+    //            if ( M_mask_dirichlet[i] || node_mass[i]!=0. )
+    //                continue;
+    //
+    //            // Reset M_VT for the averaging
+    //            M_VT[u_indx] = 0.;
+    //            M_VT[v_indx] = 0.;
+    //
+    //            // Loop over neighbouring nodes
+    //            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
+    //            double w = 0;
+    //            for ( int j=0; j<num_neighbours; ++j )
+    //            {
+    //                // neigbour node index
+    //                int const nni = bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+    //                M_VT[u_indx] += u[nni];
+    //                M_VT[v_indx] += u[nni + M_num_nodes];
+    //            }
+    //            M_VT[u_indx] /= num_neighbours;
+    //            M_VT[v_indx] /= num_neighbours;
+    //        }
+    //
+    //        this->updateGhosts(M_VT);
+    //    }
+    //}
 
     // Move the mesh in the open water part
     // Diagnostic/coupling: Ice-ocean drag
@@ -12673,14 +12681,15 @@ FiniteElement::explicitSolve()
         M_UM[nd] = UM_P[nd];
 
     // MMG uses local mesh, so the displacement at the interfaces between processors must be the same
-    if (use_MMG) 
-    {
+    //if (use_MMG) 
+    //{
         this->updateGhosts(M_UM);
         this->updateGhosts(M_UT);
-    }
+    //}
 
     M_timer.tock("OW smoother");
-}
+}//explicitSolve
+
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates M_sigma for the EVP model
@@ -16575,8 +16584,8 @@ FiniteElement::checkVelocityFields()
     // minimum speed to trigger velocity check
     double const spd_lim = 0.5;
 
-    if (use_MMG)
-    {
+    //if (use_MMG)
+    //{
         // get the neighbour points 
         std::vector<std::vector<int>> list_neighbours(M_num_nodes);
         compute_list_node_neighbours(list_neighbours);
@@ -16614,48 +16623,49 @@ FiniteElement::checkVelocityFields()
                            << "\n";
             }
         }
-    }
-    else
-    {
-        int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
-    
-        std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
-        for (int i=0; i<M_num_nodes; ++i)
-        {
-            uv[0] = M_VT[i];
-            uv[1] = M_VT[i+M_num_nodes];
-            double const spd = std::hypot(uv[0], uv[1]);
-            if ( spd > spd_lim )
-            {
-                int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
-                // for U and V
-                for (int k=0; k<2; ++k)
-                {
-                    // one pass algorithm for standard deviation of velocities in neighbours
-                    // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-                    double avg_old = 0;
-                    for (int j=0; j<num_neighbours; ++j)
-                    {
-                        // neigbour node index for U (k=0) or V (k=1)
-                        int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
-                        avg_old = avg_spd[k];
-                        avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
-                        std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
-                    }
-                    // standard deviation of velocities
-                    std_spd[k] = std::sqrt(std_spd[k] / (num_neighbours - 1.));
-                    // relative error of velocities
-                    rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
-                }
-                LOG(DEBUG) << "Rogue velocity step=" << pcpt
-                           << " node=" << i
-                           << " speed=" << spd
-                           << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
-                           << "\n";
-            }
-        }
-    }
-}
+    //}
+    //else
+    //{
+    //    int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
+    //
+    //    std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
+    //    for (int i=0; i<M_num_nodes; ++i)
+    //    {
+    //        uv[0] = M_VT[i];
+    //        uv[1] = M_VT[i+M_num_nodes];
+    //        double const spd = std::hypot(uv[0], uv[1]);
+    //        if ( spd > spd_lim )
+    //        {
+    //            int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
+    //            // for U and V
+    //            for (int k=0; k<2; ++k)
+    //            {
+    //                // one pass algorithm for standard deviation of velocities in neighbours
+    //                // see: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+    //                double avg_old = 0;
+    //                for (int j=0; j<num_neighbours; ++j)
+    //                {
+    //                    // neigbour node index for U (k=0) or V (k=1)
+    //                    int const nni = M_num_nodes*k + bamgmesh->NodalConnectivity[max_num_neighbours*i + j] - 1;
+    //                    avg_old = avg_spd[k];
+    //                    avg_spd[k] += (M_VT[nni] - avg_spd[k]) / (j + 1.);
+    //                    std_spd[k] += (M_VT[nni] - avg_spd[k]) * (M_VT[nni] - avg_old);
+    //                }
+    //                // standard deviation of velocities
+    //                std_spd[k] = std::sqrt(std_spd[k] / (num_neighbours - 1.));
+    //                // relative error of velocities
+    //                rel_err[k] = (avg_spd[k] - uv[k]) / std_spd[k];
+    //            }
+    //            LOG(DEBUG) << "Rogue velocity step=" << pcpt
+    //                       << " node=" << i
+    //                       << " speed=" << spd
+    //                       << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
+    //                       << "\n";
+    //        }
+    //    }
+    //}
+}//checkVelocityFields
+
 
 // -------------------------------------------------------------------------------------
 //! Checks fields for some basic too large or too small values - coded to be quick
@@ -17005,34 +17015,34 @@ FiniteElement::finalise(std::string current_time_system)
     // Clear pointers etc
     M_comm.barrier();
 
-    if (!use_MMG) 
-    {
-        delete bamgmesh;
-        delete bamggeom;
-    }
+    //if (!use_MMG) 
+    //{
+    //    delete bamgmesh;
+    //    delete bamggeom;
+    //}
 
     if (M_mesh.comm().rank() == 0)
     {
-        if (use_MMG) 
-        {
+        //if (use_MMG) 
+        //{
             delete mmgopt;
-        }
-        else
-        {
+        //}
+        //else
+        //{
 
-            delete bamgopt;
-            delete bamggeom_root;
-            delete bamgmesh_root;
+        //    delete bamgopt;
+        //    delete bamggeom_root;
+        //    delete bamgmesh_root;
 
-            // We need to point these to NULL because 'delete bamgopt' clears the
-            // memory they were pointing to before
-            bamgopt_previous->hminVertices      = NULL;
-            bamgopt_previous->hmaxVertices      = NULL;
+        //    // We need to point these to NULL because 'delete bamgopt' clears the
+        //    // memory they were pointing to before
+        //    bamgopt_previous->hminVertices      = NULL;
+        //    bamgopt_previous->hmaxVertices      = NULL;
 
-            delete bamgmesh_previous;
-            delete bamggeom_previous;
-            delete bamgopt_previous;
-        }
+        //    delete bamgmesh_previous;
+        //    delete bamggeom_previous;
+        //    delete bamgopt_previous;
+        //}
 
         // clear GModel from mesh data structure
         if (M_partition_space == mesh::PartitionSpace::MEMORY)
