@@ -23,10 +23,8 @@
 #include <BamgConvertMeshx.h>
 #include <BamgTriangulatex.h>
 #include <Bamgx.h>
-//#ifdef MMG
 #include "mmg/mmg2d/libmmg2d.h"
 #include "parmmg2d/libparmmg2d.h"
-//#endif
 #include <InterpFromGridToMeshx.h>
 #include <gmshmesh.hpp>
 #include <gmshmeshseq.hpp>
@@ -147,7 +145,6 @@ public:
     void updateNodeIds();
     void updateBoundaryFlags();
 
-//#ifdef MMG
     template<typename FEMeshType>
     void adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field, int partitioned);
 
@@ -161,7 +158,6 @@ public:
     void boundary_flags(std::vector<std::vector<int>> list_edges, std::vector<int> Dirichlet_nodes, 
                         std::vector<int> Neumann_nodes, std::vector<int> Mask_Dirichlet, std::vector<int> Mask_Neumann);
     void updateBoundaryFlagsMMG(std::vector<int> &Dirichlet_nodes, std::vector<int> &Neumann_nodes, int num_nodes);
-//#endif
 
     void gatherSizes();
     void gatherFieldsElement(std::vector<double>& interp_in_elements);
@@ -353,7 +349,6 @@ public:
     double lateralMeltFSD(const int i,double ddt) ;
 #endif
 
-    //bool use_MMG;
     bool M_no_regridding;
     int MG_DIRICHLET = 22;
     int MG_NEUMANN = 43;

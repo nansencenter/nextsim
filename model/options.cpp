@@ -79,13 +79,6 @@ namespace Nextsim
 
 
             // remeshing
-//#ifdef MMG
-//            ("numerics.regrid", po::value<std::string>()->default_value( "mmg" ),
-//             "Options for regridding: No-regridding, bamg or mmg")
-//#else
-//            ("numerics.regrid", po::value<std::string>()->default_value( "bamg" ),
-//                "Options for regridding: No-regridding or bamg")
-//#endif
             ("numerics.no_regridding", po::value<bool>()->default_value( false ),
              "true: turn off regridding; false: use MMG (default)")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
