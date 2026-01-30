@@ -141,7 +141,6 @@ public:
 
     bool checkRegridding();
     void regrid(bool step = true);
-    void adaptMeshBamg();
     void updateNodeIds();
     void updateBoundaryFlags();
 
@@ -283,7 +282,6 @@ public:
     std::vector<double> hminVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
     std::vector<double> hmaxVertices(mesh_type_root const& mesh, BamgMesh const* bamg_mesh) const;
 
-    void initBamg();
     void initMMGopts();
     void initMetric();
     void initOptAndParam();
@@ -315,7 +313,6 @@ public:
 
     void PwlInterp2D();
     void importBamg(BamgMesh const* bamg_mesh);
-    void createGraph();//(BamgMesh const* bamg_mesh);
     void assignVariables();
     void initVariables();
     void calcAuxiliaryVariables();
@@ -371,7 +368,7 @@ public:
     void collectElementsRestart(std::vector<double>& interp_elt_out,
             std::vector<std::vector<double>*> &data_elements_root);
 
-    void build_mesh_mmg(std::vector<double>& coordX, std::vector<double>& coordY, 
+    void buildMeshMmg(std::vector<double>& coordX, std::vector<double>& coordY,
                         std::vector<int>& triangles, std::vector<int>& dirichlet_flags, std::vector<int>& neumann_flags);
 
     void rootMeshProcessing();
@@ -421,8 +418,6 @@ private:
             std::vector<ModelVariable*> &vars_elements);
     void scatterFieldsElementIO(std::vector<double> const& interp_elt_out,
         std::vector<ModelVariable*> &vars_elements);
-
-    void scatterElementConnectivity();
 
 private:
     po::variables_map vm;

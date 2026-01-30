@@ -376,6 +376,7 @@ FiniteElement::rootMeshProcessing()
         LOG(DEBUG) <<"MESH: HMAX= "<< h[1] <<"\n";
         LOG(DEBUG) <<"MESH: RESOLUTION= "<< M_res_root_mesh <<"\n";
 
+        //TODO remove this switch
         switch (M_mesh_type)
         {
         case setup::MeshType::FROM_UNREF:
@@ -398,6 +399,8 @@ FiniteElement::rootMeshProcessing()
     boost::mpi::broadcast(M_comm, mmgopt->hmax, 0);
     this->initMetric();
 
+    // TODO could be FROM_SPLIT || (!M_use_restart)
+    // TODO or just if(!M_use_restart)
     if(M_mesh_type==setup::MeshType::FROM_SPLIT)
     {
 
@@ -978,59 +981,6 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
     this->checkReloadDatasets(M_external_data_nodes, CRtime, RX, RY);
 }//checkReloadMainDatasets
 
-
-//------------------------------------------------------------------------------------------------------
-//! Initializes a Bamg mesh grid.
-//! Called by the initMesh() function.
-void
-FiniteElement::initBamg()
-{
-    bamgopt = new BamgOpts();
-
-    bamgopt->Crack             = 0;
-    bamgopt->anisomax          = 1e30;
-    bamgopt->coeff             = 1;
-    bamgopt->cutoff            = 1e-5;
-    //bamgopt->err               = 0.01;
-    bamgopt->errg              = 0.1;
-    bamgopt->field             = NULL;
-    bamgopt->gradation         = 1.5;
-    bamgopt->Hessiantype       = 0;
-    bamgopt->hmin              = 1e-100;
-    bamgopt->hmax              = 1e100;
-    bamgopt->hminVertices      = NULL;
-    bamgopt->hmaxVertices      = NULL;
-    bamgopt->hVertices         = NULL;
-    bamgopt->KeepVertices      = 1;
-    bamgopt->MaxCornerAngle    = 10;
-    bamgopt->maxnbv            = 1e7;
-    bamgopt->maxsubdiv         = 10;
-    bamgopt->metric            = NULL;
-    bamgopt->Metrictype        = 0;
-    bamgopt->nbjacobi          = 1;
-    bamgopt->nbsmooth          = 3;
-    bamgopt->omega             = 1.8;
-    bamgopt->power             = 1.;
-    bamgopt->splitcorners      = 1; //the Devil!  Changed to 0, original 1 Phil
-    bamgopt->geometricalmetric = 0;
-    bamgopt->random            = true;
-    bamgopt->verbose           = vm["debugging.bamg_verbose"].as<int>();
-
-    bamggeom = new BamgGeom();
-    bamgmesh = new BamgMesh();
-
-    if (M_mesh.comm().rank() == 0)
-    {
-        bamggeom_root = new BamgGeom();
-        bamgmesh_root = new BamgMesh();
-
-        bamgopt_previous = new BamgOpts();
-        bamggeom_previous = new BamgGeom();
-        bamgmesh_previous = new BamgMesh();
-    }
-
-    bamgopt->Check();
-}//initBamg
 
 //------------------------------------------------------------------------------------------------------
 //! Initialize the metrics.
@@ -2863,85 +2813,6 @@ FiniteElement::diffuse(std::vector<double>& variable_elt, double diffusivity_par
 
 }//diffuse
 
-//------------------------------------------------------------------------------------------------------
-//! ?? Has to do with the parallel computing.
-//! Called by distributedMeshProcessing(), initMesh and  functions.
-void
-FiniteElement::scatterElementConnectivity()
-{
-    auto transfer_map_local = M_mesh.transferMapElt();
-    std::vector<int> sizes_elements = M_sizes_elements_with_ghost;
-
-    int nb_var_element = 3;
-    std::vector<double> connectivity_root;
-
-    if (M_rank == 0)
-    {
-
-        // std::cout<<"bamgmesh_root->ElementConnectivitySize[0]= "<< bamgmesh_root->ElementConnectivitySize[0] <<"\n";
-        // std::cout<<"bamgmesh_root->ElementConnectivitySize[1]= "<< bamgmesh_root->ElementConnectivitySize[1] <<"\n";
-
-        connectivity_root.resize(3*nb_var_element*M_id_elements.size());
-
-        for (int i=0; i<M_id_elements.size(); ++i)
-        {
-            int ri = M_id_elements[i]-1;
-
-            for (int j=0; j<nb_var_element; ++j)
-            {
-                double neighbour_id_db = bamgmesh_root->ElementConnectivity[nb_var_element*ri+j];
-                int neighbour_id_int = (int)neighbour_id_db;
-
-                if (!std::isnan(neighbour_id_db) && neighbour_id_int>0)
-                {
-                    connectivity_root[nb_var_element*i+j] = neighbour_id_db;
-                }
-                else
-                {
-                    connectivity_root[nb_var_element*i+j] = -100.;
-                }
-            }
-        }
-    }
-
-    M_element_connectivity.resize(nb_var_element*M_num_elements);
-
-    if (M_rank == 0)
-    {
-        std::for_each(sizes_elements.begin(), sizes_elements.end(), [&](int& f){ f = nb_var_element*f; });
-        boost::mpi::scatterv(M_comm, connectivity_root, sizes_elements, &M_element_connectivity[0], 0);
-    }
-    else
-    {
-        boost::mpi::scatterv(M_comm, &M_element_connectivity[0], nb_var_element*M_num_elements, 0);
-    }
-
-    M_comm.barrier();
-
-    auto element_connectivity_gid = M_element_connectivity;
-
-    for (int cpt=0; cpt < M_num_elements; ++cpt)
-    {
-        for (int j=0; j<nb_var_element; ++j)
-        {
-            double neighbour_id_global_db = element_connectivity_gid[nb_var_element*cpt+j];
-            int neighbour_id_global_int = (int)element_connectivity_gid[nb_var_element*cpt+j];
-
-            if (neighbour_id_global_int>0)
-            {
-                if (transfer_map_local.left.find(neighbour_id_global_int) != transfer_map_local.left.end())
-                {
-                    int neighbour_id_local = transfer_map_local.left.find(neighbour_id_global_int)->second;
-                    M_element_connectivity[nb_var_element*cpt+j] = neighbour_id_local;
-                }
-                else
-                {
-                    M_element_connectivity[nb_var_element*cpt+j] = -100.;
-                }
-            }
-        }
-    }
-}//scatterElementConnectivity
 
 //------------------------------------------------------------------------------------------------------
 //! Compute the list of neighbours of each triangle
@@ -4342,9 +4213,10 @@ FiniteElement::regrid(bool step)
         step_order++;
 
         flip = this->flip(M_mesh,M_UM,displacement_factor);
-
         if (substep > 1)
+        {
             LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
+        }
     }
 
     double min_displacement_factor;
@@ -4493,53 +4365,6 @@ FiniteElement::regrid(bool step)
     this->assignVariables();
 
 }//regrid
-
-
-//------------------------------------------------------------------------------------------------------
-//! Adapts the mesh grid.
-//! Called by the regrid() function.
-void
-FiniteElement::adaptMeshBamg()
-{
-    delete bamgopt_previous;
-    delete bamggeom_previous;
-    delete bamgmesh_previous;
-
-    bamgopt_previous = new BamgOpts();
-    bamggeom_previous = new BamgGeom();
-    bamgmesh_previous = new BamgMesh();
-
-    *bamgmesh_previous = *bamgmesh_root;
-    *bamggeom_previous = *bamggeom_root;
-    *bamgopt_previous = *bamgopt;
-
-    // set dirichlet flags
-    for (int edg=0; edg<bamgmesh_previous->EdgesSize[0]; ++edg)
-    {
-        int fnd = bamgmesh_previous->Edges[3*edg]/*-1*/;
-
-        if ((std::binary_search(M_dirichlet_flags_root.begin(),M_dirichlet_flags_root.end(),fnd)))
-        {
-            bamggeom_previous->Edges[3*edg+2] = M_flag_fix;
-            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix;
-        }
-        else
-        {
-            bamggeom_previous->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-            bamgmesh_previous->Edges[3*edg+2] = M_flag_fix+1; // we just want it to be different than M_flag_fix
-        }
-    }
-
-    chrono.restart();
-    Bamgx(bamgmesh_root,bamggeom_root,bamgmesh_previous,bamggeom_previous,bamgopt_previous);
-    LOG(DEBUG) <<"---BAMGMESH done in "<< chrono.elapsed() <<"s\n";
-
-    //! Imports the mesh from bamg, updates the boundary flags and node ID's
-    this->importBamg(bamgmesh_root);
-    this->updateBoundaryFlags();
-    if(bamgopt->KeepVertices)
-        this->updateNodeIds();
-}//adaptMesh
 
 
 //------------------------------------------------------------------------------------------------------
@@ -5572,7 +5397,6 @@ FiniteElement::calcCohesion()
         for (int i = 0; i < M_num_elements; ++i)
             M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
     }
-
 }//calcCohesion
 
 //------------------------------------------------------------------------------------------------------
@@ -9660,7 +9484,6 @@ FiniteElement::step()
 
     //! 1) Remeshes and remaps the prognostic variables
     M_regrid = false;
-    //if (vm["numerics.regrid"].as<std::string>() == "bamg" || vm["numerics.regrid"].as<std::string>() == "mmg")
     if(!M_no_regridding)
     {
         M_timer.tick("checkRegridding");
@@ -9755,7 +9578,7 @@ FiniteElement::step()
         M_regrid_old = pow(M_extended_coef, M_regrid_old) * M_regrid;
 
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
-    }//bamg/mmg-regrid
+    }// check regridding
 
     M_comm.barrier();
     M_timer.tock("remesh");
@@ -11428,13 +11251,14 @@ FiniteElement::readRestart(std::string const& name_str)
 
         // Fix boundaries
         M_flag_fix = misc_int[1];
-        std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
         M_dirichlet_flags_root = field_map_int["M_dirichlet_flags"];
         M_neumann_flags_root = field_map_int["M_neumann_flags"];
         M_dirichlet_flags_root_ordered = field_map_int["M_dirichlet_flags_ordered"];
         M_neumann_flags_root_ordered = field_map_int["M_neumann_flags_ordered"];
+        // TODO dirichlet_flags, neumann_flags not used by buildMeshMmg
+        std::vector<int> dirichlet_flags = field_map_int["M_dirichlet_flags"];
         std::vector<int> neumann_flags = field_map_int["M_neumann_flags"];
-        build_mesh_mmg(coordX, coordY, indexTr, dirichlet_flags, neumann_flags);
+        this->buildMeshMmg(coordX, coordY, indexTr, dirichlet_flags, neumann_flags);
 
         M_mesh_root.setId(nodeId);  // set the node id's
 
@@ -11567,7 +11391,7 @@ FiniteElement::readRestart(std::string const& name_str)
 //! To build M_mesh_root without bamg
 //! called by readRestart()
 void
-FiniteElement::build_mesh_mmg(std::vector<double>& coordX, std::vector<double>& coordY, std::vector<int>& triangles, 
+FiniteElement::buildMeshMmg(std::vector<double>& coordX, std::vector<double>& coordY, std::vector<int>& triangles,
                               std::vector<int>& dirichlet_flags, std::vector<int>& neumann_flags)
 {
     // Conversion in GMSH format
@@ -15544,111 +15368,6 @@ FiniteElement::importBamg(BamgMesh const* bamg_mesh)
     LOG(DEBUG) <<"\n";
 }//importBamg
 
-
-// -------------------------------------------------------------------------------------
-//! Creates a new graphmpi_type object.
-//! Called by the distributeMeshProcessing() function.
-void
-FiniteElement::createGraph()
-{
-    auto M_local_ghost = M_mesh.localGhost();
-    auto M_transfer_map = M_mesh.transferMap();
-
-    int Nd = bamgmesh->NodalConnectivitySize[1];
-    std::vector<int> dz;
-    std::vector<int> ddz_j;
-    std::vector<int> ddz_i;
-
-    std::vector<int> d_nnz;
-    std::vector<int> o_nnz;
-
-    for (int i=0; i<bamgmesh->NodalConnectivitySize[0]; ++i)
-    {
-
-        int counter_dnnz = 0;
-        int counter_onnz = 0;
-
-        int Ncc = bamgmesh->NodalConnectivity[Nd*(i+1)-1];
-        int gid = M_transfer_map.right.find(i+1)->second;
-        //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid) == M_local_ghost.end())
-        if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),gid))
-        {
-            for (int j=0; j<Ncc; ++j)
-            {
-                int currentr = bamgmesh->NodalConnectivity[Nd*i+j];
-
-                int gid2 = M_transfer_map.right.find(currentr)->second;
-                //if (std::find(M_local_ghost.begin(),M_local_ghost.end(),gid2) == M_local_ghost.end())
-                if (!std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),gid2))
-                {
-                    ++counter_dnnz;
-                }
-                else
-                {
-                    ++counter_onnz;
-                }
-
-                //std::cout<<"Connect["<< j <<"]= "<< currentr << " or "<< M_transfer_map.right.find(currentr)->second <<"\n";
-            }
-
-            d_nnz.push_back(2*(counter_dnnz+1));
-            o_nnz.push_back(2*(counter_onnz));
-        }
-    }
-
-    auto d_nnz_count = d_nnz.size();
-    d_nnz.resize(2*d_nnz_count);
-    std::copy_n(d_nnz.begin(), d_nnz_count, d_nnz.begin() + d_nnz_count);
-
-    auto o_nnz_count = o_nnz.size();
-    o_nnz.resize(2*o_nnz_count);
-    std::copy_n(o_nnz.begin(), o_nnz_count, o_nnz.begin() + o_nnz_count);
-
-    int sM = M_mesh.numNodes();
-
-    std::vector<int> global_indices_with_ghost = M_mesh.localDofWithGhost();
-    int glsize = global_indices_with_ghost.size();
-
-    for (int gl=0; gl<glsize; ++gl)
-        global_indices_with_ghost[gl] = global_indices_with_ghost[gl]-1;
-
-    std::vector<int> global_indices_without_ghost = M_mesh.localDofWithoutGhost();
-    glsize = global_indices_without_ghost.size();
-
-    for (int gl=0; gl<glsize; ++gl)
-        global_indices_without_ghost[gl] = global_indices_without_ghost[gl]-1;
-
-    M_graphmpi = graphmpi_type(d_nnz, o_nnz, global_indices_without_ghost, global_indices_with_ghost);
-
-#if 0
-    std::cout<<"\n";
-    std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MIN NZ ON-DIAGONAL (per row)     = "<< *std::min_element(d_nnz.begin(),d_nnz.end()) <<"\n";
-    std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MAX NZ ON-DIAGONAL (per row)     = "<< *std::max_element(d_nnz.begin(),d_nnz.end()) <<"\n";
-    std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MIN NZ OFF-DIAGONAL (per row)    = "<< *std::min_element(o_nnz.begin(),o_nnz.end()) <<"\n";
-    std::cout<<"["<< M_comm.rank() <<"] GRAPHCSR INFO: MAX NZ OFF-DIAGONAL (per row)    = "<< *std::max_element(o_nnz.begin(),o_nnz.end()) <<"\n";
-    std::cout<<"\n";
-#endif
-
-#if 0
-    M_comm.barrier();
-
-    if (M_rank == 1)
-    {
-        std::cout<<"************00************\n";
-        for (int const& index : global_indices_without_ghost)
-            std::cout<<"WITHOUT GHOST "<< index+1 <<"\n";
-
-        std::cout<<"************01************\n";
-        for (int const& index : global_indices_with_ghost)
-            std::cout<<"WITH GHOST    "<< index+1 <<"\n";
-
-        std::cout<<"************02************\n";
-        for (int const& index : M_local_ghost)
-            std::cout<<"GHOST         "<< index <<"\n";
-    }
-#endif
-
-}//createGraph
 
 // -------------------------------------------------------------------------------------
 //! Updates the ghost nodes
