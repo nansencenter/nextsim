@@ -5418,13 +5418,13 @@ FiniteElement::convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh
     MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hausd, mmgopt->hausd);
     MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hgrad, mmgopt->hgrad);
     MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hgradreq, mmgopt->hgradreq);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hmin_factor, mmgopt->tolerance_min);
+    MMG2D_Set_dparameter(mmgMesh, mmgSol, MMG2D_DPARAM_hmax_factor, mmgopt->tolerance_max);
     PMMG2D_Set_iparameter(parmesh, PMMG2D_IPARAM_niter, mmgopt->niter);
     PMMG2D_Set_iparameter(parmesh, PMMG2D_IPARAM_ifcLayers, mmgopt->nlayers);
     PMMG2D_Set_iparameter(parmesh, PMMG2D_IPARAM_verbose, mmgopt->pmmgverbose);
     PMMG2D_Set_iparameter(parmesh, PMMG2D_IPARAM_distributedOutput, 1);
     PMMG2D_Set_dparameter(parmesh, PMMG2D_DPARAM_load_balance, mmgopt->load_balance);
-    mmgMesh->info.min[2] = mmgopt->tolerance_min;
-    mmgMesh->info.max[2] = mmgopt->tolerance_max;
 
     // Store M_mesh in mmgMesh 
     // Set edges and boundary conditions
