@@ -38,7 +38,7 @@ endif
 
 # add include paths
 CXXFLAGS += -I$(NEXTSIMDIR)/core/include -I/usr/local/include -I$(MPI_INC_DIR)/
-CXXFLAGS += -I$(BOOST_INCDIR)/ -I$(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I$(BOOST_INCDIR)/ -I$(GMSH_DIR)/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
@@ -62,8 +62,8 @@ LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
 
 # gmsh
-LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
-LDFLAGS += -L$(GMSH_DIR)/lib -lGmsh
+LDFLAGS += -Wl,-rpath,$(GMSH_LIB_DIR)
+LDFLAGS += -L$(GMSH_LIB_DIR) -lgmsh
 
 # mapx
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx

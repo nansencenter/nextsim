@@ -1,33 +1,27 @@
 /* -*- mode: c++; coding: utf-8; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4; show-trailing-whitespace: t -*- vim: set fenc=utf-8 ft=cpp et sw=4 ts=4 sts=4: */
-
 /**
  * @file   entities.hpp
  * @author Abdoulaye Samake <abdoulaye.samake@nersc.no>
  * @date   Tue Jun 21 14:52:48 2016
  */
-
 #ifndef __Entities_HPP
 #define __Entities_HPP 1
-
 #include <vector>
 #include <algorithm>
-#include <MElement.h>
+#include <gmsh.h>
 
 namespace Nextsim
 {
-
 namespace entities
 {
 class GMSHPoint
 {
 public:
-
     GMSHPoint()
         :
         id(0),
         coords()
     {}
-
     std::vector<double> coords;
     int id;
 };
@@ -35,11 +29,10 @@ public:
 class GMSHElement
 {
 public:
-
     GMSHElement()
         :
         number( 0 ),
-        type( MSH_PNT ),
+        type( 15 ),  // MSH_PNT in Gmsh 4 (point element type)
         physical( 0 ),
         elementary( 0 ),
         numPartitions( 1 ),
@@ -52,12 +45,12 @@ public:
         indices()
     {}
 
-	GMSHElement( int n,
-	             int t,
-	             int p,
-	             int e,
-	             int _numVertices,
-	             std::vector<int> const& _indices )
+    GMSHElement( int n,
+                 int t,
+                 int p,
+                 int e,
+                 int _numVertices,
+                 std::vector<int> const& _indices )
         :
         number( n ),
         type( t ),
@@ -97,7 +90,6 @@ public:
         setPartition(worldcommrank,worldcommsize);
     }
 
-
     bool isOnProcessor() const { return is_on_processor; }
     bool isGhost() const { return is_ghost; }
     int ghostPartitionId() const { return ghost_partition_id; }
@@ -107,7 +99,6 @@ public:
         // maybe proc id not start to 0
         for ( auto _itghost=ghosts.begin(),_enghost=ghosts.end() ; _itghost!=_enghost ; ++_itghost )
             *_itghost = ( (*_itghost) % worldcommsize);
-
         if ( worldcommsize == 1 )
         {
             is_on_processor = true;
@@ -136,7 +127,6 @@ public:
     int type;
     int physical;
     int elementary;
-
     // partitioning info
     int numPartitions;
     int partition;
@@ -145,12 +135,15 @@ public:
     bool is_on_processor;
     bool is_ghost;
     int ghost_partition_id;
-
     // vertices
     int numVertices;
     std::vector<int> indices;
 };
-}
 
+// Helper functions to replace MElement::getInfoMSH
+int getNumVerticesForElementType(int type);
+const char* getElementTypeName(int type);
+
+}
 } // Nextsim
 #endif

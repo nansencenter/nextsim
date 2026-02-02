@@ -83,23 +83,6 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_map_elements(mesh.M_map_elements)
 {}
 
-#if 0
-GmshMesh::GmshMesh(std::vector<point_type> const& nodes,
-                   std::vector<element_type> const& edges,
-                   std::vector<element_type> const& triangles,
-                   Communicator const& comm)
-    :
-    M_comm(comm),
-    M_version("2.2"),
-    M_ordering("gmsh"),
-    M_nodes_vec(nodes),
-    M_triangles(triangles),
-    M_edges(edges),
-    M_num_nodes(nodes.size()),
-    M_num_triangles(triangles.size()),
-    M_num_edges(edges.size())
-{}
-#endif
 
 void
 GmshMesh::readFromFile(std::string const& gmshmshfile, std::string const& format)
@@ -115,8 +98,6 @@ GmshMesh::readFromFile(std::string const& gmshmshfile, std::string const& format
         ostr << "Invalid file name " << gmshmshfile << " (file not found)\n";
         throw std::invalid_argument( ostr.str() );
     }
-
-    //std::string format = (Environment::vm()["mesh.fileformat"]).as<std::string>();
 
     if (format == "binary")
         this->readFromFileBinary(ifs);
@@ -197,8 +178,6 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
 
     // Read NODES
 
-    //std::cout << "buf: "<< buf << "\n";
-
     if ( !( std::string( buf ) == "$NOD" ||
             std::string( buf ) == "$Nodes" ||
             std::string( buf ) == "$ParametricNodes") )
@@ -214,7 +193,6 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
 
     M_global_num_nodes_from_serial = M_num_nodes;
 
-    //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
     LOG(DEBUG) << "Reading "<< __n << " nodes\n";
 
     M_nodes_vec.resize(__n);
@@ -234,9 +212,6 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
     }
 
     ifs >> buf;
-    //std::cout << "buf: "<< buf << "\n";
-
-    // make sure that we have read all the points
 
     ASSERT(std::string( buf ) == "$EndNodes","invalid end nodes string");
 
@@ -249,12 +224,9 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
     int numElements;
     ifs >> numElements;
 
-    //M_num_elements = numElements;
     M_global_num_elements_from_serial = numElements;
-    //M_global_num_elements_from_serial = 0;
 
     LOG(DEBUG) << "Reading " << numElements << " elements...\n";
-    //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
     std::map<int,int> __gt;
 
     int cpt_edge = 0;
@@ -265,7 +237,8 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
 
     for(int i = 0; i < numElements; i++)
     {
-        int number, type, physical = 0, elementary = 0, numVertices;
+        int number, type, physical = 0, elementary = 0;
+        int const numVertices = 3;// only use triangular elements here
         std::vector<int> ghosts;
         std::vector<bool> ghostNodes;
         int numTags;
@@ -275,12 +248,10 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
              >> type // elm-type
              >> numTags; // number-of-tags
 
-        //if (type == 1)
+        // Skip non-triangular elements (type != 2)
         if (type != 2)
         {
-            // if current element is an edge, stop reading and go to next line
             ifs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            //num_edge = number;
             ++num_edge;
             continue;
         }
@@ -298,34 +269,16 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
             else if((j >= 4) && (j < 4 + numPartitions - 1)) ghosts.push_back((-tag)-1);
         }
 
-        numVertices = MElement::getInfoMSH(type);
-        ASSERT(numVertices!=0,"unknown number of vertices for element type");
-
         std::vector<int> indices(numVertices);
         for(int j = 0; j < numVertices; j++)
         {
             ifs >> indices[j];
-            // check
-            //indices[j] = indices[j]-1;
         }
 
         if (M_ordering=="bamg")
         {
             std::next_permutation(indices.begin()+1,indices.end());
         }
-
-        //int cpt_elt = (type == 2) ? cpt_triangle : cpt_edge;
-        //if (type == 2)
-        //std::cout<<"cpt_elt= "<< cpt_elt <<"\n";
-
-        //std::cout<<"On proc "<< this->comm().rank() <<" : Global size= "<< this->comm().size() <<"\n";
-
-#if 1
-        // if (i == 0)
-        // {
-        //     number = number - num_edge;
-        //     std::cout<<"***************************************["<< this->comm().rank() <<"]: " << number <<"\n";
-        // }
 
         if (first_triangle)
         {
@@ -343,8 +296,6 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
 
         number = number - num_edge_diff;
 
-#endif
-
         Nextsim::entities::GMSHElement gmshElt( number,
                                                 type,
                                                 physical,
@@ -357,10 +308,6 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
                                                 indices,
                                                 this->comm().rank(),
                                                 this->comm().size());
-
-
-        //M_triangles.insert(std::make_pair(number,gmshElt));
-
 
         if (gmshElt.isOnProcessor() == false)
             continue;
@@ -385,16 +332,9 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
 
     M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
 
-#if 0
-    std::cout<<"----M_global_num_elements_from_serial= "<< M_global_num_elements_from_serial<< " : "<< num_edge <<"\n";
-    std::cout<<"***************************************["<< this->comm().rank() <<"]: " << num_edge << " and "<< num_edge_diff <<"\n";
-#endif
-
     for ( auto const& it : __gt )
     {
-        const char* name;
-        MElement::getInfoMSH( it.first, &name );
-        //std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
+        const char* name = Nextsim::entities::getElementTypeName(it.first);
 
         if (std::string(name) == "Triangle 3")
             M_num_triangles = it.second;
@@ -406,7 +346,8 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
     ifs >> buf;
 
     ASSERT(std::string( buf ) == "$EndElements","invalid end elements string");
-}
+}// readFromFileASCII
+
 
 void
 GmshMesh::readFromFileBinary(std::ifstream& ifs)
@@ -423,7 +364,6 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
         int format, size;
         ifs >> theversion >> format >> size;
 
-        // std::cout << "GMSH mesh is in binary format\n";
         LOG(DEBUG) << "GMSH mesh file version : " << theversion
                   << " format: " << (format?"binary":"ascii")
                   << " size of double: " << size << "\n";
@@ -437,13 +377,13 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
         ASSERT( c == '\n', "Invalid character");
 
         int one;
-        ifs.read( (char*)&one, sizeof(int) );
+        ifs.read(reinterpret_cast<char*>(&one), sizeof(int));
 
         if(one != 1)
         {
             swap = true;
             LOG(DEBUG) << "one before swap : " << one << "\n";
-            if(swap) SwapBytes((char*)&one, sizeof(int), 1);
+            if(swap) GmshMesh::SwapBytes(&one, sizeof(int), 1); // Note: removed (char*) cast
             LOG(DEBUG) << "one after swap : " << one << "\n";
             LOG(DEBUG) <<"Swapping bytes from binary file (to be done)\n";
         }
@@ -460,8 +400,6 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
     }
 
     // Read NODES
-
-    //std::cout << "buf: "<< buf << "\n";
 
     if ( !( std::string( buf ) == "$NOD" ||
             std::string( buf ) == "$Nodes" ||
@@ -481,7 +419,6 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 
     M_global_num_nodes_from_serial = M_num_nodes;
 
-    //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
     LOG(DEBUG) << "Reading "<< __n << " nodes\n";
 
     M_nodes_vec.resize(__n);
@@ -491,10 +428,10 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
     {
         int id = 0;
 
-        ifs.read( (char*)&id, sizeof(int) );
-        if(swap) SwapBytes((char*)&id, sizeof(int), 1);
-        ifs.read( (char*)&coords[0], 3*sizeof(double) );
-        if(swap) SwapBytes((char*)&coords[0], sizeof(double), 3);
+        ifs.read(reinterpret_cast<char*>(&id), sizeof(int));
+        if(swap) GmshMesh::SwapBytes(&id, sizeof(int), 1);
+        ifs.read(reinterpret_cast<char*>(&coords[0]), 3*sizeof(double));
+        if(swap) GmshMesh::SwapBytes(&coords[0], sizeof(double), 3);
 
         M_nodes_vec[id-1].id = id;
         M_nodes_vec[id-1].coords = coords;
@@ -504,7 +441,6 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
     ifs.get();
 
     ifs >> buf;
-    //std::cout << "buf: "<< buf << "\n";
 
     // make sure that we have read all the points
 
@@ -541,30 +477,20 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
     {
         int header[3];
 
-        ifs.read( (char*)&header, 3*sizeof(int) );
-        if(swap) SwapBytes((char*)header, sizeof(int), 3);
+        ifs.read(reinterpret_cast<char*>(&header), 3*sizeof(int));
+        if(swap) GmshMesh::SwapBytes(header, sizeof(int), 3);  // Note: removed (char*) cast
 
         int type = header[0];
         int numElems = header[1];
         int numTags = header[2];
-        char const* name;
 
-#if 0
-        if ((numElementsPartial < 3) && (M_comm.rank() == 0))
-        {
-            std::cout<<"type= "<< type <<"\n";
-            std::cout<<"numElems= "<< numElems <<"\n";
-            std::cout<<"numTags= "<< numTags <<"\n";
-        }
-#endif
-
-        if ( type >= MSH_NUM_TYPE )
+        int numVertices = Nextsim::entities::getNumVerticesForElementType(type);
+        if (numVertices == 0)
         {
             std::cout << "Invalid GMSH element type " << type << "\n";
             throw std::logic_error("Invalid GMSH element type");
         }
-
-        int numVertices = MElement::getInfoMSH(type,&name);
+        const char* name = Nextsim::entities::getElementTypeName(type);
 
         if ( numVertices <= 0 )
         {
@@ -583,13 +509,6 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
             ++num_edge;
             continue;
         }
-#if 0
-        if (type == 2)
-            ++cptii;
-
-        if (cptii == 1)
-            std::cout<<"--------------------------------------NUMEDGES= "<< num_edge <<"\n";
-#endif
 
         std::vector<int> data(n);
         std::vector<int> indices(numVertices);
@@ -601,8 +520,8 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
             ghosts.clear();
             std::vector<bool> ghostNodes;
 
-            ifs.read( (char*)data.data(), sizeof(int)*n );
-            if(swap) SwapBytes((char*)data.data(), sizeof(int), n);
+            ifs.read(reinterpret_cast<char*>(data.data()), n*sizeof(int));
+            if(swap) GmshMesh::SwapBytes(data.data(), sizeof(int), n);
 
             int number = data[0];
             int physical = (numTags > 0) ? data[1] : 0;
@@ -628,19 +547,12 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
             if (first_triangle)
             {
                 if (num_edge == 0)
-                {
                     num_edge_diff = 0;
-                }
                 else
-                {
                     num_edge_diff = (number == 1) ? 0 : num_edge;
-                }
-
                 first_triangle = false;
             }
-
             number = number - num_edge_diff;
-
 
             Nextsim::entities::GMSHElement gmshElt( number,
                                                     type,
@@ -685,18 +597,9 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 
     M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
 
-#if 0
-    std::cout<<"----M_global_num_elements_from_serial= "<< M_global_num_elements_from_serial<< " : "<< num_edge <<"\n";
-    std::cout<<"***************************************["<< this->comm().rank() <<"]: " << num_edge << " and "<< num_edge_diff <<"\n";
-#endif
-
-
     for ( auto const& it : __gt )
     {
-        const char* name;
-        MElement::getInfoMSH( it.first, &name );
-        // std::cout<<"["<< M_comm.rank() <<"] " << " Read " << it.second << " " << name << " elements\n";
-
+        const char* name = Nextsim::entities::getElementTypeName(it.first);
         if (std::string(name) == "Triangle 3")
             M_num_triangles = it.second;
         else if (std::string(name) == "Line 2")
@@ -709,7 +612,8 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
     ifs >> buf;
 
     ASSERT(std::string( buf ) == "$EndElements","invalid end elements string");
-}
+}// readFromFileBinary
+
 
 void
 GmshMesh::writeToFile(std::string const& gmshmshfile)
@@ -746,12 +650,9 @@ GmshMesh::writeToFile(std::string const& gmshmshfile)
         gmshfile << "$Elements\n";
         gmshfile << M_num_triangles << "\n";
 
-        //for ( int element = 0; element < nels; element++ )
         int element = 0;
         for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
         {
-            //tag2 = element +1;
-
             gmshfile << element + 1
                      << "  " << element_type
                      << "  " << tag_num
@@ -767,8 +668,6 @@ GmshMesh::writeToFile(std::string const& gmshmshfile)
             ++element;
         }
         gmshfile << "$EndElements\n";
-
-
     }
     else
     {
@@ -776,7 +675,8 @@ GmshMesh::writeToFile(std::string const& gmshmshfile)
         std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
         std::abort();
     }
-}
+}//writeToFile
+
 
 void
 GmshMesh::move(std::vector<double> const& um, double factor)
@@ -806,11 +706,7 @@ GmshMesh::stereographicProjection()
 
     map = init_mapx(&str[0]);
 
-    // std::cout<<"MFILE= "<< std::string(map->mpp_filename) <<"\n";
-    // std::cout<<"PROJE= "<< std::string(map->projection_name) <<"\n";
-
     int cpt = 0;
-
     for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
     {
         //compute latitude and longitude from cartesian coordinates
@@ -1507,11 +1403,6 @@ GmshMesh::allGather(std::vector<int> const& field_in, std::vector<std::vector<in
     int num_elts = std::accumulate(container_size.begin(),container_size.end(),0);
     acc_size = num_elts;
 
-    // for (int i=0; i<container_size.size(); ++i)
-    // {
-    //     std::cout<<"[Proc "<< M_comm.rank() <<"] container["<< i <<"]= "<< container_size[i] <<"\n";
-    // }
-
     std::vector<int> field_gather(num_elts);
 
     if (M_comm.rank() == 0)
@@ -1541,8 +1432,8 @@ GmshMesh::allGather(std::vector<int> const& field_in, std::vector<std::vector<in
         }
         global_indexing += current_size;
     }
-
 }
+
 
 std::vector<int>
 GmshMesh::indexTr() const
@@ -1937,5 +1828,17 @@ GmshMesh::vertices(std::vector<int> const& indices,
             vertices[i][k] += factor*um[indices[i]-1+k*M_num_nodes];
     return vertices;
 }//vertices
+
+
+void GmshMesh::SwapBytes(void* array, size_t size, size_t n) {
+    unsigned char* p = static_cast<unsigned char*>(array);
+    for (size_t j = 0; j < n; ++j) {
+        for (size_t i = 0; i < size/2; ++i) {
+            std::swap(p[i], p[size-1-i]);
+        }
+        p += size;
+    }
+}// SwapBytes
+
 
 } // Nextsim

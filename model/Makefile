@@ -73,7 +73,7 @@ else
 endif
 
 # gmsh
-CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
+CXXFLAGS += -isystem $(GMSH_DIR)/include
 
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
@@ -87,6 +87,7 @@ LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
+LDFLAGS += -L$(GMSH_LIB_DIR) -lgmsh
 
 ifdef USE_ENSEMBLE
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -lpseudo2D

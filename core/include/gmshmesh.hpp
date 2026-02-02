@@ -32,8 +32,9 @@ extern "C"
 #include <mapx.h>
 }
 
-// from Gmsh
-void SwapBytes(char *array, int size, int n);
+// originally from Gmsh
+//void SwapBytes(char *array, int size, int n);
+
 
 namespace Nextsim
 {
@@ -208,6 +209,11 @@ private:
     std::vector<int> M_map_nodes;
 
     std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
+
+    //int getNumVerticesForElementType(int type);
+    //const char* getElementTypeName(int type);
+    // originally from gmsh
+    void SwapBytes(void *array, size_t size, size_t n);
 };
 
 } // Nextsim
