@@ -18,84 +18,87 @@
 
 namespace Nextsim
 {
-
 // ------------------------------------------
 //! Main drifter interface to FiniteElement
 //! Called from FiniteElement::checkUpdateDrifters()
 //! \note call after moving
 void
-Drifters::updateDrifters(GmshMeshSeq const& movedmesh_root,
-        std::vector<double> & conc_root, double const& current_time)
+Drifters::updateDrifters(GmshMesh const& movedmesh,
+                         std::vector<double> & conc, double const& current_time)
 {
-    std::vector<double> conc_drifters(0);
-
     //! 1) Reset temporary (i.e. OSISAF) drifters if needed
-    //! \note this does outputting so needs conc_root
+    //! \note this does outputting so needs conc
     if(this->resetting(current_time))
-        this->reset(movedmesh_root, conc_root, current_time);
+        this->reset(movedmesh, conc, current_time);
 
     //! 2) Initialize if needed
     //! - need conc on the moved mesh
     //! - \note updates conc_drifters
+    std::vector<double> conc_drifters(0);
     if(this->initialising(current_time))
-        this->initialise(movedmesh_root, conc_root,
-                conc_drifters);
+        this->initialise(movedmesh, conc, conc_drifters);
 
     //! 3) Add/remove drifters if needed
     //!    \note do this after moving
     if (this->isInputTime(current_time))
     {
+        //! - update conc at drifter positions (conc_drifters)
+        this->updateConc(movedmesh, conc, conc_drifters);
+
         //! - add current buoys if not already there
         //!   (output is used for masking later)
-        auto current_buoys = this->grabBuoysFromInputTextFile(current_time);
+        if (M_comm.rank() == 0)
+        {
+            auto current_buoys = this->grabBuoysFromInputTextFile(current_time);
 
-        //! - update conc at drifter positions (conc_drifters)
-        this->updateConc(movedmesh_root, conc_root, conc_drifters);
-
-        //! - Check the drifters map and throw out:
-        //!   i) the ones which IABP doesn't report as being in the ice anymore
-        //!   (not in current_buoys)
-        //!   ii) the ones which have a low conc according to the model
-        this->maskXY(conc_drifters, current_buoys);
+            //! - Check the drifters map and throw out:
+            //!   i) the ones which IABP doesn't report as being in the ice anymore
+            //!   (not in current_buoys)
+            //!   ii) the ones which have a low conc according to the model
+            this->maskXY(conc_drifters, current_buoys);
+        }
     }
 
-    //! 4) Add/remove drifters if needed
+    //! 4) Output drifters if needed
     if (this->isOutputTime(current_time))
     {
-        if(conc_drifters.size()==0)
+        int num_drifters = conc_drifters.size();
+        boost::mpi::broadcast(M_comm, num_drifters, 0);
+        if(num_drifters == 0)
             // get conc if needed
             // (haven't added new buoys or initialised this timestep)
-            this->updateConc(movedmesh_root, conc_root, conc_drifters);
-        this->outputDrifters(current_time, conc_drifters);
+            this->updateConc(movedmesh, conc, conc_drifters);
+        if (M_comm.rank() == 0) this->outputDrifters(current_time, conc_drifters);
     }
-}//updateDrifters
-
+}
 
 // ---------------------------------------------
 //! Initialise the drifter positions
 //! Called from Drifters::updateDrifters()
 void
-Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
+Drifters::initialise(GmshMesh const& moved_mesh, std::vector<double> & conc,
         std::vector<double> &conc_drifters)
 {
     //! -1) Initialise drifter positions
-
-    if (M_init_type == Drifters::initType::TEXT_FILE)
+    if (M_comm.rank() == 0 && M_init_type == Drifters::initType::TEXT_FILE)
         this->initFromTextFile();
     else if (M_init_type == Drifters::initType::SPACING)
         this->initFromSpacing(moved_mesh);
-    else if (M_init_type == Drifters::initType::NETCDF)
+    else if (M_comm.rank() == 0 && M_init_type == Drifters::initType::NETCDF)
         this->initFromNetCDF();
 
     //! -2) Update conc_drifters
     this->updateConc(moved_mesh, conc, conc_drifters);
 
     //! -3) Applies the mask using conc_drifters and climit, and save to M_X and M_Y
-    this->maskXY(conc_drifters);
+    if (M_comm.rank() == 0) this->maskXY(conc_drifters);
 
     //! -4) Init the netcdf output file
-    this->setOutputFilename();
-    this->initOutputFile();
+    if (M_comm.rank() == 0)
+    {
+        this->setOutputFilename();
+        this->initOutputFile();
+    }
 
     //! -5) Success 
     M_is_initialised = true;
@@ -106,26 +109,33 @@ Drifters::initialise(GmshMeshSeq const& moved_mesh, std::vector<double> & conc,
 //! Initialise the drifter positions on a regular grid
 //! Called from Drifters::initialise()
 void
-Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
+Drifters::initFromSpacing(GmshMesh const& moved_mesh)
 {
     //! Calculates the grid spacing assuming a regular grid
     std::vector<double> RX = moved_mesh.coordX();
     std::vector<double> RY = moved_mesh.coordY();
-    auto xcoords = std::minmax_element( RX.begin(), RX.end() );
-    auto ycoords = std::minmax_element( RY.begin(), RY.end() );
+    auto xcoords_local = std::minmax_element( RX.begin(), RX.end() );
+    auto ycoords_local = std::minmax_element( RY.begin(), RY.end() );
 
-    int ncols = (int) ( 0.5 + ( *xcoords.second - *xcoords.first )/M_spacing );
-    int nrows = (int) ( 0.5 + ( *ycoords.second - *ycoords.first )/M_spacing );
+    double xmin = boost::mpi::all_reduce(M_comm, *xcoords_local.first,  boost::mpi::minimum<double>());
+    double xmax = boost::mpi::all_reduce(M_comm, *xcoords_local.second, boost::mpi::maximum<double>());
+    double ymin = boost::mpi::all_reduce(M_comm, *ycoords_local.first,  boost::mpi::minimum<double>());
+    double ymax = boost::mpi::all_reduce(M_comm, *ycoords_local.second, boost::mpi::maximum<double>());
+
+    if (M_comm.rank() != 0) return;
+
+    int ncols = (int) ( 0.5 + ( xmax - xmin )/M_spacing );
+    int nrows = (int) ( 0.5 + ( ymax - ymin )/M_spacing );
 
     M_X.resize(ncols*nrows);
     M_Y.resize(ncols*nrows);
     M_i.resize(ncols*nrows);
 
     int i=0;
-    int y = *ycoords.first;
+    int y = ymin;
     for (int row=0; row<nrows; ++row)
     {
-        int x = *xcoords.first;
+        int x = xmin;
         for (int col=0; col<ncols; ++col)
         {
             M_X[i] = x;
@@ -137,7 +147,6 @@ Drifters::initFromSpacing(GmshMeshSeq const& moved_mesh)
         y += M_spacing;
     }
 }//initFromSpacing()
-
 
 // ---------------------------------------------
 //! Initialise the drifter positions from the grid of an input netcdf file
@@ -368,20 +377,20 @@ Drifters::sortDrifterNumbers()
 //! Add drifter info to restart
 //! Called by FiniteElement::writeRestart()
 void
-Drifters::addToRestart(Exporter &exporter, std::fstream &outbin)
+Drifters::addToRestart(Exporter &exporter, MPI_File& outbin, Communicator M_comm, MPI_Offset& base_offset)
 {
     // Do nothing if we don't have to
-    if (!M_is_initialised)
-        return;
-    if (M_i.size() == 0)
-        return;
+    int keep_going = M_i.size() + M_is_initialised;
+    boost::mpi::broadcast(M_comm, &keep_going, 1, 0);
+    if (!keep_going) return;
 
     // write the fields to file
     std::vector<double> const t = {M_time_init};
-    exporter.writeField(outbin, M_i, "Drifter_ID_"        + M_tag);
-    exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag);
-    exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag);
-    exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag);
+    std::vector<int> unused;
+    exporter.writeField(outbin, M_i, "Drifter_ID_"        + M_tag, "int",  M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag, "double", M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag, "double", M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag, "double", M_comm, base_offset, unused, 0, 0, 1);
 }//addToRestart()
 
 
@@ -444,13 +453,13 @@ Drifters::fixInitTimeAtRestart(double const& restart_time)
 //! - so far only used by OSISAF drifters (reset them after 2 days)
 //! Called by FiniteElement::checkUpdateDrifters()
 void
-Drifters::reset(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_root,
-        double const& current_time)
+Drifters::reset(GmshMesh const& movedmesh, std::vector<double> & conc,
+                double const& current_time)
 {
     //! 1) Output final positions
     std::vector<double> conc_drifters;
-    this->updateConc(movedmesh_root, conc_root, conc_drifters);
-    this->outputDrifters(current_time, conc_drifters);
+    this->updateConc(movedmesh, conc, conc_drifters);
+    if (M_comm.rank() == 0) this->outputDrifters(current_time, conc_drifters);
 
     //! 2) Set back to being uninitialised
     M_is_initialised = false;
@@ -458,89 +467,319 @@ Drifters::reset(GmshMeshSeq const& movedmesh_root, std::vector<double> & conc_ro
     M_X.resize(0);
     M_Y.resize(0);
     M_time_init += M_lifetime;//new init time
-    this->setOutputFilename();
+    if (M_comm.rank() == 0) this->setOutputFilename();
 }//reset()
 
+
+// --------------------------------------------------------------------------------------
+//! Check whether a point is inside a triangle
+//! called by Drifters::find_partition()
+int
+Drifters::inside(std::vector<double> const& points, double xp, double yp)
+{
+    std::vector<double> cross(3);
+    for (int i = 0; i < 3; i++)
+    {
+        cross[i] = (points[(2+2*i)%6]  - points[2*i]) * (yp - points[2*i+1]) - (points[(2*i+3)%6] - points[2*i+1]) * (xp - points[2*i]);
+        if (i > 0 && cross[i] * cross[i-1] < 0.) return 0;
+    }
+
+    return 1;
+}
+
+// --------------------------------------------------------------------------------------
+//! Dispatch the drifters over the partitions and find the triangle containing it
+//! called by Drifters::move() and Drifters::update_conc()
+void
+Drifters::find_partition(GmshMesh const& mesh, std::vector<double>& M_local_drifter_X, std::vector<double>& M_local_drifter_Y, std::vector<int>& M_triangle, std::vector<int>& M_nb_drifter)
+{
+    int size1 = M_X.size();
+    boost::mpi::broadcast(M_comm, size1, 0);
+
+    if (M_comm.rank() != 0)
+    {
+       M_X.resize(size1);
+       M_Y.resize(size1);
+    }
+
+    boost::mpi::broadcast(M_comm, &M_X[0], size1, 0);
+    boost::mpi::broadcast(M_comm, &M_Y[0], size1, 0);
+
+    int GRID_SIZE = sqrt(mesh.numTriangles()/20);
+    double xmax = -1.e20;
+    double xmin = 1.e20;
+    double ymax = -1.e20;
+    double ymin = 1.e20;
+    double EPSILON = 1.e-6;
+
+    std::vector<double> coordX = mesh.coordX();
+    std::vector<double> coordY = mesh.coordY();
+    std::vector<int> triangles = mesh.indexTr();
+    for (int k = 0; k < coordX.size(); k++)
+    {
+        if (coordX[k] < xmin) xmin = coordX[k];
+        if (coordX[k] > xmax) xmax = coordX[k];
+        if (coordY[k] < ymin) ymin = coordY[k];
+        if (coordY[k] > ymax) ymax = coordY[k];
+    }
+
+    double cellWidth = (xmax - xmin) / GRID_SIZE;
+    double cellHeight = (ymax - ymin) / GRID_SIZE;
+
+    // Organizing the triangles in a Cartesian grid of the local domain
+    std::vector<std::vector<std::vector<int>>> list_triangles(GRID_SIZE, std::vector<std::vector<int>>(GRID_SIZE, std::vector<int>(0,0)));
+
+    std::vector<int> list_idx(6), list_idy(6);
+    int minx, maxx, miny, maxy;
+    int index;
+
+    for (int k = 0; k < mesh.numTrianglesWithoutGhost(); k++)
+    {
+        for (int i = 0; i < 3; i++) {
+            index = triangles[3*k+i]-1;
+            list_idx[i] = (int)((coordX[index] - xmin) / cellWidth + EPSILON);
+            list_idy[i] = (int)((coordY[index] - ymin) / cellHeight + EPSILON);
+            list_idx[3+i] = (int)((coordX[index] - xmin) / cellWidth - EPSILON);
+            list_idy[3+i] = (int)((coordY[index] - ymin) / cellHeight - EPSILON);
+        }
+
+        minx = *std::min_element(list_idx.begin(), list_idx.end());
+        if (minx < 0) minx = 0;
+        maxx = *std::max_element(list_idx.begin(), list_idx.end());
+        if (maxx >= GRID_SIZE) maxx = GRID_SIZE-1;
+        miny = *std::min_element(list_idy.begin(), list_idy.end());
+        if (miny < 0) miny = 0;
+        maxy = *std::max_element(list_idy.begin(), list_idy.end());
+        if (maxy >= GRID_SIZE) maxy = GRID_SIZE-1;
+
+        for (int idx = minx; idx <= maxx; idx++) {
+            for (int idy = miny; idy <= maxy; idy++) {
+                list_triangles[idx][idy].push_back(k);
+            }
+        }
+    }
+
+    // Check whether the drifters are in a triangle of the local mesh
+    for (int k = 0; k < M_X.size(); k++)
+    {
+        for (int i = 0; i < 3; i++) {
+            list_idx[i] = (int)((M_X[k] - xmin) / cellWidth + EPSILON);
+            list_idy[i] = (int)((M_Y[k] - ymin) / cellHeight + EPSILON);
+            list_idx[3+i] = (int)((M_X[k] - xmin) / cellWidth - EPSILON);
+            list_idy[3+i] = (int)((M_Y[k] - ymin) / cellHeight - EPSILON);
+        }
+
+        minx = *std::min_element(list_idx.begin(), list_idx.end());
+        if (minx < 0) minx = 0;
+        maxx = *std::max_element(list_idx.begin(), list_idx.end());
+        if (maxx >= GRID_SIZE) maxx = GRID_SIZE-1;
+        miny = *std::min_element(list_idy.begin(), list_idy.end());
+        if (miny < 0) miny = 0;
+        maxy = *std::max_element(list_idy.begin(), list_idy.end());
+        if (maxy >= GRID_SIZE) maxy = GRID_SIZE-1;
+
+        int should_break = 0;
+        for (int idx = minx; idx <= maxx; idx++) {
+            for (int idy = miny; idy <= maxy; idy++) {
+                if (list_triangles[idx][idy].empty()) continue;
+                for (int j = 0; j < list_triangles[idx][idy].size(); j++) {
+                    int n = list_triangles[idx][idy][j];
+                    if (!inside(std::vector<double> {coordX[triangles[3*n]-1], coordY[triangles[3*n]-1],
+                                                     coordX[triangles[3*n+1]-1], coordY[triangles[3*n+1]-1],
+                                                     coordX[triangles[3*n+2]-1], coordY[triangles[3*n+2]-1]},
+                                                     M_X[k], M_Y[k])) continue;
+                    M_local_drifter_X.push_back(M_X[k]);
+                    M_local_drifter_Y.push_back(M_Y[k]);
+                    M_nb_drifter.push_back(k);
+                    M_triangle.push_back(n);
+                    should_break = 1;
+                    break;
+                }
+                if (should_break) break;
+            }
+            if (should_break) break;
+        }
+    }
+}
 
 // --------------------------------------------------------------------------------------
 //! Move drifters and replace the old coordinates with the new ones
 //! called by FiniteElement::updateDrifters()
 void
-Drifters::move(GmshMeshSeq const& mesh,
-        std::vector<double> const& UT)
+Drifters::move(GmshMesh const& mesh, std::vector<double> const& UT)
 {
+    boost::mpi::broadcast(M_comm, M_is_initialised, 0);
+
     // Do nothing if we don't have to
-    if ( !M_is_initialised )
-        return;
-    int const num_drifters = M_i.size();
-    if ( num_drifters == 0 )
-        return;
+    if ( !M_is_initialised ) return;
 
-    // Interpolate the total displacement onto the drifter positions
-    int const nb_var=2;
+    std::vector<int> M_triangle, M_nb_drifter;
+    std::vector<double> M_local_drifter_X, M_local_drifter_Y;
+
+    // Send the drifters on the local corresponding partitions
+    this->find_partition(mesh, M_local_drifter_X, M_local_drifter_Y, M_triangle, M_nb_drifter);
+
+    // Interpolate the total displacement onto the drifter positions that are within the local domain
     int const numNodes = mesh.numNodes();
-    std::vector<double> interp_drifter_in(nb_var*numNodes);
-    for (int i=0; i<numNodes; ++i)
+    std::vector<int> triangles = mesh.indexTr();
+    std::vector<double> coordX = mesh.coordX();
+    std::vector<double> coordY = mesh.coordY();
+    for ( int i = 0; i < M_local_drifter_X.size(); ++i )
     {
-        interp_drifter_in[nb_var*i]   = UT[i];
-        interp_drifter_in[nb_var*i+1] = UT[i+numNodes];
+        int k = M_triangle[i];
+        double sumnx = 0.;
+        double sumny = 0.;
+        double sumd = 0.;
+        for (int j = 0; j < 3; j++)
+        {
+            int index = triangles[3*k+j]-1;
+            double distance = sqrt((M_local_drifter_X[i] - coordX[index]) * (M_local_drifter_X[i] - coordX[index]) +
+                                   (M_local_drifter_Y[i] - coordY[index]) * (M_local_drifter_Y[i] - coordY[index]));
+
+            if (distance < 1.e-15)
+            {
+                sumnx = UT[index];
+                sumny = UT[index + numNodes];
+                sumd = 1;
+                break;
+            }
+
+            sumnx += UT[index] / distance;
+            sumny += UT[index + numNodes] / distance;
+            sumd  += 1./distance;
+        }
+
+        // Add the displacement to the current position 
+        M_local_drifter_X[i] += sumnx / sumd;
+        M_local_drifter_Y[i] += sumny / sumd;
     }
 
-    double* interp_drifter_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &mesh.indexTr()[0], &mesh.coordX()[0], &mesh.coordY()[0],
-                            numNodes, mesh.numTriangles(),
-                            &interp_drifter_in[0],
-                            numNodes, nb_var,
-                            &M_X[0], &M_Y[0], num_drifters,
-                            true, 0.);
+    // Reconstruction of the drifters positions on root
+    std::vector<int> M_drifter_i;
+    std::vector<double> M_drifter_X, M_drifter_Y;
 
-    // Add the displacement to the current position
-    for ( int i=0; i<num_drifters; ++i )
+    int size = M_nb_drifter.size();
+
+    if (M_comm.rank() == 0)
     {
-        M_X[i] += interp_drifter_out[nb_var*i];
-        M_Y[i] += interp_drifter_out[nb_var*i+1];
+        M_drifter_i.resize(M_i.size());
+        for (int i = 0; i < M_i.size(); i++) M_drifter_i[i] = -1;
+        M_drifter_X.resize(M_i.size());
+        M_drifter_Y.resize(M_i.size());
+
+        for (int i = 0; i < M_nb_drifter.size(); i++)
+        {
+            M_drifter_i[i] = M_nb_drifter[i];
+            M_drifter_X[i] = M_local_drifter_X[i];
+            M_drifter_Y[i] = M_local_drifter_Y[i];
+        }
+
+        for (int i = 1; i < M_comm.size(); i++)
+        {
+            M_comm.recv(i,i,size);
+            if (size == 0) continue;
+
+            std::vector<int> local_drifter_i;
+            std::vector<double> local_drifter_X, local_drifter_Y;
+            M_comm.recv(i,i,local_drifter_i);
+            M_comm.recv(i,i,local_drifter_X);
+            M_comm.recv(i,i,local_drifter_Y);
+
+            M_drifter_i.insert(M_drifter_i.end(), local_drifter_i.begin(), local_drifter_i.end());
+            M_drifter_X.insert(M_drifter_X.end(), local_drifter_X.begin(), local_drifter_X.end());
+            M_drifter_Y.insert(M_drifter_Y.end(), local_drifter_Y.begin(), local_drifter_Y.end());
+        }
+
+    }
+    else
+    {
+        M_comm.send(0, M_comm.rank(), size);
+        if (size != 0) 
+        {
+            M_comm.send(0, M_comm.rank(), M_nb_drifter);
+            M_comm.send(0, M_comm.rank(), M_local_drifter_X);
+            M_comm.send(0, M_comm.rank(), M_local_drifter_Y);
+        }
     }
 
-    xDelete<double>(interp_drifter_out);
-}//move()
+    if (M_comm.rank() != 0) {
+        M_X.resize(0);
+        M_Y.resize(0);
+        return;
+    }
 
+    for (int i = 0; i < M_drifter_i.size(); i++)
+    {
+        if (M_drifter_i[i] == -1) continue; // Do not touch outside drifters
+        M_X[M_drifter_i[i]] = M_drifter_X[i];
+        M_Y[M_drifter_i[i]] = M_drifter_Y[i];
+    }
+
+} // move
 
 // --------------------------------------------------------------------------------------
 //! interp conc onto drifter positions
 //! called by updateDrifters(), reset() and initialise()
 void
-Drifters::updateConc(GmshMeshSeq const& moved_mesh,
-        std::vector<double> & conc, std::vector<double> &conc_drifters)
+Drifters::updateConc(GmshMesh const& moved_mesh,
+                     std::vector<double> & conc, std::vector<double> &conc_drifters)
 {
     // Do nothing if we don't have to
-    int const num_drifters = M_i.size();
-    if ( num_drifters == 0 )
-        return;
+    int num_drifters = M_i.size();
+    boost::mpi::broadcast(M_comm, num_drifters, 0);
+
+    if ( num_drifters == 0 ) return;
     conc_drifters.resize(num_drifters);
 
     // move the mesh before interpolating
     int const numNodes = moved_mesh.numNodes();
     int const numElements = moved_mesh.numTriangles();
 
-    // Interpolate the concentration onto the drifter positions
-    int nb_var=1;
-    double* interp_drifter_out;
-    InterpFromMeshToMesh2dx(&interp_drifter_out,
-                            &moved_mesh.indexTr()[0], &moved_mesh.coordX()[0], &moved_mesh.coordY()[0],
-                            numNodes, numElements,
-                            &conc[0],
-                            numElements, nb_var,
-                            &M_X[0], &M_Y[0], num_drifters,
-                            true, 0.);
+    std::vector<int> M_triangle, M_nb_drifter;
+    std::vector<double> M_local_drifter_X, M_local_drifter_Y;
 
-    for ( int i=0; i<num_drifters; ++i )
-        conc_drifters[i] = std::max(0.,
-                std::min(1., interp_drifter_out[i]));
+    // Send the drifters on the local corresponding partitions
+    this->find_partition(moved_mesh, M_local_drifter_X, M_local_drifter_Y, M_triangle, M_nb_drifter);
 
-    xDelete<double>(interp_drifter_out);
+    std::vector<double> conc_local_drifters(M_local_drifter_X.size());
+    for ( int i = 0; i < M_local_drifter_X.size(); ++i ) conc_local_drifters[i] = conc[M_triangle[i]];
+
+    // Reconstruction of the drifters positions on root
+    std::vector<int> M_drifter_i;
+    std::vector<double> global_conc;
+
+    int size = M_nb_drifter.size();
+
+    if (M_comm.rank() == 0)
+    {
+        M_drifter_i.resize(M_i.size());
+        global_conc.resize(M_i.size());
+
+        std::vector<int> rcounts(M_comm.size());
+        boost::mpi::gather(M_comm, size, rcounts, 0);
+        boost::mpi::gatherv(M_comm, M_nb_drifter, &M_drifter_i[0], rcounts, 0);
+        boost::mpi::gatherv(M_comm, conc_local_drifters, &global_conc[0], rcounts, 0);
+    }
+    else
+    {
+        boost::mpi::gather(M_comm, size, 0);
+        boost::mpi::gatherv(M_comm, M_nb_drifter, 0);
+        boost::mpi::gatherv(M_comm, conc_local_drifters, 0);
+    }
+
+    if (M_comm.rank() != 0) return;
+
+    for (int i = 0; i < M_drifter_i.size(); i++)
+    {
+        if (M_drifter_i[i] == -1)
+        {
+            conc_drifters[M_drifter_i[i]] = 0.;
+            continue;
+        }
+        conc_drifters[M_drifter_i[i]] = global_conc[i];
+    }
+
 }//updateConc
-
 
 // --------------------------------------------------------------------------------------
 //! Masks out X and Y values where there is no ice
@@ -564,16 +803,37 @@ Drifters::maskXY(std::vector<double> & conc_drifters, std::vector<int> const& ke
     M_i.resize(0);
     conc_drifters.resize(0);
 
-    for ( int i=0; i<idx.size(); ++i )
+    int identical = 0;
+    if (idx == keepers) identical = 1;
+
+    if (identical)
     {
-        int const id_count = std::count(keepers.begin(),
-                    keepers.end(), idx[i]);
-        if ( conc[i] > M_conc_lim && id_count>0 )
+        for ( int i=0; i<idx.size(); ++i )
         {
-            M_X.push_back(X[i]);
-            M_Y.push_back(Y[i]);
-            M_i.push_back(idx[i]);
-            conc_drifters.push_back(conc[i]);
+            if ( conc[i] > M_conc_lim )
+            {
+                M_X.push_back(X[i]);
+                M_Y.push_back(Y[i]);
+                M_i.push_back(idx[i]);
+                conc_drifters.push_back(conc[i]);
+            }
+        }
+    }
+    else
+    {
+        int max_id = *std::max_element(idx.begin(), idx.end());
+        std::vector<int> indices(max_id+1,0);
+        for ( int i=0; i<keepers.size(); ++i) indices[keepers[i]] = 1;
+
+        for ( int i=0; i<idx.size(); ++i )
+        {
+            if ( conc[i] > M_conc_lim && indices[idx[i]] )
+            {
+                M_X.push_back(X[i]);
+                M_Y.push_back(Y[i]);
+                M_i.push_back(idx[i]);
+                conc_drifters.push_back(conc[i]);
+            }
         }
     }
 }//maskXY()
@@ -660,7 +920,7 @@ Drifters::backupOutputFile(std::string const& backup)
     if ( fs::exists(path1) )
     {
         fs::path path2(backup);
-        fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
+        fs::copy_file(path1, path2, fs::copy_options::overwrite_existing);
     }
 }//backupOutputFile()
 

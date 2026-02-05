@@ -254,8 +254,11 @@ FiniteElement::bcMarkedNodes()
     LOG(DEBUG) << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
     LOG(DEBUG) << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
 
+    M_dirichlet_flags.shrink_to_fit();
+    M_neumann_flags.shrink_to_fit();
 
     M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    M_dirichlet_nodes.shrink_to_fit();
     for (int i=0; i<M_dirichlet_flags.size(); ++i)
     {
         M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
@@ -263,6 +266,7 @@ FiniteElement::bcMarkedNodes()
     }
 
     M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    M_neumann_nodes.shrink_to_fit();
     for (int i=0; i<M_neumann_flags.size(); ++i)
     {
         M_neumann_nodes[2*i] = M_neumann_flags[i];
@@ -560,7 +564,7 @@ FiniteElement::assignVariables()
     // For drifters:
     M_UT.assign(2*M_num_nodes,0.); //! \param M_UT (double) Total ice displacement (M_UT[] += time_step*M_VT[]) [m]
 
-    M_fcor.assign(M_num_elements, 0.);
+    M_fcor.assign(M_num_nodes, 0.);
 
     M_drag_ui.assign(M_num_elements, quad_drag_coef_air);
     M_drag_uiw.assign(M_num_elements, quad_drag_coef_water);
@@ -2961,12 +2965,17 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
 
     if (M_rank == 0)
     {
-        elt_values_root.resize(nb_var_element*M_mesh_root.numTriangles());
-        boost::mpi::gatherv(M_comm, elt_values_local, &elt_values_root[0], sizes_elements, 0);
+        std::copy(elt_values_local.begin(), elt_values_local.end(), std::back_inserter(elt_values_root));
+        for (int i = 1; i < M_comm.size(); i++)
+        {
+            std::vector<double> copy(sizes_elements[i]);
+            M_comm.recv(i, i, copy);
+            std::copy(copy.begin(), copy.end(), std::back_inserter(elt_values_root));
+        }
     }
     else
     {
-        boost::mpi::gatherv(M_comm, elt_values_local, 0);
+        M_comm.send(0, M_rank, elt_values_local);
     }
 
     LOG(DEBUG) <<"----------IO: GATHER ELEMENT done in "<< chrono.elapsed() <<"s\n";
@@ -3168,7 +3177,12 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
     LOG(DEBUG) <<"----------GATHER NODE starts\n";
 
     M_nb_var_node = 6;
-    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
+    std::vector<double> interp_node_in_local_VT(2*M_prv_local_ndof,0.);
+    std::vector<double> interp_node_in_local_UM(2*M_prv_local_ndof,0.);
+    std::vector<double> interp_node_in_local_UT(2*M_prv_local_ndof,0.);
+    std::vector<double> interp_in_nodes_VT;
+    std::vector<double> interp_in_nodes_UM;
+    std::vector<double> interp_in_nodes_UT;
 
     chrono.restart();
     //std::cout<<"Nodal Interp starts\n";
@@ -3176,54 +3190,52 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     for (int i=0; i<M_prv_local_ndof; ++i)
     {
-        int tmp_nb_var = 0;
-
         // VT
-        interp_node_in_local[M_nb_var_node*i] = M_VT[i];
-        tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i+M_prv_num_nodes];
-        tmp_nb_var++;
+        interp_node_in_local_VT[2*i] = M_VT[i];
+        interp_node_in_local_VT[2*i+1] = M_VT[i+M_prv_num_nodes];
 
         // UM
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
-        tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i+M_prv_num_nodes];
-        tmp_nb_var++;
+        interp_node_in_local_UM[2*i] = M_UM[i];
+        interp_node_in_local_UM[2*i+1] = M_UM[i+M_prv_num_nodes];
 
         // UT
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
-        tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i+M_prv_num_nodes];
-        tmp_nb_var++;
-
-        if ( tmp_nb_var != M_nb_var_node )
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
+        interp_node_in_local_UT[2*i] = M_UT[i];
+        interp_node_in_local_UT[2*i+1] = M_UT[i+M_prv_num_nodes];
     }
 
-    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+
+    if (M_rank == 0)
+    {
+        interp_in_nodes_VT.resize(2*M_prv_global_num_nodes);
+        interp_in_nodes_UM.resize(2*M_prv_global_num_nodes);
+        interp_in_nodes_UT.resize(2*M_prv_global_num_nodes);
+
+        boost::mpi::gatherv(M_comm, interp_node_in_local_VT, &interp_in_nodes_VT[0], sizes_nodes, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UM, &interp_in_nodes_UM[0], sizes_nodes, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UT, &interp_in_nodes_UT[0], sizes_nodes, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, interp_node_in_local_VT, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UM, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UT, 0);
+    }
 
     if (M_rank == 0)
     {
         interp_in_nodes.resize(M_nb_var_node*M_prv_global_num_nodes);
-        boost::mpi::gatherv(M_comm, interp_node_in_local, &interp_in_nodes[0], sizes_nodes, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, interp_node_in_local, 0);
-    }
-
-    if (M_rank == 0)
-    {
-        auto interp_in_nodes_nrd = interp_in_nodes;
 
         for (int i=0; i<M_prv_global_num_nodes; ++i)
         {
             int ri =  rmap_nodes[i];
 
-            for (int j=0; j<M_nb_var_node; ++j)
-            {
-                interp_in_nodes[M_nb_var_node*i+j] = interp_in_nodes_nrd[M_nb_var_node*ri+j];
-            }
+            interp_in_nodes[M_nb_var_node*i] = interp_in_nodes_VT[2*ri];
+            interp_in_nodes[M_nb_var_node*i+1] = interp_in_nodes_VT[2*ri+1];
+            interp_in_nodes[M_nb_var_node*i+2] = interp_in_nodes_UM[2*ri];
+            interp_in_nodes[M_nb_var_node*i+3] = interp_in_nodes_UM[2*ri+1];
+            interp_in_nodes[M_nb_var_node*i+4] = interp_in_nodes_UT[2*ri];
+            interp_in_nodes[M_nb_var_node*i+5] = interp_in_nodes_UT[2*ri+1];
         }
     }
 
@@ -3241,58 +3253,74 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
     LOG(DEBUG) <<"----------SCATTER NODE starts\n";
 
-    std::vector<double> in_nd_values;
+    std::vector<double> in_nd_values_VT;
+    std::vector<double> in_nd_values_UM;
+    std::vector<double> in_nd_values_UT;
 
     if (M_rank == 0)
     {
-        in_nd_values.resize(M_nb_var_node*M_id_nodes.size());
+        in_nd_values_VT.resize(2*M_id_nodes.size());
+        in_nd_values_UM.resize(2*M_id_nodes.size());
+        in_nd_values_UT.resize(2*M_id_nodes.size());
 
         for (int i=0; i<M_id_nodes.size(); ++i)
         {
             //int ri = rmap_nodes.right.find(id_nodes[i])->second-1;
             int ri = M_id_nodes[i]-1;
 
-            for (int j=0; j<M_nb_var_node; ++j)
-            {
-                in_nd_values[M_nb_var_node*i+j] = interp_nd_out[M_nb_var_node*ri+j];
-            }
+            in_nd_values_VT[2*i] = interp_nd_out[M_nb_var_node*ri];
+            in_nd_values_VT[2*i+1] = interp_nd_out[M_nb_var_node*ri+1];
+            in_nd_values_UM[2*i] = interp_nd_out[M_nb_var_node*ri+2];
+            in_nd_values_UM[2*i+1] = interp_nd_out[M_nb_var_node*ri+3];
+            in_nd_values_UT[2*i] = interp_nd_out[M_nb_var_node*ri+4];
+            in_nd_values_UT[2*i+1] = interp_nd_out[M_nb_var_node*ri+5];
         }
     }
 
-    std::vector<double> out_nd_values(M_nb_var_node*M_num_nodes);
+    std::vector<double> out_nd_values_VT(2*M_num_nodes);
+    std::vector<double> out_nd_values_UM(2*M_num_nodes);
+    std::vector<double> out_nd_values_UT(2*M_num_nodes);
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
 
     if (M_rank == 0)
     {
-        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
-        boost::mpi::scatterv(M_comm, in_nd_values, sizes_nodes, &out_nd_values[0], 0);
+        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+        boost::mpi::scatterv(M_comm, in_nd_values_VT, sizes_nodes, &out_nd_values_VT[0], 0);
+        boost::mpi::scatterv(M_comm, in_nd_values_UM, sizes_nodes, &out_nd_values_UM[0], 0);
+        boost::mpi::scatterv(M_comm, in_nd_values_UT, sizes_nodes, &out_nd_values_UT[0], 0);
     }
     else
     {
-        boost::mpi::scatterv(M_comm, &out_nd_values[0], M_nb_var_node*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values_VT[0], 2*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values_UM[0], 2*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values_UT[0], 2*M_num_nodes, 0);
     }
-
 
     M_VT.resize(2*M_num_nodes);
     M_UM.resize(2*M_num_nodes);
     M_UT.resize(2*M_num_nodes);
+    M_VT.shrink_to_fit();
+    M_UM.shrink_to_fit();
+    M_UT.shrink_to_fit();
 
     D_tau_w.assign(2*M_num_nodes,0.);
     D_tau_a.assign(2*M_num_nodes,0.);
+    D_tau_w.shrink_to_fit();
+    D_tau_a.shrink_to_fit();
 
     for (int i=0; i<M_num_nodes; ++i)
     {
         // VT
-        M_VT[i] = out_nd_values[M_nb_var_node*i];
-        M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
+        M_VT[i] = out_nd_values_VT[2*i];
+        M_VT[i+M_num_nodes] = out_nd_values_VT[2*i+1];
 
         // UM
-        M_UM[i] = out_nd_values[M_nb_var_node*i+2];
-        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
+        M_UM[i] = out_nd_values_UM[2*i];
+        M_UM[i+M_num_nodes] = out_nd_values_UM[2*i+1];
 
         // UT
-        M_UT[i] = out_nd_values[M_nb_var_node*i+4];
-        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
+        M_UT[i] = out_nd_values_UT[2*i];
+        M_UT[i+M_num_nodes] = out_nd_values_UT[2*i+1];
     }
 
 
@@ -3946,6 +3974,9 @@ FiniteElement::update(std::vector<double> const & UM_P)
     int const newice_type = vm["thermo.newice_type"].as<int>(); //! \param newice_type (int const) Type of new ice thermo scheme (4 diff. cases: Hibler 1979, Olason 2009, ...)
     bool const use_young_ice_in_myi_reset = vm["age.include_young_ice"].as<bool>(); //! \param use_young_ice_in_myi_reset states if young ice should be included in the calculation of multiyear ice when it is reset (only if newice-type = 4)
 
+    double const cmin_dynamics = vm["dynamics.min_c"].as<double>();
+    double const hmin_dynamics = vm["dynamics.min_h"].as<double>();
+
     for (int cpt=0; cpt < M_num_elements; ++cpt)  // loops over all model elements (P0 variables are defined over elements)
     {
 
@@ -4046,31 +4077,26 @@ FiniteElement::update(std::vector<double> const & UM_P)
 
         /* Young ice category */
         double new_conc_young=0.;
-        double new_h_young=0.;
-        double new_hs_young=0.;
-
-        double newice = 0.;
         double del_c = 0.;
-        double newsnow = 0.;
 
-        double ridge_young_ice_aspect_ratio=10.;
-
-        double conc_young = 0.;
         if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
         {
             if(M_conc_young[cpt]>0. )
             {
-                new_conc_young   = std::min(1.,std::max(1.-M_conc[cpt]-open_water_concentration,0.));
+                new_conc_young   = std::min(1., std::max(0., 1. - M_conc[cpt] - open_water_concentration));
 
                 // Ridging
-                if( (M_conc[cpt] > vm["dynamics.min_c"].as<double>()) && (M_thick[cpt] > vm["dynamics.min_h"].as<double>()) && (new_conc_young < M_conc_young[cpt] ))
+                if( (M_conc[cpt] > cmin_dynamics) && (M_thick[cpt] > hmin_dynamics) && (new_conc_young < M_conc_young[cpt] ))
                 {
-                    new_h_young      = new_conc_young*M_h_young[cpt]/M_conc_young[cpt]; // so that we keep the same h0, no preferences for the ridging
-                    new_hs_young     = new_conc_young*M_hs_young[cpt]/M_conc_young[cpt];
+                    // keep the same slab ice/snow thicknesses, no preferences for the ridging
+                    double const conc_ratio = new_conc_young / M_conc_young[cpt];
+                    double const new_h_young = conc_ratio * M_h_young[cpt];
+                    double const new_hs_young = conc_ratio * M_hs_young[cpt];
 
-                    newice = M_h_young[cpt]-new_h_young;
-                    del_c   = (M_conc_young[cpt]-new_conc_young)/ridge_young_ice_aspect_ratio;
-                    newsnow = M_hs_young[cpt]-new_hs_young;
+                    constexpr double RIDGE_YOUNG_ICE_ASPECT_RATIO = 10.;
+                    del_c = (M_conc_young[cpt]-new_conc_young) / RIDGE_YOUNG_ICE_ASPECT_RATIO;
+                    double const newice = M_h_young[cpt]-new_h_young;
+                    double const newsnow = M_hs_young[cpt]-new_hs_young;
 
                     M_h_young[cpt]   = new_h_young;
                     M_hs_young[cpt]  = new_hs_young;
@@ -4078,38 +4104,32 @@ FiniteElement::update(std::vector<double> const & UM_P)
                     // Ridging of young ice - conserve level ice volume, but now area is constant
                     // (1-R^n) H^n = (1-R^{n+1}) H^{n+1}
                     M_ridge_ratio[cpt] = 1. - (1.-M_ridge_ratio[cpt])*M_thick[cpt]/(M_thick[cpt]+newice);
-
                     M_thick[cpt]        += newice;
-                    M_conc[cpt]         += del_c;
-                    M_conc[cpt] = std::min(1.,std::max(M_conc[cpt],0.));
-
                     M_snow_thick[cpt]   += newsnow;
                 }
-
-                M_conc_young[cpt] = new_conc_young;
             }
             else
             {
-                M_conc_young[cpt]=0.;
                 M_h_young[cpt]=0.;
                 M_hs_young[cpt]=0.;
             }
-            conc_young = M_conc_young[cpt];
         }
 
-        double new_conc=std::min(1.,std::max(1.-conc_young-open_water_concentration+del_c,0.));
+        M_conc[cpt] = std::min(1.,std::max(0., 1. - new_conc_young - open_water_concentration + del_c));
+        if ( M_ice_cat_type==setup::IceCategoryType::YOUNG_ICE )
+        {
+            // total conc should be <= 1
+            new_conc_young = std::max(0., std::min(new_conc_young, 1.- M_conc[cpt]));
+            M_conc_young[cpt] = new_conc_young;
+        }
 
-        if((new_conc+conc_young)>1.)
-            new_conc=1.-conc_young;
-
-        M_conc[cpt]=new_conc;
-
-        double max_true_thickness = 50.;
+        // TODO: Remove this "fix"
+        constexpr double MAX_TRUE_THICKNESS = 50.;
         if(M_conc[cpt]>0.)
         {
             double test_h_thick=M_thick[cpt]/M_conc[cpt];
-            test_h_thick = (test_h_thick>max_true_thickness) ? max_true_thickness : test_h_thick ;
-            M_conc[cpt]=std::min(1.-conc_young,M_thick[cpt]/test_h_thick);
+            test_h_thick = (test_h_thick>MAX_TRUE_THICKNESS) ? MAX_TRUE_THICKNESS : test_h_thick ;
+            M_conc[cpt]=std::min(1. - new_conc_young, M_thick[cpt]/test_h_thick);
         }
         else
         {
@@ -7708,8 +7728,8 @@ FiniteElement::initOASIS()
         throw std::runtime_error(std::string("FiniteElement::initOASIS: No coupling option selected. ")
                 + std::string("Set setup.ocean-type to coupled or coupler.with_waves to true to activate the coupling.") );
 
-    M_cpl_out = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-        cpl_time_step*days_in_sec, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+    M_cpl_out = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+        cpl_time_step*days_in_sec, true, M_mesh_root, M_mesh.transferMapElt(), M_comm);
 
     if ( M_ocean_type == setup::OceanType::COUPLED )
     {
@@ -8033,13 +8053,13 @@ FiniteElement::step()
             if ( M_use_moorings && !M_moorings_snapshot )
             {
                 M_timer.tick("updateGridMean");
-                M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+                M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
                 M_timer.tock("updateGridMean");
             }
 
 #ifdef OASIS
             M_timer.tick("updateGridMean_cpl");
-            M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+            M_cpl_out.updateGridMean(M_mesh, M_local_nelements, M_UM);
             M_timer.tock("updateGridMean_cpl");
 #endif
             LOG(DEBUG) <<"Regridding starts\n";
@@ -8058,9 +8078,9 @@ FiniteElement::step()
              * case (so far). */
             M_timer.tick("resetMeshMean_cpl");
             if ( M_rank==0 )
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                M_cpl_out.resetMeshMean(M_mesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), M_mesh_root);
             else
-                M_cpl_out.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
+                M_cpl_out.resetMeshMean(M_mesh, M_regrid, M_local_nelements, M_mesh.transferMapElt());
 
             if ( M_ocean_type == setup::OceanType::COUPLED )
             {
@@ -8084,14 +8104,14 @@ FiniteElement::step()
                 M_timer.tick("resetMeshMean");
 #ifdef OASIS
                 if(vm["moorings.grid_type"].as<std::string>()=="coupled")
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements,
+                    M_moorings.resetMeshMean(M_mesh, M_regrid, M_local_nelements,
                             M_cpl_out.getGridP(), M_cpl_out.getTriangles(), M_cpl_out.getWeights());
                 else
 #endif
                 if ( vm["moorings.use_conservative_remapping"].as<bool>() )
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), bamgmesh_root);
+                    M_moorings.resetMeshMean(M_mesh, M_regrid, M_local_nelements, M_mesh.transferMapElt(), M_mesh_root);
                 else
-                    M_moorings.resetMeshMean(bamgmesh, M_regrid, M_local_nelements);
+                    M_moorings.resetMeshMean(M_mesh, M_regrid, M_local_nelements);
 
                 M_timer.tock("resetMeshMean");
             }
@@ -8259,7 +8279,7 @@ FiniteElement::step()
     this->updateMeans(M_cpl_out, cpl_time_factor);
     if ( pcpt*time_step % cpl_time_step == 0 )
     {
-        M_cpl_out.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+        M_cpl_out.updateGridMean(M_mesh, M_local_nelements, M_UM);
 
         for (auto it=M_cpl_out.M_elemental_variables.begin(); it!=M_cpl_out.M_elemental_variables.end(); ++it)
         {
@@ -8287,7 +8307,7 @@ FiniteElement::step()
                     int ierror = OASIS3::put_2d(it->cpl_id, pcpt*time_step, &it->data_grid[0], M_cpl_out.M_ncols, M_cpl_out.M_nrows);
         }
 
-        M_cpl_out.resetMeshMean(bamgmesh);
+        M_cpl_out.resetMeshMean(M_mesh);
         M_cpl_out.resetGridMean();
     }
     M_timer.tock("coupler put");
@@ -8405,23 +8425,22 @@ void FiniteElement::checkMoveDrifters()
     LOG(DEBUG) << "in checkMoveDrifters\n";
     //! - check if we have any active drifters
     int n_drifters = 0;
-    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        n_drifters += it->isInitialised();
+    if (M_rank == 0)
+    {
+        for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            n_drifters += it->isInitialised();
+    }
     boost::mpi::broadcast(M_comm, n_drifters, 0);
     if(n_drifters==0)
         return;
     LOG(DEBUG) << "Moving " << n_drifters << " drifters...\n";
 
-    //! - gather M_UT to root processor
-    std::vector<double> UT_root;
-    this->gatherNodalField(M_UT, UT_root);
-    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
-    if(M_rank!=0)
-        return;
-
-    //! - move drifters on root processor
+    //! - move drifters on local processor
     for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        it->move(M_mesh_root, UT_root);
+        it->move(M_mesh, M_UT);
+
+    std::fill(M_UT.begin(), M_UT.end(), 0.); // can now reset M_UT to 0
+
 }//checkMoveDrifters
 
 
@@ -8449,19 +8468,12 @@ void FiniteElement::checkUpdateDrifters()
     // Move any active drifters
     this->checkMoveDrifters();
 
-    // Gather the fields needed by the drifters
-    std::vector<double> UM_root, conc_root;
-    this->gatherNodalField(M_UM, UM_root);
-    this->gatherElementField(M_conc, conc_root);
-    if(M_rank!=0)
-        return;
-
     //updateDrifters does initialising, resetting, inputting,
     //outputting (if needed)
-    auto movedmesh_root = M_mesh_root;
-    movedmesh_root.move(UM_root, 1.);
-    for(auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        it->updateDrifters(movedmesh_root, conc_root, M_current_time);
+    auto movedmesh = M_mesh;
+    movedmesh.move(M_UM, 1.);
+    for(auto it = M_drifters.begin(); it != M_drifters.end(); it++)
+        it->updateDrifters(movedmesh, M_conc, M_current_time);
 }//checkUpdateDrifters()
 
 
@@ -8609,6 +8621,11 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::conc_young):
                 for (int i=0; i<M_local_nelements; i++)
                     it->data_mesh[i] += M_conc_young[i]*time_factor;
+                break;
+
+            case (GridOutput::variableID::conc_cons):
+                for (int i=0; i<M_local_nelements; i++)
+                    it->data_mesh[i] += M_conc[i]*time_factor;
                 break;
 
             case (GridOutput::variableID::h_young):
@@ -8952,6 +8969,10 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
     }
 
     // Update nodes
+    std::vector<double> tau_a(M_num_nodes,0.);
+    std::vector<double> conc(M_num_nodes,0.);
+    std::vector<double> surface(M_num_nodes,0.);
+    int n_nodes;
     for ( auto it=means.M_nodal_variables.begin(); it!=means.M_nodal_variables.end(); ++it )
     {
         switch (it->varID)
@@ -9002,6 +9023,19 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
             case (GridOutput::variableID::taux):
             case (GridOutput::variableID::tauy):
             case (GridOutput::variableID::taumod):
+
+                // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
+                for (int i = 0; i < M_mesh.numTriangles(); i++)
+                {
+                    for (int j = 0; j < 3; j++)
+                    {
+                        n_nodes = M_mesh.triangles()[i].indices[j]-1;
+                        tau_a[n_nodes] += D_tau_ow[i] * M_surface[i];
+                        conc[n_nodes] += M_conc[i] * M_surface[i];
+                        surface[n_nodes] += M_surface[i];
+                    }
+                }
+
                 for (int i=0; i<M_num_nodes; i++)
                 {
                     double tau_i;
@@ -9024,27 +9058,9 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
                         wind2 *= wind2;
                     }
-
-                    // Concentration and bulk drag are the area-weighted mean over all neighbouring elements
-                    double tau_a = 0;
-                    double conc = 0;
-                    double surface = 0;
-                    int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-                    for (int j=0; j<num_elements; j++)
-                    {
-                        int elt_num = bamgmesh->NodalElementConnectivity[num_elements*i+j]-1;
-                        // Skip negative elt_num
-                        if ( elt_num < 0 ) continue;
-
-                        tau_a   += D_tau_ow[elt_num] * M_surface[elt_num];
-                        conc    += M_conc[elt_num] * M_surface[elt_num];
-                        surface += M_surface[elt_num];
-                    }
-                    tau_a /= surface;
-                    conc  /= surface;
-
-                    it->data_mesh[i] += ( tau_i*conc + tau_a*wind2*(1.-conc) )*time_factor;
+                    it->data_mesh[i] += ( tau_i*conc[i] + tau_a[i]*wind2*(1.-conc[i]/surface[i]) )*time_factor/surface[i];
                 }
+
                 break;
             default: std::logic_error("Updating of given variableID not implemented (nodes)");
         }
@@ -9104,6 +9120,7 @@ FiniteElement::initMoorings()
             ("Qlh", GridOutput::variableID::Qlh)
             ("delS", GridOutput::variableID::delS)
             ("conc_young", GridOutput::variableID::conc_young)
+            ("conc_cons", GridOutput::variableID::conc_cons)
             ("h_young", GridOutput::variableID::h_young)
             ("hs_young", GridOutput::variableID::hs_young)
             ("sst", GridOutput::variableID::sst)
@@ -9358,7 +9375,7 @@ FiniteElement::initMoorings()
         int nrows = (int) ( 0.5 + ( ymax - ymin )/mooring_spacing );
 
         // Define the mooring dataset
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
+        M_moorings = GridOutput(M_mesh, M_local_nelements, ncols, nrows, mooring_spacing, xmin, ymin, nodal_variables, elemental_variables, vectorial_variables,
                 M_moorings_averaging_period, M_moorings_false_easting);
     }
     else if(vm["moorings.grid_type"].as<std::string>()=="from_file")
@@ -9369,8 +9386,8 @@ FiniteElement::initMoorings()
             GridOutput::Grid grid = GridOutput::Grid(vm["moorings.grid_file"].as<std::string>(),
                     "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
-            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                    M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+            M_moorings = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, true, M_mesh_root, M_mesh.transferMapElt(), M_comm);
         } else {
             // don't use conservative remapping
             GridOutput::Grid grid( Environment::vm()["moorings.grid_file"].as<std::string>(),
@@ -9379,8 +9396,8 @@ FiniteElement::initMoorings()
                     Environment::vm()["moorings.grid_transpose"].as<bool>() );
 
             // Define the mooring dataset
-            M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                    M_moorings_averaging_period, M_moorings_false_easting);
+            M_moorings = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                    M_moorings_averaging_period, M_moorings_false_easting, M_mesh_root);
         }
     }
 #ifdef OASIS
@@ -9390,8 +9407,8 @@ FiniteElement::initMoorings()
         GridOutput::Grid grid = GridOutput::Grid(vm["coupler.exchange_grid_file"].as<std::string>(),
                 "plat", "plon", "ptheta", GridOutput::interpMethod::conservative, false);
 
-        M_moorings = GridOutput(bamgmesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
-                M_moorings_averaging_period, true, bamgmesh_root, M_mesh.transferMapElt(), M_comm);
+        M_moorings = GridOutput(M_mesh, M_local_nelements, grid, nodal_variables, elemental_variables, vectorial_variables,
+                M_moorings_averaging_period, true, M_mesh_root, M_mesh.transferMapElt(), M_comm);
     }
 #endif
     else
@@ -9402,7 +9419,7 @@ FiniteElement::initMoorings()
 
     // As only the root processor knows the entire grid we set the land mask using it
     if ( M_rank == 0 )
-        M_moorings.setLSM(bamgmesh_root);
+        M_moorings.setLSM(M_mesh_root);
 
     // Initialise netCDF output
     if ( (M_rank==0) || M_moorings_parallel_output )
@@ -9496,22 +9513,36 @@ void
 FiniteElement::mooringsAppendNetcdf(double const &output_time)
 {
     // update data on grid
-    M_moorings.updateGridMean(bamgmesh, M_local_nelements, M_UM);
+    M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
 
     if ( ! M_moorings_parallel_output )
     {
         //gather fields to root processor if not using parallel output
         for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
         {
-            std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
-            if (M_rank==0) it->data_grid = result;
+            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
+            if (M_rank == 0)
+            {
+                for (int proc = 1; proc < M_comm.size(); proc++)
+                {
+                    std::vector<double> result;
+                    M_comm.recv(proc, proc, result);
+                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
+                }
+            }
         }
         for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
         {
-            std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
-            if (M_rank==0) it->data_grid = result;
+            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
+            if (M_rank == 0)
+            {
+                for (int proc = 1; proc < M_comm.size(); proc++)
+                {
+                    std::vector<double> result;
+                    M_comm.recv(proc, proc, result);
+                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
+                }
+            }
         }
     }
 
@@ -9520,7 +9551,7 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
         M_moorings.appendNetCDF(M_moorings_file, output_time);
 
     //reset means on mesh and grid
-    M_moorings.resetMeshMean(bamgmesh);
+    M_moorings.resetMeshMean(M_mesh);
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
 
@@ -9559,90 +9590,50 @@ FiniteElement::writeRestart(std::string const& name_str)
     LOG(DEBUG) <<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
     LOG(DEBUG) <<"M_ndof                    = "<< M_ndof <<"\n";
 
-    // get names of the variables in the restart file,
-    // and set pointers to the data (pointers to the corresponding vectors)
-    // NB needs to be done on all processors
-    std::vector<double> elt_values_root;
-    this->gatherFieldsElementIO(elt_values_root, M_prognostic_variables_elt);
+    Exporter exporter;
+    std::string const precision = "double";
+    std::string filename;
 
-    // fields defined on mesh nodes
-    std::vector<double> interp_in_nodes;
-    this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
+    // === Start with the mesh ===
+    // First the data
+    // NB directory is never empty, due to the default of output.exporter_path
+    std::string directory = vm["output.exporter_path"].as<std::string>() + "/restart";
 
-    std::vector<double> M_VT_root;
-    std::vector<double> M_UM_root;
-    std::vector<double> M_UT_root;
+    // create the output directory if it does not exist
+    fs::path output_path(directory);
+    if ( !fs::exists(output_path) )
+        fs::create_directories(output_path);
 
-    int tmp_nb_var=0;
+    filename = (boost::format( "%1%/mesh_%2%.bin" )
+                % directory
+                % name_str ).str();
 
+    // Write the file in parallel
+    MPI_File meshbin;
+    MPI_File_open(MPI_Comm(M_comm), filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY,
+                  MPI_INFO_NULL, &meshbin);
+
+    // Write the mesh and close the file
+    std::vector<int> rmap_nodes, rmap_elements;
+    int size_nodes = M_rmap_nodes.size();
+    boost::mpi::broadcast(M_comm, &size_nodes, 1, 0);
+    int size_elements = M_rmap_elements.size();
+    boost::mpi::broadcast(M_comm, &size_elements, 1, 0);
+    rmap_nodes.resize(size_nodes);
+    rmap_elements.resize(size_elements);
     if (M_rank == 0)
     {
-        M_VT_root.resize(2*M_ndof);
-        M_UM_root.resize(2*M_ndof);
-        M_UT_root.resize(2*M_ndof);
-
-        for (int i=0; i<M_ndof; ++i)
-        {
-            tmp_nb_var = 0;
-
-            // VT_X
-            M_VT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VT_Y
-            M_VT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UM_X
-            M_UM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UM_Y
-            M_UM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UT_X
-            M_UT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UT_Y
-            M_UT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            if(tmp_nb_var>M_nb_var_node)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
+        rmap_nodes = M_rmap_nodes;
+        rmap_elements = M_rmap_elements;
     }
+    boost::mpi::broadcast(M_comm, &rmap_nodes[0], size_nodes, 0);
+    boost::mpi::broadcast(M_comm, &rmap_elements[0], size_elements, 0);
 
-    M_comm.barrier();
+    exporter.writeMesh(meshbin, M_mesh, rmap_nodes, rmap_elements);
+    MPI_File_close(&meshbin);
 
-    if (M_rank == 0)
+    if (M_rank == 0) 
     {
-        Exporter exporter("double");
-        std::string filename;
-
-        // === Start with the mesh ===
-        // First the data
-        // NB directory is never empty, due to the default of output.exporter_path
-        std::string directory = vm["output.exporter_path"].as<std::string>() + "/restart";
-
-        // create the output directory if it does not exist
-        fs::path output_path(directory);
-        if ( !fs::exists(output_path) )
-            fs::create_directories(output_path);
-
-        filename = (boost::format( "%1%/mesh_%2%.bin" )
-                    % directory
-                    % name_str ).str();
-
-        std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
-        if ( ! meshbin.good() )
-            throw std::runtime_error("Cannot write to file: " + filename);
-        exporter.writeMesh(meshbin, M_mesh_root);
-        meshbin.close();
-
         // Then the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % directory
@@ -9653,61 +9644,71 @@ FiniteElement::writeRestart(std::string const& name_str)
             throw std::runtime_error("Cannot write to file: " + filename);
         exporter.writeRecord(meshrecord,"mesh");
         meshrecord.close();
+    }
 
-        // === Write the prognostic variables ===
-        // First the data
-        filename = (boost::format( "%1%/field_%2%.bin" )
-                    % directory
-                    % name_str ).str();
-        std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
-        if ( ! outbin.good() )
-            throw std::runtime_error("Cannot write to file: " + filename);
+    // === Write the prognostic variables ===
+    // First the data
+    filename = (boost::format( "%1%/field_%2%.bin" )
+                % directory
+                % name_str ).str();
 
-        std::vector<int> misc_int(4);
-        misc_int[0] = pcpt;
-        misc_int[1] = M_flag_fix;
-        misc_int[2] = mesh_adapt_step;
-        misc_int[3] = M_nb_regrid;
+    MPI_Offset base_offset = 0;
+    MPI_File outbin;
+    MPI_File_open(MPI_Comm(M_comm), filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY,
+                  MPI_INFO_NULL, &outbin);
 
-        exporter.writeField(outbin, misc_int, "Misc_int");
-        exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+    std::vector<int> misc_int(4);
+    misc_int[0] = pcpt;
+    misc_int[1] = M_flag_fix;
+    misc_int[2] = mesh_adapt_step;
+    misc_int[3] = M_nb_regrid;
 
+    exporter.writeField(outbin, misc_int, "Misc_int", "int", M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
+    exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags", "int", M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
-        std::vector<double> timevec(1);
-        timevec[0] = M_current_time;
-        exporter.writeField(outbin, timevec, "Time");
+    std::vector<double> timevec(1);// time always written as double
+    timevec[0] = M_current_time;
+    exporter.writeField(outbin, timevec, "Time", "double", M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
-        // loop over the elemental variables that have been
-        // gathered to elt_values_root
-        int const nb_var_element = M_restart_names_elt.size();
-        for(int j=0; j<nb_var_element; j++)
+    // loop over the elemental variables
+    int const nb_var_element = M_restart_names_elt.size();
+    for(int j = 0; j < nb_var_element; j++)
+    {
+        auto ptr = M_prognostic_variables_elt[j];
+        std::vector<double> tmp(M_local_nelements);
+        for (int i = 0; i < M_local_nelements; ++i)
         {
-            std::vector<double> tmp(M_mesh_root.numTriangles());
-            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-            {
-                int ri = M_rmap_elements[i];
-                tmp[i] = elt_values_root[nb_var_element*ri+j];
-            }
-            exporter.writeField(outbin, tmp, M_restart_names_elt[j]);
+            tmp[i] = (*ptr)[i];
         }
+        exporter.writeField(outbin, tmp, M_restart_names_elt[j], precision, M_comm, base_offset,
+                            rmap_elements, M_local_nelements, 0, 0);
+    }
 
-        exporter.writeField(outbin, M_VT_root, "M_VT");
-        exporter.writeField(outbin, M_UM_root, "M_UM");
-        exporter.writeField(outbin, M_UT_root, "M_UT");
+    exporter.writeField(outbin, M_VT, "M_VT", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+    exporter.writeField(outbin, M_UM, "M_UM", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+    exporter.writeField(outbin, M_UT, "M_UT", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
 
-        // Add the drifters if they are initialised
-        for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            it->addToRestart(exporter, outbin);
+    // Add the drifters if they are initialised
+    for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        it->addToRestart(exporter, outbin, M_comm, base_offset);
 
-        // Add the previous numbering to the restart file
-        // - used in adaptMesh (updateNodeIds)
-        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+    // Add the previous numbering to the restart file
+    // - used in adaptMesh (updateNodeIds)
+    std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+    if (M_rank == 0)
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
             PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
-        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
-        outbin.close();
+    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering", precision, M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
+    MPI_File_close(&outbin);
+
+    if (M_rank == 0)
+    {
         // Then the record
         filename = (boost::format( "%1%/field_%2%.dat" )
                     % directory
@@ -9728,7 +9729,7 @@ FiniteElement::writeRestart(std::string const& name_str)
 void
 FiniteElement::readRestart(std::string const& name_str)
 {
-    Exporter exp_field("double"), exp_mesh("double");
+    Exporter exp_field, exp_mesh;
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
@@ -9966,6 +9967,15 @@ FiniteElement::readRestart(std::string const& name_str)
 
     // correct the surface area (calculated for M_UM=0 in assignVariables)
     M_surface = this->surface(M_mesh, M_UM, 1.);
+
+    // make sure drifters all have the same init time
+    for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+    {
+        double t_init;
+        if (M_rank == 0) t_init = it->getInitTime();
+        boost::mpi::broadcast(M_comm, t_init, 0);
+        it->setInitTime(t_init);
+    }
 }//readRestart
 
 
@@ -10381,13 +10391,12 @@ FiniteElement::explicitSolve()
     M_timer.tick("prep nodes");
 
     // std::vector<double> tau_a(2*M_num_nodes);
-    // TODO: We can replace M_fcor on the elements with M_fcor on the nodes
-    std::vector<double> fcor(M_num_nodes);
     std::vector<double> const lat = M_mesh.lat();
     std::vector<double> VTM(2*M_num_nodes);
 #ifdef OASIS
     std::vector<double> tau_wi(2*M_num_nodes, 0.);
 #endif
+
     for ( int i=0; i<M_num_nodes; ++i )
     {
         const int u_indx = i;
@@ -10428,9 +10437,6 @@ FiniteElement::explicitSolve()
         D_tau_a[u_indx] = drag * M_wind[u_indx];
         D_tau_a[v_indx] = drag * M_wind[v_indx];
 
-        // Coriolis term
-        fcor[i] = 2*physical::omega*std::sin(lat[i]*PI/180.);
-
         // Post-process mass matrix and nodal mass
         rlmass_matrix[i] = 1./rlmass_matrix[i];  // Now rlmass_matrix is actually the reciprocal of the area of the elements surronding the node
         node_mass[i] *= rlmass_matrix[i];
@@ -10466,7 +10472,7 @@ FiniteElement::explicitSolve()
                 break;
 
             case setup::DynamicsType::mEVP:
-                this->updateSigmaMEVP(dte, e, Pstar, C, delta_min, alpha_mevp);
+                this->updateSigmaMEVP(e, Pstar, C, delta_min, alpha_mevp);
                 break;
 
             case setup::DynamicsType::BBM:
@@ -10513,7 +10519,7 @@ FiniteElement::explicitSolve()
             int u_indx = i;
             int v_indx = i+M_num_nodes;
 
-            // mEVP modificatinos and additional term
+            // mEVP modifications and additional term
             double dtep, delu, delv;
             if ( M_dynamics_type == setup::DynamicsType::mEVP )
             {
@@ -10528,7 +10534,8 @@ FiniteElement::explicitSolve()
             }
 
             /* This is Hunke and Dukowicz's solution to (22), multiplied
-             * with (\Delta t/m)^2 to ensure stability for c' = 0 */
+             * with (\Delta t/m)^2 to ensure stability for c' = 0
+             * NB minus sign error in v equation after decoupling u and v*/
             double const dte_over_mass = dtep/std::max(min_m, node_mass[i]);
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
@@ -10537,7 +10544,7 @@ FiniteElement::explicitSolve()
 
             double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
-            double const beta   = dtep*fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
+            double const beta   = dtep*M_fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
             double const rdenom = 1./( alpha*alpha + beta*beta );
 
             double const tau_x = D_tau_a[u_indx]
@@ -10555,10 +10562,10 @@ FiniteElement::explicitSolve()
             double const grad_x = grad_terms[u_indx]*rlmass_matrix[i];
             double const grad_y = grad_terms[v_indx]*rlmass_matrix[i];
 
-            M_VT[u_indx]  = alpha*uice + beta*vice + dte_over_mass*( alpha*(grad_x + tau_x) + beta*(grad_y + tau_y) ) + delu;
+            M_VT[u_indx]  = alpha*uice + beta*vice + dte_over_mass*( alpha*(grad_x + tau_x) + beta*(grad_y + tau_y) ) + alpha*delu + beta*delv;
             M_VT[u_indx] *= rdenom;
 
-            M_VT[v_indx]  = alpha*vice - beta*uice + dte_over_mass*( alpha*(grad_y + tau_y) + beta*(grad_x + tau_x) ) + delv;
+            M_VT[v_indx]  = alpha*vice - beta*uice + dte_over_mass*( alpha*(grad_y + tau_y) - beta*(grad_x + tau_x) ) + alpha*delv - beta*delu;
             M_VT[v_indx] *= rdenom;
         }
         M_timer.tock("sub-solve");
@@ -10677,16 +10684,12 @@ FiniteElement::explicitSolve()
 }
 
 //------------------------------------------------------------------------------------------------------
-//! Calculates M_sigma for the EVP model
-//! Called by the explicitSolve function
+//! Calculates M_sigma for the EVP and mEVP models
+//! Called by updateSigmaEVP and updateSigmaMEVP
 inline void
-FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min)
+FiniteElement::updateSigmaVP(double const e, double const Pstar, double const C, double const delta_min, double const ralpha1, double const ralpha2)
 {
     double const re2 = 1./(e*e);
-    double const Tevp_inv = 3./dtime_step;
-
-    double const det1 = 1./( 1. + 0.5*Tevp_inv*dte );
-    double const det2 = 1./( 1. + 0.5*Tevp_inv*dte*e*e );
 
     for ( int cpt=0; cpt<M_num_elements; cpt++ )
     {
@@ -10719,91 +10722,48 @@ FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pst
         double const eps2 = eps11 - eps22;
 
         double const delta = std::sqrt( eps1*eps1 + (eps2*eps2 + 4*eps12*eps12)*re2 );
+        double const P = Pstar*std::exp(-C*(1.-M_conc[cpt]));
+        double const zeta = P / ( delta + delta_min );
 
-        double pressure = Pstar*std::exp(-C*(1.-M_conc[cpt]));
-
-        pressure *= 0.5;
-        double const delta_inv = 1./std::max(delta, delta_min);
-
-        double zeta = pressure*delta_inv;
-        pressure *= delta*delta_inv;
-        pressure *= Tevp_inv;
-        zeta *= Tevp_inv;
-
-        double const r1 = zeta*eps1 - pressure;
-        double const r2 = zeta*eps2;
-        double const r3 = zeta*eps12*re2;
         double sigma1 = M_sigma[0][cpt] + M_sigma[1][cpt];
         double sigma2 = M_sigma[0][cpt] - M_sigma[1][cpt];
 
-        sigma1 = det1*(sigma1 + dte*r1);
-        sigma2 = det2*(sigma2 + dte*r2);
-        M_sigma[2][cpt] = det2*(M_sigma[2][cpt] + dte*r3);
+        // Sylvain's eqs 43--45
+        sigma1 += ralpha1*( zeta*(eps1-delta) - sigma1 );
+        sigma2 += ralpha2*( zeta*eps2*re2 - sigma2 );
+        M_sigma[2][cpt] += ralpha2*( zeta*eps12*re2 - M_sigma[2][cpt] );
+
         M_sigma[0][cpt] = 0.5*(sigma1 + sigma2);
         M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
+
     }
+} //updateSigmaVP
+
+//------------------------------------------------------------------------------------------------------
+//! Calculates M_sigma for the EVP model
+//! Called by the explicitSolve function
+inline void
+FiniteElement::updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min)
+{
+    // Sergey's default T
+    double const T = dtime_step / 3.;
+
+    double const ralpha1 = 0.5*dte/T;
+    double const ralpha2 = 0.5*dte/T*e*e;
+
+    this->updateSigmaVP(e, Pstar, C, delta_min, ralpha1, ralpha2);
+
 } //updateSigmaEVP
 
 //------------------------------------------------------------------------------------------------------
 //! Calculates M_sigma for the mEVP
 //! Called by the explicitSolve function
 inline void
-FiniteElement::updateSigmaMEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min, double const alpha)
+FiniteElement::updateSigmaMEVP(double const e, double const Pstar, double const C, double const delta_min, double const alpha)
 {
-    double const re2 = 1./(e*e);
-    double const Tevp_inv = 3./dtime_step;
 
-    double const det2 = 1./( 1. + alpha );
-    double const det1 = alpha*det2;
+    this->updateSigmaVP(e, Pstar, C, delta_min, 1./alpha, 1./alpha);
 
-    for ( int cpt=0; cpt<M_num_elements; cpt++ )
-    {
-        // Skip ice-free elements (it's just a zero term anyway)
-        if ( M_thick[cpt] == 0. )
-        {
-            for ( int i=0; i<M_sigma.size(); ++i )
-                M_sigma[i][cpt] = 0.;
-
-            continue;
-        }
-
-        // Deformation rate tensor on element
-        // Sum up over the nodes of this element
-        double eps11 = 0.;
-        double eps22 = 0.;
-        double eps12 = 0.;
-        for(int i=0; i<3; i++)
-        {
-            double const u = M_VT[(M_elements[cpt]).indices[i]-1];
-            double const v = M_VT[(M_elements[cpt]).indices[i]-1 + M_num_nodes];
-            double const dxN = M_shape_coeff[cpt][i];
-            double const dyN = M_shape_coeff[cpt][i+3];
-            eps11 += dxN*u;
-            eps22 += dyN*v;
-            eps12 += 0.5*( dxN*v + dyN*u );
-        }
-
-        double const eps1 = eps11 + eps22;
-        double const eps2 = eps11 - eps22;
-
-        double const delta = std::sqrt( eps1*eps1 + (eps2*eps2 + 4*eps12*eps12)*re2 );
-
-        double const pressure = Pstar*std::exp(-C*(1.-M_conc[cpt]))/(delta+delta_min);
-
-        double const r1 = pressure*(eps1-delta);
-        double const r2 = pressure*eps2*re2;
-        double const r3 = pressure*eps12*re2;
-
-        double sigma1 = M_sigma[0][cpt] + M_sigma[1][cpt];
-        double sigma2 = M_sigma[0][cpt] - M_sigma[1][cpt];
-
-        sigma1 = det1*sigma1 + det2*r1;
-        sigma2 = det1*sigma2 + det2*r2;
-
-        M_sigma[2][cpt] = det1*M_sigma[2][cpt] + det2*r3;
-        M_sigma[0][cpt] = 0.5*(sigma1 + sigma2);
-        M_sigma[1][cpt] = 0.5*(sigma1 - sigma2);
-    }
 } //updateSigmaMEVP
 
 //------------------------------------------------------------------------------------------------------
@@ -13816,7 +13776,7 @@ void
 FiniteElement::calcCoriolis()
 {
     // Interpolation of the latitude
-    std::vector<double> lat = M_mesh.meanLat();
+    std::vector<double> lat = M_mesh.lat();
 
     for (int i=0; i<M_fcor.size(); ++i)
         M_fcor[i] = 2*(physical::omega)*std::sin(lat[i]*PI/180.);
@@ -14059,11 +14019,15 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
 
     std::vector<std::vector<double>> ghost_update_values(M_comm.size());
 
-    for (int const& proc : M_recipients_proc_id)
-        M_comm.send(proc, M_rank, extract_local_values[proc]);
+    std::vector<boost::mpi::request> request;
+    for (int const& proc : M_recipients_proc_id) {
+        request.push_back(M_comm.isend(proc, M_rank, extract_local_values[proc]));
+    }
 
     for (int const& proc : M_local_ghosts_proc_id)
-        M_comm.recv(proc, proc, ghost_update_values[proc]);
+        request.push_back(M_comm.irecv(proc, proc, ghost_update_values[proc]));
+
+    boost::mpi::wait_all(request.begin(), request.end());
 
     for (int i=0; i<M_local_ghosts_local_index.size(); i++)
     {
@@ -14241,9 +14205,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         bool const& export_fields, bool const& apply_displacement)
 {
 
-    std::vector<double> M_UM_root;
-    this->gatherNodalField(M_UM, M_UM_root);
-
     // fields defined on mesh elements
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
@@ -14251,77 +14212,53 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    // get names of the variables in the output file,
-    // and set pointers to the data (pointers to the corresponding vectors)
-    // NB needs to be done on all processors
-    std::vector<double> M_surface_root;
-    auto names_elements = M_export_names_elt;
-    std::vector<ExternalData*> ext_data_elements;
-    std::vector<double> elt_values_root;
-    std::vector<double> M_VT_root;
-#if defined (OASIS)
-    std::vector<double> M_tau_wi_root;
-#endif
-    std::vector<double> M_wind_root;
-    std::vector<double> M_ocean_root;
-    std::vector<double> M_ssh_root;
-    if(export_fields)
+    // Need of the rmaps on each partition
+    std::vector<int> rmap_nodes, rmap_elements;
+    if (export_mesh || export_fields)
     {
-        M_surface_root = this->surface(M_mesh_root, M_UM_root);
-
-        if(vm["output.save_forcing_fields"].as<bool>())
+        int size_nodes = M_rmap_nodes.size();
+        boost::mpi::broadcast(M_comm, &size_nodes, 1, 0);
+        int size_elements = M_rmap_elements.size();
+        boost::mpi::broadcast(M_comm, &size_elements, 1, 0);
+        rmap_nodes.resize(size_nodes);
+        rmap_elements.resize(size_elements);
+        if (M_rank == 0)
         {
-            ext_data_elements = M_external_data_elements;
-            for(auto name : M_external_data_elements_names)
-                names_elements.push_back(name);
+            rmap_nodes = M_rmap_nodes;
+            rmap_elements = M_rmap_elements;
         }
-        this->gatherFieldsElementIO(elt_values_root, M_export_variables_elt, ext_data_elements);
-
-        // manually export some vectors defined on the nodes
-        this->gatherNodalField(M_VT, M_VT_root);
-#if defined (OASIS)
-        if (M_couple_waves && M_recv_wave_stress)
-            this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
-#endif
-        if (vm["output.save_forcing_fields"].as<bool>())
-        {
-            this->gatherNodalField(M_wind.getVector(), M_wind_root);
-            this->gatherNodalField(M_ocean.getVector(), M_ocean_root);
-            this->gatherNodalField(M_ssh.getVector(), M_ssh_root);
-        }
-        this->gatherNodalField(M_wind.getVector(),M_wind_root);
+        boost::mpi::broadcast(M_comm, &rmap_nodes[0], size_nodes, 0);
+        boost::mpi::broadcast(M_comm, &rmap_elements[0], size_elements, 0);
     }
-    M_comm.barrier();
-    if (M_rank == 0)
+
+    Exporter exporter;
+    std::string fileout;
+
+    if (export_mesh)
     {
+        fileout = filenames[0]+".bin";
+        LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
-        Exporter exporter(vm["output.exporter_precision"].as<std::string>());
-        std::string fileout;
+        // Make a copy of the mesh to avoid introduction of random modifications
+        // in the next timesteps introduced by two mesh moves (1 and -1) on M_mesh
+        mesh_type M_mesh_cpy = mesh_type();
+        M_mesh_cpy = M_mesh;
 
-        if (export_mesh)
+        // move the mesh for the export
+        if(apply_displacement) M_mesh_cpy.move(M_UM,1.);
+
+        // Write the file in parallel
+        MPI_File meshbin;
+        MPI_File_open(MPI_Comm(M_comm), fileout.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, 
+                      MPI_INFO_NULL, &meshbin);
+
+        // Write the mesh and close the file
+        exporter.writeMesh(meshbin, M_mesh_cpy, rmap_nodes, rmap_elements);
+        MPI_File_close(&meshbin);
+
+        // Write the ascii file sequentially
+        if (M_rank == 0)
         {
-            fileout = filenames[0]+".bin";
-            LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
-
-            if(apply_displacement)
-            {
-                // move the mesh for the export
-                M_mesh_root.move(M_UM_root,1.);
-            }
-
-            std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-            if ( !meshbin.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
-
-            exporter.writeMesh(meshbin, M_mesh_root);
-            meshbin.close();
-
-            if(apply_displacement)
-            {
-                // move it back after the export
-                M_mesh_root.move(M_UM_root,-1.);
-            }
-
             fileout = filenames[0]+".dat";
 
             LOG(VERBOSE) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
@@ -14333,64 +14270,86 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeRecord(outrecord,"mesh");
             outrecord.close();
         }
+    }
 
-        if (export_fields)
-        {
-            fileout = filenames[1]+".bin";
-            LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
+    if (export_fields)
+    {
+        std::string const precision = vm["output.exporter_precision"].as<std::string>();
+        MPI_Offset base_offset = 0;
 
-            std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-            if ( !outbin.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
+        fileout = filenames[1]+".bin";
+        LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
-            std::vector<double> timevec = {M_current_time};
-            std::vector<int> regridvec = {M_nb_regrid};
+        MPI_File outbin;
+        MPI_File_open(MPI_Comm(M_comm), fileout.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, 
+                      MPI_INFO_NULL, &outbin);
 
-            exporter.writeField(outbin, timevec, "Time");
-            // exporter.writeField(outbin, regridvec, "M_nb_regrid");
-            // exporter.writeField(outbin, M_surface_root, "Element_area");
-            // exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+        // Nodes
+        std::vector<double> timevec = {M_current_time};// time always written as double
+        exporter.writeField(outbin, timevec, "Time", "double", M_comm, base_offset,
+                            rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
-            //manually export some vectors defined on the nodes
-            std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
-            if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
-                exporter.writeField(outbin, M_VT_root, "M_VT");
+        //manually export some vectors defined on the nodes
+        std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
+        if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
+            exporter.writeField(outbin, M_VT, "M_VT", precision, M_comm, base_offset,
+                                rmap_nodes, M_local_ndof, M_num_nodes, 0);
 #if defined (OASIS)
-            if (M_couple_waves && M_recv_wave_stress)
-                exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
+        if (M_couple_waves && M_recv_wave_stress)
+            exporter.writeField(outbin, M_tau_wi.getVector(), "M_tau_wi", precision, M_comm,
+                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
 #endif
-            if (vm["output.save_forcing_fields"].as<bool>())
-            {
-                exporter.writeField(outbin, M_wind_root, "M_wind");
-                exporter.writeField(outbin, M_ocean_root, "M_ocean");
-                exporter.writeField(outbin, M_ssh_root, "M_ssh");
+        if (vm["output.save_forcing_fields"].as<bool>())
+        {
+            exporter.writeField(outbin, M_wind.getVector(), "M_wind", precision, M_comm,
+                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+            exporter.writeField(outbin, M_ocean.getVector(), "M_ocean", precision, M_comm,
+                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+            exporter.writeField(outbin, M_ssh.getVector(), "M_ssh", precision, M_comm,
+                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+        }
+
+        // Elements
+        int unused_int = 0;
+        auto names_elements = M_export_names_elt;
+        std::vector<double> elt_values_local(M_local_nelements);
+        for(int j = 0; j < M_export_variables_elt.size(); j++)
+        {
+            auto ptr = M_export_variables_elt[j];
+            for (int i = 0; i < M_local_nelements; ++i)
+            {       
+                elt_values_local[i] = (*ptr)[i];
             }
+            exporter.writeField(outbin, elt_values_local, names_elements[j], precision, M_comm,
+                                base_offset, rmap_elements, M_local_nelements, unused_int, 0);
+        }
+        if(vm["output.save_forcing_fields"].as<bool>())
+        {
+            for(auto name : M_external_data_elements_names) names_elements.push_back(name);
 
-
-            // loop over the elemental variables that have been
-            // gathered to elt_values_root
-            int const nb_var_element = names_elements.size();
-            for(int j=0; j<nb_var_element; j++)
-            {
-                std::vector<double> tmp(M_mesh_root.numTriangles());
-                for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+        	for(int j = 0; j < M_external_data_elements.size(); j++)
+        	{
+        	    auto ptr = M_external_data_elements[j];
+        	    for (int i = 0; i<M_local_nelements; ++i)
                 {
-                    int ri = M_rmap_elements[i];
-                    tmp[i] = elt_values_root[nb_var_element*ri+j];
+                	elt_values_local[i] = (*ptr)[i];
                 }
-                exporter.writeField(outbin, tmp, names_elements[j]);
+                exporter.writeField(outbin, elt_values_local, names_elements[j+M_export_variables_elt.size()], precision,
+                                    M_comm, base_offset, rmap_elements, M_local_nelements, unused_int, 0);
+        	}
+        }
 
-            }
+        MPI_File_close(&outbin);
 
-            outbin.close();
-
+        if (M_rank == 0)
+        {
             fileout = filenames[1]+".dat";
             LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-
+    
             std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
             if ( !outrecord.good() )
                 throw std::runtime_error("Cannot write to file: " + fileout);
-
+    
             exporter.writeRecord(outrecord);
             outrecord.close();
         }
@@ -14553,7 +14512,7 @@ FiniteElement::writeLogFile()
         if ( fs::exists(path1) )
         {
             fs::path path2(M_export_path+ "/" + path1.filename().string());
-            fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
+            fs::copy_file(path1, path2, fs::copy_options::overwrite_existing);
         }
     }
 }//writeLogFile
@@ -14570,7 +14529,6 @@ FiniteElement::checkVelocityFields()
     // minimum speed to trigger velocity check
     double const spd_lim = 0.5;
 
-    int const num_nodes = bamgmesh->NodalConnectivitySize[0];
     int const max_num_neighbours = bamgmesh->NodalConnectivitySize[1];
 
     std::vector<double> uv(2), std_spd(2), avg_spd(2), rel_err(2);
@@ -14748,86 +14706,109 @@ FiniteElement::checkFields()
     std::stringstream crash_msg;
     bool crash_els = false;
 
-    for(int i=0; i<M_num_elements; i++)
+    std::vector<int> indices;
+    auto names = M_external_data_elements_names;
+
+    // common sense maxima (not absolute maxima)
+    boost::unordered_map<std::string, double>
+        too_high_values = boost::assign::map_list_of
+            ("M_thick", 35.)
+            ;
+
+    // check the forcings 1st
+    for (int j = 0; j < M_external_data_elements.size(); j++)
     {
+        auto ptr = M_external_data_elements[j];
+        auto name = names[j];
+
         std::vector<double> values;
-        auto names = M_external_data_elements_names;
+        for(int i = 0; i < M_num_elements; i++) values.push_back(ptr->get(i));
 
-        // common sense maxima (not absolute maxima)
-        boost::unordered_map<std::string, double>
-            too_high_values = boost::assign::map_list_of
-                ("M_thick", 35.)
-                ;
-
-        // check the forcings 1st
-        for (int j=0; j<M_external_data_elements.size(); j++)
+        if (std::any_of(values.begin(), values.end(), [](double x) { return std::isnan(x); }))
         {
-            auto ptr = M_external_data_elements[j];
-            auto name = names[j];
-            double val = ptr->get(i);
-            values.push_back(val);
-            if(std::isnan(val))
+            crash_els = true;
+            crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+            for (int i = 0; i < M_num_elements; i++)
             {
-                crash_els = true;
-                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+                if (std::isnan(values[i])) indices.push_back(i);
+            }
+        }
+    }
+
+    // check the variables 2nd
+    for (auto ptr: M_variables_elt)
+    {
+        std::string name = ptr->name();
+        names.push_back(name);
+
+        // is it nan?
+        if (std::any_of(ptr->begin(), ptr->end(), [](double x) { return std::isnan(x); }))
+        {
+            crash_els = true;
+            crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
+            for (int i = 0; i < M_num_elements; i++)
+            {
+                if (std::isnan((*ptr)[i])) indices.push_back(i);
             }
         }
 
-        // check the variables 2nd
-        for (auto ptr: M_variables_elt)
+        // is it < min allowed value?
+        double val = *std::min_element(ptr->begin(), ptr->end());
+        if(ptr->hasMinVal())
         {
-            double val = (*ptr)[i];//vecs_to_check[j] is a pointer, so dereference
-            std::string name = ptr->name();
-            values.push_back(val);
-            names.push_back(name);
-
-            // is it nan?
-            if(std::isnan(val))
+            double thresh = ptr->minVal() - 1.e-8;
+            if(val < thresh)
             {
                 crash_els = true;
-                crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
-            }
-
-            // is it < min allowed value?
-            if(ptr->hasMinVal())
-            {
-                double thresh = ptr->minVal() - 1.e-8;
-                if(val<thresh)
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
+                    << val << " < " << thresh
+                    << ", |diff|=" << thresh - val << "\n";
+                for (int i = 0; i < M_num_elements; i++)
                 {
-                    crash_els = true;
-                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
-                        << val << " < " << thresh
-                        << ", |diff|=" << thresh - val << "\n";
-                }
-            }
-
-            // is it > max allowed value?
-            if(ptr->hasMaxVal())
-            {
-                double thresh = ptr->maxVal() + 1.e-8;
-                if(val>thresh)
-                {
-                    crash_els = true;
-                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
-                        << val << " > " << thresh
-                        << ", |diff|=" << val-thresh << "\n";
-                }
-            }
-
-            // check if it is too high for common sense
-            if(too_high_values.count(name)>0)
-            {
-                double thresh = too_high_values[name];
-                if(val > thresh)
-                {
-                    crash_els = true;
-                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
-                        << val << " > " << thresh << "\n";
+                    if ((*ptr)[i] < thresh) indices.push_back(i);
                 }
             }
         }
+
+        // is it > max allowed value?
+        val = *std::max_element(ptr->begin(), ptr->end());
+        if(ptr->hasMaxVal())
+        {
+            double thresh = ptr->maxVal() + 1.e-8;
+            if(val > thresh)
+            {
+                crash_els = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
+                    << val << " > " << thresh
+                    << ", |diff|=" << val-thresh << "\n";
+                for (int i = 0; i < M_num_elements; i++)
+                {
+                    if ((*ptr)[i] > thresh) indices.push_back(i);
+                }
+            }
+        }
+
+        // check if it is too high for common sense
+        if(too_high_values.count(name) > 0)
+        {
+            double thresh = too_high_values[name];
+            val = *std::max_element(ptr->begin(), ptr->end());
+            if(val > thresh)
+            {
+                crash_els = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
+                    << val << " > " << thresh << "\n";
+                for (int i = 0; i < M_num_elements; i++)
+                {
+                    if ((*ptr)[i] > thresh) indices.push_back(i);
+                }
+            }
+        }
+    }
 
 #ifdef OASIS
+    for (int i = 0; i < M_num_elements; i++)
+    {
         if(M_num_fsd_bins>0)
         {
             double ctot = M_conc[i];
@@ -14847,73 +14828,67 @@ FiniteElement::checkFields()
                     crash_msg << " M_conc_young ="<< M_conc_young[i]<< " \n";
             }
         }
+    }
 #endif
 
-        if((printout && i==itest) || crash_els)
-        {
-            // printout all the variables' values
+    if((printout && std::find(indices.begin(), indices.end(), itest) != indices.end()) || crash_els)
+    {
+        // printout all the variables' values
+        int i = indices[0];
+        if (std::find(indices.begin(), indices.end(), itest) != indices.end()) i = itest;
 
-            // get x,y and lon, lat at current position
-            double xtest = 0.;
-            double ytest = 0.;
-            double lat_test = 0.;
-            double lon_test = 0.;
+        // get x,y and lon, lat at current position
+        double xtest = 0.;
+        double ytest = 0.;
+        double lat_test = 0.;
+        double lon_test = 0.;
 
-            auto movedmesh = M_mesh;
-            movedmesh.move(M_UM, 1.);
-            xtest = movedmesh.bCoordX()[i];
-            ytest = movedmesh.bCoordY()[i];
+        auto movedmesh = M_mesh;
+        movedmesh.move(M_UM, 1.);
+        xtest = movedmesh.bCoordX()[i];
+        ytest = movedmesh.bCoordY()[i];
 
-            // get lon, lat at test position
-            mapx_class *map;
-            std::string mppfile = Environment::nextsimMppfile();
-            std::vector<char> str(mppfile.begin(), mppfile.end());
-            str.push_back('\0');
-            map = init_mapx(&str[0]);
-            inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
-            close_mapx(map);
+        // get lon, lat at test position
+        mapx_class *map;
+        std::string mppfile = Environment::nextsimMppfile();
+        std::vector<char> str(mppfile.begin(), mppfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
+        inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
+        close_mapx(map);
 
-            LOG(INFO)<<pcpt<<"\n";
-            LOG(INFO)<<datenumToString(M_current_time)<<"\n";
-            LOG(INFO)<<M_nb_regrid<<"\n";
-            LOG(INFO)<<i<<"\n";
-            LOG(INFO)<<xtest <<"," <<ytest <<"\n";
-            LOG(INFO)<<lon_test <<"," <<lat_test <<"\n";
+        LOG(INFO)<<pcpt<<"\n";
+        LOG(INFO)<<datenumToString(M_current_time)<<"\n";
+        LOG(INFO)<<M_nb_regrid<<"\n";
+        LOG(INFO)<<i<<"\n";
+        LOG(INFO)<<xtest <<"," <<ytest <<"\n";
+        LOG(INFO)<<lon_test <<"," <<lat_test <<"\n";
 
-            for(int j=0; j<names.size(); j++)
-            {
-                if(j<M_external_data_elements_names.size())
-                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
-                else
-                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
-            }
-            std::cout<<"\n";
-        }
-        if(crash_els) break;
-    }// loop over elements
+        std::cout<<"\n";
+    }
 
     bool crash_nd = false;
-    for (int i=0; i<M_num_nodes; i++)
-    {
-        std::vector<double> values;
-        auto names = M_external_data_nodes_names;
+    names = M_external_data_nodes_names;
 
-        for (int j=0; j<M_external_data_nodes.size(); j++)
+    for (int j = 0; j < M_external_data_nodes.size(); j++)
+    {
+        auto ptr = M_external_data_nodes[j];
+        auto name = names[j];
+
+        std::vector<double> values;
+        for(int i = 0; i < M_num_nodes; i++) values.push_back(ptr->get(i));
+
+        if (ptr->isVector())
         {
-            auto ptr = M_external_data_nodes[j];
-            auto name = names[j];
-            double val = ptr->get(i);
-            if (ptr->isVector())
-                val = std::hypot(val, ptr->get(i + M_num_nodes));
-            values.push_back(val);
-            if(std::isnan(val))
-            {
-                crash_nd = true;
-                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
-            }
+            for(int i = 0; i < M_num_nodes; i++) values.push_back(ptr->get(i + M_num_nodes));
         }
-        if(crash_nd) break;
-    }//loop over nodes
+
+        if (std::any_of(values.begin(), values.end(), [](double x) { return std::isnan(x); }))
+        {
+            crash_nd = true;
+            crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+        }
+    }
 
     bool const crash = (crash_els || crash_nd);
     // Export everything and crash
