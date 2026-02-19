@@ -57,10 +57,10 @@ void checkTriangle(std::vector<int> &indexTr, std::vector<double> &coordX, std::
 bool visited(int current_triangle, std::vector<int> const &triangles);
 
 // Check if points are inside polygon
-bool checkIfInside(std::vector<double> const &vertx, std::vector<double> const &verty, double testx, double testy);
+bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& verty, double testx, double testy, bool inclusive);
 
 // Calculate the area
-double area(std::vector<std::pair<double,double>> &points);
+double area(std::vector<std::pair<double,double>>& points);
 
 // Check for intersection and add intersecting points to the list
 // https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect

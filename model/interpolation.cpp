@@ -682,7 +682,7 @@ checkTriangle(std::vector<int> &indexTr, std::vector<double> &coordX, std::vecto
         Y[i] = coordY[nodeID[i]]; //mesh.nodes()[nodeID[i]].coords[1];
 
         // If we're inside we note the point and call self for the surrounding triangles
-        inCell[i] = checkIfInside(gridCornerX, gridCornerY, X[i], Y[i]);
+        inCell[i] = checkIfInside(gridCornerX, gridCornerY, X[i], Y[i], false);
         if ( inCell[i] )
         {
             points.push_back(std::make_pair(X[i],Y[i]));
@@ -707,7 +707,7 @@ checkTriangle(std::vector<int> &indexTr, std::vector<double> &coordX, std::vecto
     int counter = 0;
     for (int i=0; i<num_corners; ++i)
     {
-        if ( checkIfInside(X, Y, gridCornerX[i], gridCornerY[i]) )
+        if ( checkIfInside(X, Y, gridCornerX[i], gridCornerY[i], true) )
         {
             points.push_back(std::make_pair(gridCornerX[i],gridCornerY[i]));
             ++counter;
@@ -779,41 +779,75 @@ visited(int current_triangle, std::vector<int> const &triangles)
     return false;
 } // visited
 
-// Check if points are inside polygon
-bool checkIfInside(std::vector<double> const &vertx, std::vector<double> const &verty, double testx, double testy)
+#if 0
+// Check if points are inside polygon using area
+bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& verty, double testx, double testy)
 {
-    // Initilisation and sanity check
-    bool inside = false;
-    double EPSILON = 1.e-10;
-    int nvert = vertx.size();
+    // Initialisation and sanity check
+    const int nvert = vertx.size();
     assert(nvert==verty.size());
 
-    double dx = std::max(fabs(vertx[1] - vertx[0]), fabs(vertx[2] - vertx[0]));
+    // Construct a points list
+    std::vector<std::pair<double,double>> points;
+    for (int i = 0; i < nvert; ++i)
+        points.push_back({vertx[i], verty[i]});
+
+    // Calculate the triangle/quadrangle area
+    const double org_area = area(points);
+
+    // Add the test point to the polygon
+    points.push_back({testx, testy});
+
+    /* If the area of the new polygon is smaller than that of the original
+     * polygon, then the point is inside. */
+    return org_area > area(points);
+
+
+    
+} //checkIfInside
+#endif
+
+// Check if points are inside polygon using a cross product
+bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& verty, double testx, double testy, bool inclusive)
+{
+    // Initilisation and sanity check
+    const int nvert = vertx.size();
+    assert(nvert==verty.size());
 
     // Check if the point is on a vertex of the triangle
-    for (int i = 0; i < nvert; ++i) {
-        if (fabs(testx - vertx[i]) < EPSILON*dx && fabs(testy - verty[i]) < EPSILON*dx) {
-            return true;
-        }
+    const double eps = 1.e-3;
+    for (int i = 0; i < nvert; ++i)
+        if (std::abs(testx - vertx[i]) < eps && std::abs(testy - verty[i]) < eps)
+            return inclusive;
+
+    // The cross product
+    auto cross = [&](double ax, double ay, double bx, double by, double px, double py) {
+        return (bx - ax)*(py - ay) - (by - ay)*(px - ax);
+    };
+
+    // Check the cross product for all sides
+    bool hasPos = false;
+    bool hasNeg = false;
+    const double epsx = 1e-8;
+    for (int i=0; i<nvert; ++i) {
+
+        const double ax = vertx[i];
+        const double ay = verty[i];
+        const double bx = vertx[(i+1) % nvert]; // Wraps around to 0 at the end
+        const double by = verty[(i+1) % nvert];
+
+
+        double cp = cross(ax, ay, bx, by, testx, testy);
+
+        if (cp >  epsx) hasPos = true;
+        if (cp < -epsx) hasNeg = true;
+
+        // If we found both positive and negative cross products, the point is outside.
+        if (hasPos && hasNeg ) return false;
     }
 
-    // Check if the point is on an edge of the triangle
-    for (int i = 0, j = nvert - 1; i < nvert; j = i++) {
-        if (fabs((testx - vertx[i]) * (verty[j] - verty[i]) - (testy - verty[i]) * (vertx[j] - vertx[i])) < EPSILON*dx*dx &&
-            (testx >= std::min(vertx[i], vertx[j]) && testx <= std::max(vertx[i], vertx[j])) &&
-            (testy >= std::min(verty[i], verty[j]) && testy <= std::max(verty[i], verty[j]))) {
-            return true;
-        }
-    }
+    return true;
 
-    // Ray-casting
-    int j = nvert-1;
-    for (int i = 0; i<nvert; j=i++)
-        if ( ((verty[i]>testy) != (verty[j]>testy)) &&
-            (testx < (vertx[j]-vertx[i]) * (testy-verty[i]) / (verty[j]-verty[i]) + vertx[i]) )
-                inside = !inside;
-
-    return inside;
 } //checkIfInside
 
 // Check for intersection and add intersecting points to the list
@@ -862,7 +896,7 @@ checkIfIntersecting(double X, double Y, double Xprev, double Yprev, std::vector<
 
 // Calculate the area
 double 
-area(std::vector<std::pair<double,double>> &points)
+area(std::vector<std::pair<double,double>>& points)
 {
     // Just a quick check
     if ( points.size() < 3 )
