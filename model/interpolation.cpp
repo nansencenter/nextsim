@@ -843,6 +843,7 @@ bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& 
     // Check the cross product for all sides
     bool hasPos = false;
     bool hasNeg = false;
+    bool hasMaybe = false;
     const double epsx = 1e-8;
     for (int i=0; i<nvert; ++i) {
 
@@ -854,12 +855,19 @@ bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& 
 
         double cp = cross(ax, ay, bx, by, testx, testy);
 
-        if (cp >  epsx) hasPos = true;
-        if (cp < -epsx) hasNeg = true;
+        if (cp >  epsx)
+            hasPos = true;
+        else if (cp < -epsx)
+            hasNeg = true;
+        else
+            hasMaybe = true;
 
         // If we found both positive and negative cross products, the point is outside.
         if (hasPos && hasNeg ) return false;
     }
+
+    // If we're uncertain, then we take our cue from the caller
+    if ( hasMaybe ) return inclusive;
 
     return true;
 
