@@ -592,7 +592,7 @@ void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double
             points.push_back(std::make_pair(cornerX[corner],cornerY[corner]));
         }
 
-        // Get scalse from area and side length (assuming the triangle is equilateral).
+        // Get scales from area and side length (assuming the triangle is equilateral).
         const double A = area(points);
         const double a = 2.*std::sqrt(A/std::sqrt(3));
         const double eps = 1e-5;
