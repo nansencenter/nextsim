@@ -39,8 +39,9 @@ void ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<doubl
 
 // Remapping from mesh to mesh.
 // In this case we want to both calculate weights and apply them in the same step
-void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double> &interp_in, int nb_var, std::vector<int> &indexTr, std::vector<double> &coordX, std::vector<double> &coordY,
-                                         std::vector<int> &new_indexTr, std::vector<double> &new_coordX, std::vector<double> &new_coordY);
+void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double>& interp_in, int nb_var,
+                                         std::vector<int>& indexTr, std::vector<double>& coordX, std::vector<double>& coordY,
+                                         const std::vector<int>& new_indexTr, const std::vector<double>& new_coordX, const std::vector<double>& new_coordY, const std::vector<double>& UM);
 
 // Apply weights for a mesh-to-grid remapping
 void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &interp_in, int const nb_var, int grid_size, double miss_val,

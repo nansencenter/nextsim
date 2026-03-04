@@ -447,9 +447,9 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
 // Remapping from mesh to mesh.
 // In this case we want to both calculate weights and apply them in the same step
 // Drop-in-replacement for InterpFromMeshToMesh2dCavities
-void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double> &interp_in, int nb_var,
-                                         std::vector<int> &indexTr, std::vector<double> &coordX, std::vector<double> &coordY,
-                                         std::vector<int> &new_indexTr, std::vector<double> &new_coordX, std::vector<double> &new_coordY)
+void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double>& interp_in, int nb_var,
+                                         std::vector<int>& indexTr, std::vector<double>& coordX, std::vector<double>& coordY,
+                                         const std::vector<int>& new_indexTr, const std::vector<double>& new_coordX, const std::vector<double>& new_coordY, const std::vector<double>& UM)
 {
     // We start off the same as ConservativeRemappingWeights - only here the new mesh replaces the grid
 
@@ -584,18 +584,33 @@ void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double
         // vertices of the old mesh in a format checkTriangle understands
         std::vector<double> cornerX(3);
         std::vector<double> cornerY(3);
+        std::vector<std::pair<double,double>> points;
         for (int corner=0; corner<3; ++corner)
         {
             cornerX[corner] = gridCornerX[3*ppoint+corner];
             cornerY[corner] = gridCornerY[3*ppoint+corner];
+            points.push_back(std::make_pair(cornerX[corner],cornerY[corner]));
         }
 
-        // Call the recursive function (this is our work horse here)
-        checkTriangle(indexTr, coordX, coordY, cornerX, cornerY, i_elnum_out, list_triangles, list_neighbours, local_triangles, local_weights);
+        // Get scalse from area and side length (assuming the triangle is equilateral).
+        const double A = area(points);
+        const double a = 2.*std::sqrt(A/std::sqrt(3));
+        const double eps = 1e-5;
+
+        if ( UM[ppoint]/a < eps )
+        {
+            // If the grid hasn't moved, then we don't need to do anything
+            local_triangles.push_back(i_elnum_out);
+            local_weights.push_back(A);
+        } else {
+            // Call the recursive function (this is our work horse here)
+            checkTriangle(indexTr, coordX, coordY, cornerX, cornerY, i_elnum_out, list_triangles, list_neighbours, local_triangles, local_weights);
+        }
 
         // Save the weights and triangle numbers
         triangles[ppoint] = local_triangles;
         weights[ppoint] = local_weights;
+
     }
     xDelete<double>(elnum_out);
 
