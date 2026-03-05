@@ -26,16 +26,15 @@ void
 Drifters::updateDrifters(GmshMesh const& movedmesh,
                          std::vector<double> & conc, double const& current_time)
 {
-    std::vector<double> conc_drifters(0);
-
     //! 1) Reset temporary (i.e. OSISAF) drifters if needed
-    //! \note this does outputting so needs conc_root
+    //! \note this does outputting so needs conc
     if(this->resetting(current_time))
         this->reset(movedmesh, conc, current_time);
 
     //! 2) Initialize if needed
     //! - need conc on the moved mesh
     //! - \note updates conc_drifters
+    std::vector<double> conc_drifters(0);
     if(this->initialising(current_time))
         this->initialise(movedmesh, conc, conc_drifters);
 
@@ -60,7 +59,7 @@ Drifters::updateDrifters(GmshMesh const& movedmesh,
         }
     }
 
-    //! 4) Add/remove drifters if needed
+    //! 4) Output drifters if needed
     if (this->isOutputTime(current_time))
     {
         int num_drifters = conc_drifters.size();
@@ -516,7 +515,7 @@ Drifters::find_partition(GmshMesh const& mesh, std::vector<double>& M_local_drif
     std::vector<double> coordX = mesh.coordX();
     std::vector<double> coordY = mesh.coordY();
     std::vector<int> triangles = mesh.indexTr();
-    for (int k = 0; k <= coordX.size(); k++)
+    for (int k = 0; k < coordX.size(); k++)
     {
         if (coordX[k] < xmin) xmin = coordX[k];
         if (coordX[k] > xmax) xmax = coordX[k];
@@ -921,7 +920,7 @@ Drifters::backupOutputFile(std::string const& backup)
     if ( fs::exists(path1) )
     {
         fs::path path2(backup);
-        fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
+        fs::copy_file(path1, path2, fs::copy_options::overwrite_existing);
     }
 }//backupOutputFile()
 
