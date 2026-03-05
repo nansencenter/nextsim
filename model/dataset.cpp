@@ -10411,19 +10411,22 @@ DataSet::loadGrid(mapx_class *mapNextsim, Grid *grid_ptr, double current_time, s
             }
         }
 
-        // tmp_start and tmp_end are the start and end without halos
-        int tmp_start=*std::min_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
-        int tmp_end=*std::max_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
+        if (!tmp_tmp_y_id.empty())
+        {
+            // tmp_start and tmp_end are the start and end without halos
+            int tmp_start=*std::min_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
+            int tmp_end=*std::max_element(tmp_tmp_y_id.begin(),tmp_tmp_y_id.end());
 
-        // Add a halo
-        this->addHalo(halo_size, tmp_start, tmp_end,
-                grid_ptr->dimension_y_start, grid_ptr->dimension_y_count);
+            // Add a halo
+            this->addHalo(halo_size, tmp_start, tmp_end,
+                    grid_ptr->dimension_y_start, grid_ptr->dimension_y_count);
 
-        // Do the same for x
-        tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
-        tmp_end=*std::max_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
-        this->addHalo(halo_size, tmp_start, tmp_end,
-                grid_ptr->dimension_x_start, grid_ptr->dimension_x_count);
+            // Do the same for x
+            tmp_start=*std::min_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
+            tmp_end=*std::max_element(tmp_tmp_x_id.begin(),tmp_tmp_x_id.end());
+            this->addHalo(halo_size, tmp_start, tmp_end,
+                    grid_ptr->dimension_x_start, grid_ptr->dimension_x_count);
+        }
 
         // Resize and read
         LAT.resize(grid_ptr->dimension_y_count*grid_ptr->dimension_x_count);

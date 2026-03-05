@@ -19,9 +19,296 @@
 
 namespace Nextsim
 {
+// Check if a point is inside a triangle
+int
+inside(std::vector<double> const& points, double xp, double yp)
+{
+    const double eps = 1.e-8;
+
+    // First check if the point is located on a point of the triangle
+    for (int i = 0; i <3; i++)
+    {
+        if (fabs(xp-points[2*i]) < eps && fabs(yp-points[2*i+1]) < eps) return 1;
+    }
+
+    // Second check the cross vectors
+    auto cross = [&](int i) {
+        double xA = points[2*i];
+        double yA = points[2*i+1];
+        double xB = points[2*((i+1)%3)];
+        double yB = points[2*((i+1)%3)+1];
+
+        return (xB - xA)*(yp - yA) - (yB - yA)*(xp - xA);
+    };
+
+    double c0 = cross(0);
+    double c1 = cross(1);
+    double c2 = cross(2);
+
+    int hasPos = (c0 > eps) || (c1 > eps) || (c2 > eps);
+    int hasNeg = (c0 < -eps) || (c1 < -eps) || (c2 < -eps);
+
+    return !(hasPos && hasNeg);
+} // inside
+
+// Compute the area of a triangle
+double
+triangle_area(const std::vector<double> &a, const std::vector<double> &b, const std::vector<double> &c)
+{
+    return 0.5*((b[0] - a[0])*(c[1] - a[1]) - (b[1] - a[1])*(c[0] - a[0]));
+} // triangle_area
+
+// Function to interpolate fields on nodes
+int
+InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* background_x, double* background_y,
+                       int n_background_nodes, int n_background_triangles, double* interp_in, int source_size, int nb_var,
+                       double* x, double* y, int n_nodes, bool isdefault, double defaultvalue)
+{
+
+    // If the size of the source is not equal to the number of nodes of triangles
+    if (source_size != n_background_nodes && source_size != n_background_triangles)
+    {
+        std::cerr << "The size of data provided should be either " << n_background_nodes << " or " << n_background_triangles << " and not " << source_size << "\n";
+    }
+
+    // Initialize output
+    std::vector<double> result (n_nodes * nb_var);
+    *interp_out = new double[n_nodes * nb_var];
+
+    // Prepare the Cartesian grid
+    int GRID_SIZE = std::max(int(sqrt(n_background_triangles/20)), 3);
+    double xmax = -1.e20;
+    double xmin = 1.e20;
+    double ymax = -1.e20;
+    double ymin = 1.e20;
+    double EPSILON = 1.e-6;
+
+    for (int k = 0; k < n_background_nodes; k++)
+    {
+        if (background_x[k] < xmin) xmin = background_x[k];
+        if (background_x[k] > xmax) xmax = background_x[k];
+        if (background_y[k] < ymin) ymin = background_y[k];
+        if (background_y[k] > ymax) ymax = background_y[k];
+    }
+
+    double cellWidth = (xmax - xmin) / GRID_SIZE;
+    double cellHeight = (ymax - ymin) / GRID_SIZE;
+
+    // Organizing the triangles in a Cartesian grid of the local domain
+    std::vector<std::vector<std::vector<int>>> list_triangles(GRID_SIZE, std::vector<std::vector<int>>(GRID_SIZE, std::vector<int>(0,0)));
+
+    std::vector<int> list_idx(6), list_idy(6);
+    int minx, maxx, miny, maxy;
+    int index;
+
+    for (int k = 0; k < n_background_triangles; k++)
+    {
+        for (int i = 0; i < 3; i++) {
+            index = background_triangles[3*k+i]-1;
+            list_idx[i] = (int)((background_x[index] - xmin) / cellWidth + EPSILON);
+            list_idy[i] = (int)((background_y[index] - ymin) / cellHeight + EPSILON);
+            list_idx[3+i] = (int)((background_x[index] - xmin) / cellWidth - EPSILON);
+            list_idy[3+i] = (int)((background_y[index] - ymin) / cellHeight - EPSILON);
+        }
+
+        minx = *std::min_element(list_idx.begin(), list_idx.end());
+        if (minx < 0) minx = 0;
+        maxx = *std::max_element(list_idx.begin(), list_idx.end());
+        if (maxx >= GRID_SIZE) maxx = GRID_SIZE-1;
+        miny = *std::min_element(list_idy.begin(), list_idy.end());
+        if (miny < 0) miny = 0;
+        maxy = *std::max_element(list_idy.begin(), list_idy.end());
+        if (maxy >= GRID_SIZE) maxy = GRID_SIZE-1;
+
+        for (int idx = minx; idx <= maxx; idx++) {
+            for (int idy = miny; idy <= maxy; idy++) {
+                // Store each triangle in its corresponding cell
+                list_triangles[idx][idy].push_back(k);
+            }
+        }
+    }
+
+    // Check whether the nodes are in a background triangle
+    // If not and if isdefault is False, we look for the closest triangle
+    std::vector<int> corresponding_triangle(n_nodes,-1);
+
+    for (int k = 0; k < n_nodes; k++)
+    {
+        for (int i = 0; i < 3; i++) {
+            list_idx[i] = (int)((x[k] - xmin) / cellWidth + EPSILON);
+            list_idy[i] = (int)((y[k] - ymin) / cellHeight + EPSILON);
+            list_idx[3+i] = (int)((x[k] - xmin) / cellWidth - EPSILON);
+            list_idy[3+i] = (int)((y[k] - ymin) / cellHeight - EPSILON);
+        }
+
+        minx = *std::min_element(list_idx.begin(), list_idx.end());
+        if (minx < 0) minx = 0;
+        maxx = *std::max_element(list_idx.begin(), list_idx.end());
+        if (maxx >= GRID_SIZE) maxx = GRID_SIZE-1;
+        miny = *std::min_element(list_idy.begin(), list_idy.end());
+        if (miny < 0) miny = 0;
+        maxy = *std::max_element(list_idy.begin(), list_idy.end());
+        if (maxy >= GRID_SIZE) maxy = GRID_SIZE-1;
+
+        int should_break = 0;
+        for (int idx = minx; idx <= maxx; idx++) {
+            for (int idy = miny; idy <= maxy; idy++) {
+                if (list_triangles[idx][idy].empty()) continue;
+                for (int j = 0; j < list_triangles[idx][idy].size(); j++) {
+                    int n = list_triangles[idx][idy][j];
+                    if (!inside(std::vector<double> {background_x[background_triangles[3*n]-1], background_y[background_triangles[3*n]-1],
+                                                     background_x[background_triangles[3*n+1]-1], background_y[background_triangles[3*n+1]-1],
+                                                     background_x[background_triangles[3*n+2]-1], background_y[background_triangles[3*n+2]-1]},
+                                                     x[k], y[k])) continue;
+                    corresponding_triangle[k] = n;
+                    should_break = 1;
+                    break;
+                }
+                if (should_break) break;
+            }
+            if (should_break) break;
+        }
+
+        // Check if the node is inside a triangle, and if not, find the closest triangle
+        if (!isdefault && corresponding_triangle[k] == -1)
+        {
+            // Look in the adjacent cells
+            double max_dist = 1.e15;
+            int closest_triangle = -1;
+            int extend = 0;
+
+            while (closest_triangle == -1)
+            {
+                for (int idx = std::max(minx-extend,0); idx <= std::min(maxx+extend,GRID_SIZE-1); idx++) {
+                    for (int idy = std::max(miny-extend,0); idy <= std::min(maxy+extend,GRID_SIZE-1); idy++) {
+                        if (list_triangles[idx][idy].empty()) continue;
+                        for (int j = 0; j < list_triangles[idx][idy].size(); j++) {
+                            int n = list_triangles[idx][idy][j];
+                            std::vector<double> coord(2);
+                            for (int l = 0; l < 3; l++) {
+                                coord[0] += background_x[background_triangles[3*n+l]-1] / 3.;
+                                coord[1] += background_y[background_triangles[3*n+l]-1] / 3.;
+                            }
+                            double dist = pow(pow(coord[0] - x[k],2) + pow(coord[1]-y[k],2),0.5);
+                            if (dist < max_dist)
+                            {
+                                max_dist = dist;
+                                closest_triangle = n;
+                            }
+                        }
+                    }
+                }
+
+                extend++;
+
+                if (minx-extend <= 0 && miny-extend <= 0 && maxx+extend >= GRID_SIZE-1 && maxy+extend >= GRID_SIZE-1)
+                {
+                    std::cerr << "Major error in the InterpFromMeshToMesh2d function.\n";
+                    break;
+                }
+            }
+
+            corresponding_triangle[k] = -closest_triangle-2;
+        }
+
+    }
+
+    // Interpolate the fields onto the nodes
+    for (int i = 0; i < n_nodes; ++i)
+    {
+        int k = corresponding_triangle[i];
+
+        if (k == -1) // The node is not in a triangle and isdefault is set to True
+        {
+            for(int j = 0; j < nb_var; j++) result[i*nb_var+j] = defaultvalue;
+            continue;
+        }
+
+        // If the node is not in a triangle, the interpolation is achieved from the two nodes of the closest edge
+        if (k < 0)
+        {
+            k = -k-2;
+
+            if (source_size == n_background_triangles) // Just take the value of the closest triangle for element fields
+            {
+                for (int l = 0; l < nb_var; l++)
+                    result[i*nb_var+l] = interp_in[nb_var*k+l];
+            }
+            else
+            {
+                std::vector<int> indices{background_triangles[3*k]-1, background_triangles[3*k+1]-1, background_triangles[3*k+2]-1};
+    
+                int max = 0;
+                double distance = pow(background_x[indices[0]] - x[i],2) + pow(background_y[indices[0]] - y[i], 2);
+                for (int j = 1; j < 3; j++)
+                {
+                    if (distance < pow(background_x[indices[j]] - x[i],2) + pow(background_y[indices[j]] - y[i], 2))
+                    {
+                        distance = pow(background_x[indices[j]] - x[i],2) + pow(background_y[indices[j]] - y[i], 2);
+                        max = j;
+                    }
+                }
+    
+                // Indices of the closest edge
+                int i1 = indices[(max+1)%3];
+                int i2 = indices[(max+2)%3];
+    
+                double t = (x[i]-background_x[i1])*(background_x[i2]-background_x[i1]) + (y[i]-background_y[i1])*(background_y[i2]-background_y[i1]);
+                t /= pow(background_x[i2]-background_x[i1],2) + pow(background_y[i2]-background_y[i1],2);
+                t = std::min(1.,std::max(0.,t));
+    
+                for (int l = 0; l < nb_var; l++)
+                    result[i*nb_var+l] = interp_in[nb_var*i1+l] + t*(interp_in[nb_var*i2+l] - interp_in[nb_var*i1+l]);
+            }
+
+            continue;
+        }
+
+        // Interpolation based on the areas of the triangles composed of the node and two of the triangle vertices
+        int i1 = background_triangles[3*k]-1;
+        int i2 = background_triangles[3*k+1]-1;
+        int i3 = background_triangles[3*k+2]-1;
+        double area_triangle = triangle_area(std::vector<double> {background_x[i1], background_y[i1]},
+                                             std::vector<double> {background_x[i2], background_y[i2]},
+                                             std::vector<double> {background_x[i3], background_y[i3]});
+
+        for (int j = 0; j < 3; j++)
+        {
+            int index = background_triangles[3*k+j]-1;
+            i1 = background_triangles[3*k+(j+1)%3]-1;
+            i2 = background_triangles[3*k+(j+2)%3]-1;
+
+            std::vector<double> Px = {x[i], background_x[i1], background_x[i2]};
+            std::vector<double> Py = {y[i], background_y[i1], background_y[i2]};
+
+            double area = triangle_area({Px[(3-j)%3],Py[(3-j)%3]}, {Px[(4-j)%3],Py[(4-j)%3]}, {Px[2-j],Py[2-j]});
+
+            if (source_size == n_background_nodes)
+            {
+                for (int l = 0; l < nb_var; l++)
+                    result[i*nb_var+l] += area * interp_in[nb_var*index+l];
+            }
+            else
+            {
+                for (int l = 0; l < nb_var; l++)
+                    result[i*nb_var+l] += area * interp_in[nb_var*k+l];
+            }
+
+        }
+
+        for (int l = 0; l < nb_var; l++)
+            result[i*nb_var+l] /= area_triangle;
+
+    }
+
+    std::copy(result.begin(), result.end(), *interp_out);
+
+    return 1;
+} // InterpFromMeshToMesh2d
 
 void
-ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &gridX, std::vector<double> &gridY, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
+ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &gridX, std::vector<double> &gridY,
+                                 std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
                                  std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
 {
     // ---------- Initialisation ---------- //
@@ -111,13 +398,13 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
 
     // Find which element each P-point hits - use -1 for land points
     double* elnum_out;
-    InterpFromMeshToMesh2dx(&elnum_out,
-                &indexTr[0],&coordX[0],&coordY[0],
-                numNodes,numTriangles,
-                &elnum[0],
-                numTriangles,1,
-                &gridX[0],&gridY[0],grid_size,
-                true, -1);
+    InterpFromMeshToMesh2d(&elnum_out,
+                           &indexTr[0],&coordX[0],&coordY[0],
+                           numNodes,numTriangles,
+                           &elnum[0],
+                           numTriangles,1,
+                           &gridX[0],&gridY[0],grid_size,
+                           true, -1);
 
     // Calculate weights
     for (int ppoint=0; ppoint<grid_size; ++ppoint)
@@ -160,9 +447,9 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
 // Remapping from mesh to mesh.
 // In this case we want to both calculate weights and apply them in the same step
 // Drop-in-replacement for InterpFromMeshToMesh2dCavities
-void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double> &interp_in, int nb_var,
-                                         std::vector<int> &indexTr, std::vector<double> &coordX, std::vector<double> &coordY,
-                                         std::vector<int> &new_indexTr, std::vector<double> &new_coordX, std::vector<double> &new_coordY)
+void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double>& interp_in, int nb_var,
+                                         std::vector<int>& indexTr, std::vector<double>& coordX, std::vector<double>& coordY,
+                                         const std::vector<int>& new_indexTr, const std::vector<double>& new_coordX, const std::vector<double>& new_coordY, const std::vector<double>& UM)
 {
     // We start off the same as ConservativeRemappingWeights - only here the new mesh replaces the grid
 
@@ -271,13 +558,13 @@ void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double
      * already fast enough that remains is an optimisation for another day.
      */
     double* elnum_out;
-    InterpFromMeshToMesh2dx(&elnum_out,
-                            &indexTr[0],&coordX[0],&coordY[0],
-                            numNodes,numTriangles,
-                            &elnum[0],
-                            numTriangles,1,
-                            &gridX[0],&gridY[0],grid_size,
-                            true, -1);
+    InterpFromMeshToMesh2d(&elnum_out,
+                           &indexTr[0],&coordX[0],&coordY[0],
+                           numNodes,numTriangles,
+                           &elnum[0],
+                           numTriangles,1,
+                           &gridX[0],&gridY[0],grid_size,
+                           true, -1);
 
     // Calculate weights
     for (int ppoint=0; ppoint<grid_size; ++ppoint)
@@ -297,18 +584,33 @@ void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double
         // vertices of the old mesh in a format checkTriangle understands
         std::vector<double> cornerX(3);
         std::vector<double> cornerY(3);
+        std::vector<std::pair<double,double>> points;
         for (int corner=0; corner<3; ++corner)
         {
             cornerX[corner] = gridCornerX[3*ppoint+corner];
             cornerY[corner] = gridCornerY[3*ppoint+corner];
+            points.push_back(std::make_pair(cornerX[corner],cornerY[corner]));
         }
 
-        // Call the recursive function (this is our work horse here)
-        checkTriangle(indexTr, coordX, coordY, cornerX, cornerY, i_elnum_out, list_triangles, list_neighbours, local_triangles, local_weights);
+        // Get scales from area and side length (assuming the triangle is equilateral).
+        const double A = area(points);
+        const double a = 2.*std::sqrt(A/std::sqrt(3));
+        const double eps = 1e-5;
+
+        if ( UM[ppoint]/a < eps )
+        {
+            // If the grid hasn't moved, then we don't need to do anything
+            local_triangles.push_back(i_elnum_out);
+            local_weights.push_back(A);
+        } else {
+            // Call the recursive function (this is our work horse here)
+            checkTriangle(indexTr, coordX, coordY, cornerX, cornerY, i_elnum_out, list_triangles, list_neighbours, local_triangles, local_weights);
+        }
 
         // Save the weights and triangle numbers
         triangles[ppoint] = local_triangles;
         weights[ppoint] = local_weights;
+
     }
     xDelete<double>(elnum_out);
 
@@ -316,7 +618,7 @@ void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double
     ConservativeRemappingMeshToGrid(interp_out, interp_in, nb_var, grid_size, std::nan(""),
                                     gridP, gridCornerX, gridCornerY, triangles, weights, 3);
 
-}//ConservativeRemappingMeshToMesh
+}//ConservativeRemappingFromMeshToMesh
 
 // Apply weights for a mesh-to-grid remapping
 void 
@@ -395,7 +697,7 @@ checkTriangle(std::vector<int> &indexTr, std::vector<double> &coordX, std::vecto
         Y[i] = coordY[nodeID[i]]; //mesh.nodes()[nodeID[i]].coords[1];
 
         // If we're inside we note the point and call self for the surrounding triangles
-        inCell[i] = checkIfInside(gridCornerX, gridCornerY, X[i], Y[i]);
+        inCell[i] = checkIfInside(gridCornerX, gridCornerY, X[i], Y[i], false);
         if ( inCell[i] )
         {
             points.push_back(std::make_pair(X[i],Y[i]));
@@ -420,7 +722,7 @@ checkTriangle(std::vector<int> &indexTr, std::vector<double> &coordX, std::vecto
     int counter = 0;
     for (int i=0; i<num_corners; ++i)
     {
-        if ( checkIfInside(X, Y, gridCornerX[i], gridCornerY[i]) )
+        if ( checkIfInside(X, Y, gridCornerX[i], gridCornerY[i], true) )
         {
             points.push_back(std::make_pair(gridCornerX[i],gridCornerY[i]));
             ++counter;
@@ -492,41 +794,83 @@ visited(int current_triangle, std::vector<int> const &triangles)
     return false;
 } // visited
 
-// Check if points are inside polygon
-bool checkIfInside(std::vector<double> const &vertx, std::vector<double> const &verty, double testx, double testy)
+#if 0
+// Check if points are inside polygon using area
+bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& verty, double testx, double testy)
 {
-    // Initilisation and sanity check
-    bool inside = false;
-    double EPSILON = 1.e-10;
-    int nvert = vertx.size();
+    // Initialisation and sanity check
+    const int nvert = vertx.size();
     assert(nvert==verty.size());
 
-    double dx = std::max(fabs(vertx[1] - vertx[0]), fabs(vertx[2] - vertx[0]));
+    // Construct a points list
+    std::vector<std::pair<double,double>> points;
+    for (int i = 0; i < nvert; ++i)
+        points.push_back({vertx[i], verty[i]});
+
+    // Calculate the triangle/quadrangle area
+    const double org_area = area(points);
+
+    // Add the test point to the polygon
+    points.push_back({testx, testy});
+
+    /* If the area of the new polygon is smaller than that of the original
+     * polygon, then the point is inside. */
+    return org_area > area(points);
+
+
+    
+} //checkIfInside
+#endif
+
+// Check if points are inside polygon using a cross product
+bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& verty, double testx, double testy, bool inclusive)
+{
+    // Initilisation and sanity check
+    const int nvert = vertx.size();
+    assert(nvert==verty.size());
 
     // Check if the point is on a vertex of the triangle
-    for (int i = 0; i < nvert; ++i) {
-        if (fabs(testx - vertx[i]) < EPSILON*dx && fabs(testy - verty[i]) < EPSILON*dx) {
-            return true;
-        }
+    const double eps = 1.e-3;
+    for (int i = 0; i < nvert; ++i)
+        if (std::abs(testx - vertx[i]) < eps && std::abs(testy - verty[i]) < eps)
+            return inclusive;
+
+    // The cross product
+    auto cross = [&](double ax, double ay, double bx, double by, double px, double py) {
+        return (bx - ax)*(py - ay) - (by - ay)*(px - ax);
+    };
+
+    // Check the cross product for all sides
+    bool hasPos = false;
+    bool hasNeg = false;
+    bool hasMaybe = false;
+    const double epsx = 1e-8;
+    for (int i=0; i<nvert; ++i) {
+
+        const double ax = vertx[i];
+        const double ay = verty[i];
+        const double bx = vertx[(i+1) % nvert]; // Wraps around to 0 at the end
+        const double by = verty[(i+1) % nvert];
+
+
+        double cp = cross(ax, ay, bx, by, testx, testy);
+
+        if (cp >  epsx)
+            hasPos = true;
+        else if (cp < -epsx)
+            hasNeg = true;
+        else
+            hasMaybe = true;
+
+        // If we found both positive and negative cross products, the point is outside.
+        if (hasPos && hasNeg ) return false;
     }
 
-    // Check if the point is on an edge of the triangle
-    for (int i = 0, j = nvert - 1; i < nvert; j = i++) {
-        if (fabs((testx - vertx[i]) * (verty[j] - verty[i]) - (testy - verty[i]) * (vertx[j] - vertx[i])) < EPSILON*dx*dx &&
-            (testx >= std::min(vertx[i], vertx[j]) && testx <= std::max(vertx[i], vertx[j])) &&
-            (testy >= std::min(verty[i], verty[j]) && testy <= std::max(verty[i], verty[j]))) {
-            return true;
-        }
-    }
+    // If we're uncertain, then we take our cue from the caller
+    if ( hasMaybe ) return inclusive;
 
-    // Ray-casting
-    int j = nvert-1;
-    for (int i = 0; i<nvert; j=i++)
-        if ( ((verty[i]>testy) != (verty[j]>testy)) &&
-            (testx < (vertx[j]-vertx[i]) * (testy-verty[i]) / (verty[j]-verty[i]) + vertx[i]) )
-                inside = !inside;
+    return true;
 
-    return inside;
 } //checkIfInside
 
 // Check for intersection and add intersecting points to the list
@@ -575,7 +919,7 @@ checkIfIntersecting(double X, double Y, double Xprev, double Yprev, std::vector<
 
 // Calculate the area
 double 
-area(std::vector<std::pair<double,double>> &points)
+area(std::vector<std::pair<double,double>>& points)
 {
     // Just a quick check
     if ( points.size() < 3 )
