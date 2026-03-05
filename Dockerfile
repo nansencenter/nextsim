@@ -12,7 +12,12 @@ ENV NEXTSIM_MESH_DIR=/mesh \
 # Compiler options
     MPI_INC_DIR=/usr/lib/openmpi/include \
     CFLAGS="-O3 -fPIC" \
-    CXXFLAGS="-O3 -pthread -fPIC -fopenmp "
+    CXXFLAGS="-O3 -pthread -fPIC -fopenmp " \
+# USE MMG
+    USE_MMG=true \
+    PARMMG_DIR=/opt/local/parmmg2d \
+    USE_NETCDF_PARALLEL=true \
+    NETCDF_PARALLEL_DIR=/usr/lib/aarch64-linux-gnu/netcdf/mpi
 
 # Compiler options
 ENV CCFLAGS=$CFLAGS
