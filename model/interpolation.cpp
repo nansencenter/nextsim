@@ -894,7 +894,7 @@ checkIfIntersecting(double X, double Y, double Xprev, double Yprev, std::vector<
         double s2_y = gridCornerY[i] - gridCornerY[prev];
 
         double det = -s2_x * s1_y + s1_x * s2_y;
-        if ( det == 0 )
+        if ( std::abs(det) < 1e-6 )
             continue; // The lines are parallel!
 
         double rdet = 1./det;
