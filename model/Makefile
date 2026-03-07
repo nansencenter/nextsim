@@ -74,9 +74,6 @@ endif
 
 ifdef USE_NETCDF_PARALLEL
 	CXXFLAGS += -DNETCDF_PARALLEL
-ifdef NETCDF_PARALLEL_DIR
-	CXXFLAGS += -I$(NETCDF_PARALLEL_DIR)/include
-endif
 endif
 
 # gmsh
