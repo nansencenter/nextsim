@@ -1073,8 +1073,6 @@ public:
             GmshMeshSeq const& mesh_root = GmshMeshSeq());
     std::string initNetCDF(const std::string file_prefix, const fileLength file_length,
                            const double current_time, const bool append=false, bool parallel=false);
-    void sequential_initNetCDF(std::string filename);
-    void parallel_initNetCDF(std::string filename);
     void createProjectionVariable(netCDF::NcFile &dataFile);
     void createProjectionVariableParallel(int ncid);
     void appendNetCDF(std::string filename, double timestamp);
