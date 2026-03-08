@@ -16,7 +16,7 @@ ENV NEXTSIM_MESH_DIR=/mesh \
 # USE MMG
     USE_MMG=true \
     PARMMG_DIR=/opt/local/parmmg2d \
-    USE_NETCDF_PARALLEL=true \
+    USE_NETCDF_PARALLEL=true
 
 # Compiler options
 ENV CCFLAGS=$CFLAGS
