@@ -900,12 +900,10 @@ checkIfIntersecting(double X, double Y, double Xprev, double Yprev, std::vector<
         const double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
 
         /*
-         * Here we assume that the case of overlaping points is an
-         * intersection. It will result in double counting in some cases, but
-         * not doing it would result in us not catching all the points all the
-         * time.
+         * Here we assume that the case of overlaping points is not an
+         * intersection. The corner point is cought by checkIfInside anyway.
          */
-        if (s >= 0 && s <= 1 && t >= 0 && t <= 1)
+        if (s > 0. && s < 1. && t > 0. && t < 1.)
         {
             // Intersection detected
             points.push_back(std::make_pair(Xprev + (t * s1_x), Yprev + (t * s1_y)));
