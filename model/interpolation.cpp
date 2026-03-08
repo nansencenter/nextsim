@@ -453,14 +453,14 @@ void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double
 
     // ---------- Initialisation ---------- //
     // Copy the triangle information of the _old mesh
-    int numTriangles = indexTr.size()/3;
+    const int numTriangles = indexTr.size()/3;
     std::vector<double> elnum(numTriangles);
     for (int tr = 0; tr < numTriangles; ++tr)
     {
         elnum[tr] = tr;
     }
 
-    int numNodes     = coordX.size();
+    const int numNodes = coordX.size();
 
     // Copy the list of triangles containing each point
     std::vector<std::vector<int>> list_triangles(numNodes);
@@ -877,27 +877,27 @@ checkIfIntersecting(double X, double Y, double Xprev, double Yprev, std::vector<
                     std::vector<std::pair<double,double>> &points) // side-effect
 {
     // Initialise
-    int num_corners = gridCornerX.size();
-    assert(num_corners = gridCornerY.size());
+    const int num_corners = gridCornerX.size();
+    assert(num_corners == gridCornerY.size());
 
     bool ret_val = false;
-    double s1_x = X - Xprev;
-    double s1_y = Y - Yprev;
+    const double s1_x = X - Xprev;
+    const double s1_y = Y - Yprev;
 
     // Loop over the grid
     int prev=num_corners-1;
     for (int i=0; i<num_corners; prev=i++)
     {
-        double s2_x = gridCornerX[i] - gridCornerX[prev];
-        double s2_y = gridCornerY[i] - gridCornerY[prev];
+        const double s2_x = gridCornerX[i] - gridCornerX[prev];
+        const double s2_y = gridCornerY[i] - gridCornerY[prev];
 
-        double det = -s2_x * s1_y + s1_x * s2_y;
+        const double det = -s2_x * s1_y + s1_x * s2_y;
         if ( std::abs(det) < 1e-6 )
             continue; // The lines are parallel!
 
-        double rdet = 1./det;
-        double s = (-s1_y * (Xprev - gridCornerX[prev]) + s1_x * (Yprev - gridCornerY[prev])) * rdet;
-        double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
+        const double rdet = 1./det;
+        const double s = (-s1_y * (Xprev - gridCornerX[prev]) + s1_x * (Yprev - gridCornerY[prev])) * rdet;
+        const double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
 
         /*
          * Here we assume that the case of overlaping points is an
@@ -928,7 +928,7 @@ area(std::vector<std::pair<double,double>>& points)
 
     // Calculate value of shoelace formula
     double area = 0.;
-    int n = points.size();
+    const int n = points.size();
     int j = n-1;
     for (int i=0; i < n; j=i++)
         area += (points[j].first + points[i].first) * (points[j].second - points[i].second);
@@ -942,7 +942,7 @@ void
 sortClockwise(std::vector<std::pair<double,double>> &points)
 {
     // Calculate the centre point
-    int n = points.size();
+    const int n = points.size();
     double centreX = 0.;
     double centreY = 0.;
     for (auto it=points.begin(); it!=points.end(); ++it)
@@ -950,7 +950,7 @@ sortClockwise(std::vector<std::pair<double,double>> &points)
         centreX += it->first;
         centreY += it->second;
     }
-    double rn = 1./(double)n;
+    const double rn = 1./double(n);
     centreX *= rn;
     centreY *= rn;
 
