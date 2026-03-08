@@ -1218,8 +1218,8 @@ FiniteElement::initMMGopts()
 {
     mmgopt = new mmgOptions();
 
-    mmgopt->hmin = 1e-15; // Minimal element size
-    mmgopt->hmax = 1e15; // Maximal element size
+    mmgopt->hmin = 1; // Minimal element size
+    mmgopt->hmax = 1e7; // Maximal element size
     mmgopt->tolerance_min = 1.33; // Tolerance on the minimum size during adaptation process
     mmgopt->tolerance_max = 1.75; // Tolerance on the maximum size during adaptation process
     mmgopt->boundary_adaptation = 1; // [1/0], Allow a more significant mesh adaptation close to boundaries
