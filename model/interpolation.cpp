@@ -203,7 +203,7 @@ InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* b
 
                 if (minx-extend <= 0 && miny-extend <= 0 && maxx+extend >= GRID_SIZE-1 && maxy+extend >= GRID_SIZE-1)
                 {
-                    std::cerr << "Major error in the InterpFromMeshToMesh2d function.\n";
+                    throw std::runtime_error("Major error in the InterpFromMeshToMesh2d function.\n");
                     break;
                 }
             }
