@@ -8347,13 +8347,16 @@ void
 FiniteElement::checkOutputs(bool const& at_init_time)
 {
     //! 1) update the diagnostic variables before output
+    M_timer.tick("update ice diagnostics");
     this->updateIceDiagnostics();
+    M_timer.tock("update ice diagnostics");
 
     //! 2) moorings:
     //! - update fields on grid if outputting mean fields
     //! - check if we are adding records to netcdf file
     if(M_use_moorings)
     {
+        M_timer.tick("moorings output");
         if(!at_init_time)
             this->updateMoorings();
         else if(    M_moorings_snapshot
@@ -8367,6 +8370,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
             // - interpolate to the grid and write them to the netcdf file
             this->mooringsAppendNetcdf(M_current_time);
         }
+        M_timer.tock("moorings output");
     }
 
     //! 3) update drifters if necessary
@@ -8380,13 +8384,16 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         exporting = (pcpt*time_step % output_time_step == 0);
     if(exporting)
     {
+        M_timer.tick("export");
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
         this->exportResults(true, vm["output.export_fields"].as<bool>(), true);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+        M_timer.tock("export");
     }
 
     //! 5) check if writing restart
+    M_timer.tick("write restart");
     if(at_init_time)
     {
         if (M_write_restart_start)
@@ -8396,6 +8403,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     {
         this->writeRestart();
     }
+    M_timer.tock("write restart");
 
 }//checkOutputs
 
