@@ -389,12 +389,10 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
     int grid_size = gridX.size();
     assert(grid_size==gridY.size());
 
-    // Reset the size of gridP, triangles, and weights
-    // Doing this and using push_back is probably sub-optimal, but that's an
-    // optimisation for another day
-    gridP.resize(0);
-    triangles.resize(0);
-    weights.resize(0);
+    // Initialise gridP, triangles, and weights
+    gridP.resize(grid_size);
+    triangles.resize(grid_size);
+    weights.resize(grid_size);
 
     // Find which element each P-point hits - use -1 for land points
     double* elnum_out;
@@ -416,7 +414,7 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
         if ( i_elnum_out >= 0 )
         {
             // Save the ppoints
-            gridP.push_back(ppoint);
+            gridP[ppoint] = ppoint;
 
             // coordinates and size of the grid cell
             std::vector<double> cornerX(4);
@@ -435,8 +433,8 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
             checkTriangle(indexTr, coordX, coordY, cornerX, cornerY, i_elnum_out, list_triangles, list_neighbours, local_triangles, local_weights);
 
             // Save the weights and triangle numbers
-            triangles.push_back(local_triangles);
-            weights.push_back(local_weights);
+            triangles[ppoint] = local_triangles;
+            weights[ppoint] = local_weights;
         }
     }
 
