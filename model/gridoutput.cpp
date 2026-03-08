@@ -863,116 +863,20 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
     if ( append && boost::filesystem::exists(full_path) )
         return filename.str();
 
-    if (parallel) parallel_initNetCDF(filename.str());
-    else sequential_initNetCDF(filename.str());
-
-    return filename.str();
-}
-
-void
-GridOutput::sequential_initNetCDF(std::string filename)
-{
     // Create the netCDF file.
-    //LOG(DEBUG) <<"Initialise mooring file named " << filename.str() << "\n";
-    netCDF::NcFile dataFile(filename, netCDF::NcFile::replace);
+    /* We need to use the C API here, because the C++ API doesn't support
+     * parallel I/O */
+    int status, ncid, tDim, nvDim, time, time_bnds, xDim, yDim, lon, lat, data;
+#ifdef NETCDF_PARALLEL
+    if ( parallel )
+        status = nc_create_par(filename.str().c_str(), NC_CLOBBER|NC_NETCDF4|NC_MPIIO, MPI_Comm(M_comm), MPI_INFO_NULL, &ncid);
+    else
+#endif
+        status = nc_create(filename.str().c_str(), NC_NETCDF4|NC_CLOBBER, &ncid);
 
-    // Create the projection variable
-    // FIXME: This only works for the regular grid for now
-    if ( !M_grid.loaded )
-        this->createProjectionVariable(dataFile);
+    if ( status != NC_NOERR )
+        throw std::runtime_error(nc_strerror(status));
 
-    // Create the time dimension
-    netCDF::NcDim tDim = dataFile.addDim("time"); // unlimited
-
-    // Create the nv dimension for time_bnds
-    netCDF::NcDim nvDim = dataFile.addDim("nv", 2);
-
-    // Create the time variable
-    netCDF::NcVar time = dataFile.addVar("time", netCDF::ncDouble, tDim);
-    time.putAtt("standard_name", "time");
-    time.putAtt("long_name", "simulation time");
-    time.putAtt("units", "days since 1900-01-01 00:00:00");
-    time.putAtt("calendar", "standard");
-    time.putAtt("bounds", "time_bnds");
-
-    // Create the time_bnds variable (specify the time period each record applies to)
-    std::vector<netCDF::NcDim> dims_bnds = {tDim, nvDim};
-    netCDF::NcVar time_bnds = dataFile.addVar("time_bnds", netCDF::ncDouble, dims_bnds);
-    time_bnds.putAtt("units", "days since 1900-01-01 00:00:00");
-
-    // Create the two spatial dimensions.
-    netCDF::NcDim xDim = dataFile.addDim("x", M_ncols);
-    netCDF::NcDim yDim = dataFile.addDim("y", M_nrows);
-    std::vector<netCDF::NcDim> dims2 = {yDim, xDim};
-
-    // cell methods - combine time method with hard-coded area method defined for each variable
-    std::string cell_methods_time = "time: point ";//for snapshot
-    if (M_averaging_period>0)
-    {
-        double averaging_period = 24*M_averaging_period;//hours
-        cell_methods_time = (boost::format( "time: mean (interval: %1% hours) " )
-                               % averaging_period
-                               ).str();
-    }
-
-    // Create the longitude and latitude variables
-    // Longitude
-    netCDF::NcVar lon = dataFile.addVar("longitude", netCDF::ncFloat, dims2);
-    lon.putAtt("standard_name","longitude");
-    lon.putAtt("long_name","longitude");
-    lon.putAtt("units","degrees_east");
-    lon.putVar(&M_grid.gridLON[0]);
-
-    // Latitude
-    netCDF::NcVar lat = dataFile.addVar("latitude", netCDF::ncFloat, dims2);
-    lat.putAtt("standard_name","latitude");
-    lat.putAtt("long_name","latitude");
-    lat.putAtt("units","degrees_north");
-    lat.putVar(&M_grid.gridLAT[0]);
-
-    // Create the output variables
-    netCDF::NcVar data;
-    std::vector<netCDF::NcDim> dims = {tDim, yDim, xDim};
-    for (auto it=M_nodal_variables.begin(); it!=M_nodal_variables.end(); ++it)
-    {
-        if ( it->varID < 0 ) // Skip non-outputting variables
-            continue;
-        data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
-        data.putAtt("standard_name",it->stdName);
-        data.putAtt("long_name",it->longName);
-        data.putAtt("coordinates","latitude longitude");
-        data.putAtt("units",it->Units);
-        data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
-        data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
-    }
-    for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
-    {
-        if ( it->varID < 0 ) // Skip non-outputting variables
-            continue;
-        data = dataFile.addVar(it->name, netCDF::ncFloat, dims);
-        data.putAtt("standard_name",it->stdName);
-        data.putAtt("long_name",it->longName);
-        data.putAtt("coordinates","latitude longitude");
-        data.putAtt("units",it->Units);
-        data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
-        data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
-    }
-
-    // - set the global attributes
-    dataFile.putAtt("Conventions", "CF-1.6");
-    dataFile.putAtt("institution", "NERSC, Jahnebakken 3, N-5007 Bergen, Norway");
-    dataFile.putAtt("source", "neXtSIM model fields");
-
-} // sequential_initNetCDF
-
-// In parallel, the file must be create using the nc_create_par function
-// So a parallel init function is needed to do the same thing as the sequential one
-void
-GridOutput::parallel_initNetCDF(std::string filename)
-{
-    // Create the netCDF file.
-    int ncid, tDim, nvDim, time, time_bnds, xDim, yDim, lon, lat, data;
-    nc_create_par(filename.c_str(), NC_NETCDF4|NC_MPIIO, MPI_Comm(M_comm), MPI_INFO_NULL, &ncid);
 
     // Create the projection variable
     // FIXME: This only works for the regular grid for now
@@ -1083,6 +987,8 @@ GridOutput::parallel_initNetCDF(std::string filename)
                     strlen("neXtSIM model fields"), "neXtSIM model fields");
 
     nc_close(ncid);
+
+    return filename.str();
 }
 
 void
