@@ -956,6 +956,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         if ( it->varID < 0 ) // Skip non-outputting variables
             continue;
         nc_def_var(ncid, it->name.c_str(), NC_FLOAT, 3, dims, &data);
+        nc_def_var_deflate(ncid, data, false, true, 9);
         nc_put_att_text(ncid, data, "standard_name", it->stdName.size(), it->stdName.c_str());
         nc_put_att_text(ncid, data, "long_name", it->longName.size(), it->longName.c_str());
         nc_put_att_text(ncid, data, "coordinates", strlen("latitude longitude"), "latitude longitude");
@@ -969,6 +970,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         if ( it->varID < 0 ) // Skip non-outputting variables
             continue;
         nc_def_var(ncid, it->name.c_str(), NC_FLOAT, 3, dims, &data);
+        nc_def_var_deflate(ncid, data, false, true, 9);
         nc_put_att_text(ncid, data, "standard_name", it->stdName.size(), it->stdName.c_str());
         nc_put_att_text(ncid, data, "long_name", it->longName.size(), it->longName.c_str());
         nc_put_att_text(ncid, data, "coordinates", strlen("latitude longitude"), "latitude longitude");
