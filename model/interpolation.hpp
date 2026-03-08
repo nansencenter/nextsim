@@ -65,11 +65,11 @@ double area(std::vector<std::pair<double,double>>& points);
 
 // Check for intersection and add intersecting points to the list
 // https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
-bool checkIfIntersecting(double X, double Y, double Xprev, double Yprev, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, // inputs
-                         std::vector<std::pair<double,double>> &points);
+bool checkIfIntersecting(double X, double Y, double Xprev, double Yprev, const std::vector<double>& gridCornerX, const std::vector<double>& gridCornerY, // inputs
+                         std::vector<std::pair<double,double>>& points); // sideffects
 
 // Sort the points in a clock wise manner around the centre of the cloud of points
-void sortClockwise(std::vector<std::pair<double,double>> &points);
+void sortClockwise(std::vector<std::pair<double,double>>& points);
 
 // The custom sorting function
 // https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order <- the second code exmple

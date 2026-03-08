@@ -203,7 +203,7 @@ InterpFromMeshToMesh2d(double** interp_out, int* background_triangles, double* b
 
                 if (minx-extend <= 0 && miny-extend <= 0 && maxx+extend >= GRID_SIZE-1 && maxy+extend >= GRID_SIZE-1)
                 {
-                    std::cerr << "Major error in the InterpFromMeshToMesh2d function.\n";
+                    throw std::runtime_error("Major error in the InterpFromMeshToMesh2d function.\n");
                     break;
                 }
             }
@@ -389,12 +389,10 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
     int grid_size = gridX.size();
     assert(grid_size==gridY.size());
 
-    // Reset the size of gridP, triangles, and weights
-    // Doing this and using push_back is probably sub-optimal, but that's an
-    // optimisation for another day
-    gridP.resize(0);
-    triangles.resize(0);
-    weights.resize(0);
+    // Initialise gridP, triangles, and weights
+    gridP.resize(grid_size);
+    triangles.resize(grid_size);
+    weights.resize(grid_size);
 
     // Find which element each P-point hits - use -1 for land points
     double* elnum_out;
@@ -416,7 +414,7 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
         if ( i_elnum_out >= 0 )
         {
             // Save the ppoints
-            gridP.push_back(ppoint);
+            gridP[ppoint] = ppoint;
 
             // coordinates and size of the grid cell
             std::vector<double> cornerX(4);
@@ -435,8 +433,8 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
             checkTriangle(indexTr, coordX, coordY, cornerX, cornerY, i_elnum_out, list_triangles, list_neighbours, local_triangles, local_weights);
 
             // Save the weights and triangle numbers
-            triangles.push_back(local_triangles);
-            weights.push_back(local_weights);
+            triangles[ppoint] = local_triangles;
+            weights[ppoint] = local_weights;
         }
     }
 
@@ -455,14 +453,14 @@ void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double
 
     // ---------- Initialisation ---------- //
     // Copy the triangle information of the _old mesh
-    int numTriangles = indexTr.size()/3;
+    const int numTriangles = indexTr.size()/3;
     std::vector<double> elnum(numTriangles);
     for (int tr = 0; tr < numTriangles; ++tr)
     {
         elnum[tr] = tr;
     }
 
-    int numNodes     = coordX.size();
+    const int numNodes = coordX.size();
 
     // Copy the list of triangles containing each point
     std::vector<std::vector<int>> list_triangles(numNodes);
@@ -879,35 +877,33 @@ checkIfIntersecting(double X, double Y, double Xprev, double Yprev, std::vector<
                     std::vector<std::pair<double,double>> &points) // side-effect
 {
     // Initialise
-    int num_corners = gridCornerX.size();
-    assert(num_corners = gridCornerY.size());
+    const int num_corners = gridCornerX.size();
+    assert(num_corners == gridCornerY.size());
 
     bool ret_val = false;
-    double s1_x = X - Xprev;
-    double s1_y = Y - Yprev;
+    const double s1_x = X - Xprev;
+    const double s1_y = Y - Yprev;
 
     // Loop over the grid
     int prev=num_corners-1;
     for (int i=0; i<num_corners; prev=i++)
     {
-        double s2_x = gridCornerX[i] - gridCornerX[prev];
-        double s2_y = gridCornerY[i] - gridCornerY[prev];
+        const double s2_x = gridCornerX[i] - gridCornerX[prev];
+        const double s2_y = gridCornerY[i] - gridCornerY[prev];
 
-        double det = -s2_x * s1_y + s1_x * s2_y;
+        const double det = -s2_x * s1_y + s1_x * s2_y;
         if ( std::abs(det) < 1e-6 )
             continue; // The lines are parallel!
 
-        double rdet = 1./det;
-        double s = (-s1_y * (Xprev - gridCornerX[prev]) + s1_x * (Yprev - gridCornerY[prev])) * rdet;
-        double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
+        const double rdet = 1./det;
+        const double s = (-s1_y * (Xprev - gridCornerX[prev]) + s1_x * (Yprev - gridCornerY[prev])) * rdet;
+        const double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
 
         /*
-         * Here we assume that the case of overlaping points is an
-         * intersection. It will result in double counting in some cases, but
-         * not doing it would result in us not catching all the points all the
-         * time.
+         * Here we assume that the case of overlaping points is not an
+         * intersection. The corner point is cought by checkIfInside anyway.
          */
-        if (s >= 0 && s <= 1 && t >= 0 && t <= 1)
+        if (s > 0. && s < 1. && t > 0. && t < 1.)
         {
             // Intersection detected
             points.push_back(std::make_pair(Xprev + (t * s1_x), Yprev + (t * s1_y)));
@@ -930,7 +926,7 @@ area(std::vector<std::pair<double,double>>& points)
 
     // Calculate value of shoelace formula
     double area = 0.;
-    int n = points.size();
+    const int n = points.size();
     int j = n-1;
     for (int i=0; i < n; j=i++)
         area += (points[j].first + points[i].first) * (points[j].second - points[i].second);
@@ -944,7 +940,7 @@ void
 sortClockwise(std::vector<std::pair<double,double>> &points)
 {
     // Calculate the centre point
-    int n = points.size();
+    const int n = points.size();
     double centreX = 0.;
     double centreY = 0.;
     for (auto it=points.begin(); it!=points.end(); ++it)
@@ -952,7 +948,7 @@ sortClockwise(std::vector<std::pair<double,double>> &points)
         centreX += it->first;
         centreY += it->second;
     }
-    double rn = 1./(double)n;
+    const double rn = 1./double(n);
     centreX *= rn;
     centreY *= rn;
 
