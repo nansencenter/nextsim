@@ -6162,7 +6162,7 @@ FiniteElement::updateSigmaDamage(double const dt)
          */
 
         /* Compute the shear and normal stresses, which are two invariants of the internal stress tensor */
-        double const sigma_s = std::hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2.,M_sigma[2][cpt]);
+        double const sigma_s = this->hypot((M_sigma[0][cpt]-M_sigma[1][cpt])/2., M_sigma[2][cpt]);
         sigma_n = (M_sigma[0][cpt]+M_sigma[1][cpt])*0.5;
 
         // Compressive and Mohr-Coulomb failure using Mssrs. Plante & Tremblay's formulation
@@ -8311,7 +8311,7 @@ FiniteElement::windSpeedElement(const int i)
         // calculate wind per node
         double u = M_wind[M_elements[i].indices[j]-1];
         double v = M_wind[M_elements[i].indices[j]-1+M_num_nodes];
-        wspd += std::hypot(u, v);
+        wspd += this->hypot(u, v);
     }
     return wspd/3.;
 }
@@ -8362,7 +8362,7 @@ FiniteElement::iceOceanHeatflux(const int cpt, const double sst, const double ss
             for (int i=0; i<3; ++i)
             {
                 int nind = (M_elements[cpt]).indices[i]-1;
-                welt_oce_ice += std::hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
+                welt_oce_ice += this->hypot(M_VT[nind]-M_ocean[nind],M_VT[nind+M_num_nodes]-M_ocean[nind+M_num_nodes]);
             }
             double norm_Voce_ice = welt_oce_ice/3.;
             return_value = (sst-Tbot)*norm_Voce_ice*M_Csens_io*physical::rhow*physical::cpw;
@@ -9840,8 +9840,8 @@ FiniteElement::updateIceDiagnostics()
         D_tsurf[i] += (1-D_conc[i])*M_sst[i];
 
         // principal stresses
-        D_sigma[0][i] =            (M_sigma[0][i]+M_sigma[1][i])/2.;
-        D_sigma[1][i] = std::hypot((M_sigma[0][i]-M_sigma[1][i])/2.,M_sigma[2][i]);
+        D_sigma[0][i] =             (M_sigma[0][i]+M_sigma[1][i])/2.;
+        D_sigma[1][i] = this->hypot((M_sigma[0][i]-M_sigma[1][i])/2.,M_sigma[2][i]);
 
         // Divergence: div(u) = du/dx + dv/dy
         // Sum up over the nodes of this element
@@ -10953,7 +10953,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                 for (int i=0; i<M_num_nodes; i++)
                 {
                     double tau_i;
-                    double wind2 = std::hypot(M_wind[i], M_wind[i+M_num_nodes]);
+                    double wind2 = this->hypot(M_wind[i], M_wind[i+M_num_nodes]);
 
                     // Select between taux, tauy, and taumod
                     switch (it->varID)
@@ -10969,7 +10969,7 @@ FiniteElement::updateMeans(GridOutput& means, double time_factor)
                         break;
 
                         case (GridOutput::variableID::taumod):
-                        tau_i = std::hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
+                        tau_i = this->hypot(D_tau_w[i], D_tau_w[i+M_num_nodes]);
                         wind2 *= wind2;
                     }
                     it->data_mesh[i] += ( tau_i*conc[i] + tau_a[i]*wind2*(1.-conc[i]/surface[i]) )*time_factor/surface[i];
@@ -12174,13 +12174,13 @@ FiniteElement::updateFreeDriftVelocity()
             index_v = nd+M_num_nodes;
 
             // Free drift case
-            norm_Voce_ice = std::hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
+            norm_Voce_ice = this->hypot(M_VT[index_u]-M_ocean[index_u],M_VT[index_v]-M_ocean[index_v]);
             norm_Voce_ice = (norm_Voce_ice > norm_Voce_ice_min) ? (norm_Voce_ice):norm_Voce_ice_min;
 
             coef_Voce = lin_drag_coef_water + quad_drag_coef_water*norm_Voce_ice;
             coef_Voce *= physical::rhow;
 
-            norm_Vair_ice = std::hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
+            norm_Vair_ice = this->hypot(M_VT[index_u]-M_wind [index_u],M_VT[index_v]-M_wind [index_v]);
             norm_Vair_ice = (norm_Vair_ice > norm_Vair_ice_min) ? (norm_Vair_ice):norm_Vair_ice_min;
 
             coef_Vair = lin_drag_coef_air + quad_drag_coef_air*norm_Vair_ice;
@@ -12417,7 +12417,7 @@ FiniteElement::explicitSolve()
             M_VT[v_indx] = 0.;
         }
 
-        drag[i] *= physical::rhoa * std::hypot(M_wind[u_indx],M_wind[v_indx]) / surface[i];
+        drag[i] *= physical::rhoa * this->hypot(M_wind[u_indx],M_wind[v_indx]) / surface[i];
         D_tau_a[u_indx] = drag[i] * M_wind[u_indx];
         D_tau_a[v_indx] = drag[i] * M_wind[v_indx];
 
@@ -12524,9 +12524,9 @@ FiniteElement::explicitSolve()
             double const uice = M_VT[u_indx];
             double const vice = M_VT[v_indx];
 
-            double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+            double const c_prime = physical::rhow*quad_drag_coef_water*this->hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
 
-            double const tau_b = C_bu[i]/(std::hypot(uice,vice)+u0);
+            double const tau_b = C_bu[i]/(this->hypot(uice,vice)+u0);
             double const alpha  = 1. + dte_over_mass*( c_prime*cos_ocean_turning_angle + tau_b );
             double const beta   = dtep*M_fcor[i] + dte_over_mass*c_prime*std::copysign(sin_ocean_turning_angle, lat[i]);
             double const rdenom = 1./( alpha*alpha + beta*beta );
@@ -12681,7 +12681,7 @@ FiniteElement::explicitSolve()
         // Save ice-ocean drag based on the mean ice speed
         double const uice = 0.5*(M_VT[u_indx] + VTM[u_indx]);
         double const vice = 0.5*(M_VT[v_indx] + VTM[v_indx]);
-        double const c_prime = physical::rhow*quad_drag_coef_water*std::hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
+        double const c_prime = physical::rhow*quad_drag_coef_water*this->hypot(M_ocean[u_indx]-uice, M_ocean[v_indx]-vice);
         D_tau_w[u_indx] = c_prime*( uice - M_ocean[u_indx] );
         D_tau_w[v_indx] = c_prime*( vice - M_ocean[v_indx] );
 
@@ -16566,7 +16566,7 @@ FiniteElement::checkVelocityFields()
         {
             uv[0] = M_VT[i];
             uv[1] = M_VT[i+M_num_nodes];
-            double const spd = std::hypot(uv[0], uv[1]);
+            double const spd = this->hypot(uv[0], uv[1]);
             if ( spd > spd_lim )
             {
                 // for U and V
@@ -16590,7 +16590,7 @@ FiniteElement::checkVelocityFields()
                 LOG(DEBUG) << "Rogue velocity step=" << pcpt
                            << " node=" << i
                            << " speed=" << spd
-                           << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
+                           << " rel_error=" << this->hypot(rel_err[0], rel_err[1])
                            << "\n";
             }
         }
@@ -16604,7 +16604,7 @@ FiniteElement::checkVelocityFields()
         {
             uv[0] = M_VT[i];
             uv[1] = M_VT[i+M_num_nodes];
-            double const spd = std::hypot(uv[0], uv[1]);
+            double const spd = this->hypot(uv[0], uv[1]);
             if ( spd > spd_lim )
             {
                 int num_neighbours = bamgmesh->NodalConnectivity[max_num_neighbours*(i+1) - 1];
@@ -16630,7 +16630,7 @@ FiniteElement::checkVelocityFields()
                 LOG(DEBUG) << "Rogue velocity step=" << pcpt
                            << " node=" << i
                            << " speed=" << spd
-                           << " rel_error=" << std::hypot(rel_err[0], rel_err[1])
+                           << " rel_error=" << this->hypot(rel_err[0], rel_err[1])
                            << "\n";
             }
         }
@@ -16718,11 +16718,11 @@ FiniteElement::checkFieldsFast()
     for ( int i=0; i<M_num_nodes; i++ )
     {
         // Velocity too high
-        if ( std::hypot(M_VT[i], M_VT[i+M_num_nodes]) > 5. )
+        if ( this->hypot(M_VT[i], M_VT[i+M_num_nodes]) > 5. )
         {
             crash = true;
             crash_msg << "[" <<M_rank << "] Ice velocity is higher than it should be: "
-                << std::hypot(M_VT[i], M_VT[i+M_num_nodes]) << " > 5\n";
+                << this->hypot(M_VT[i], M_VT[i+M_num_nodes]) << " > 5\n";
             crash_msg << " ... skipping further tests.\n";
             break;
         }

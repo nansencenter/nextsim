@@ -1025,6 +1025,8 @@ private:
     void checkFieldsFast();
     void checkVelocityFields();
 
+    inline double hypot(const double x, const double y) {return std::sqrt(x*x + y*y);};
+
 };
 } // Nextsim
 #endif
