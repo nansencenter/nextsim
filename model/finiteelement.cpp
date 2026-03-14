@@ -12471,18 +12471,12 @@ FiniteElement::explicitSolve()
         for ( int cpt=0; cpt<M_num_elements; ++cpt )
         {
             // Loop over the nodes of the element to build the gradient terms themselves
-            std::vector<double> const dxN = M_shape_coeff[cpt];
+            const std::vector<double>& dxN = M_shape_coeff[cpt];
             double const volume = M_thick[cpt]*M_surface[cpt];
             for (int i=0; i<3; ++i)
             {
-                int const i_indx = (M_elements[cpt]).indices[i]-1;
-
-                // Skip closed boundaries, ice free, and ghost nodes
-                if ( M_mask_dirichlet[i_indx] || node_mass[i_indx]==0. || (M_elements[cpt]).ghostNodes[i] )
-                    continue;
-
-                int const u_indx = i_indx;
-                int const v_indx = i_indx + M_num_nodes;
+                int const u_indx = (M_elements[cpt]).indices[i]-1;
+                int const v_indx = u_indx + M_num_nodes;
 
                 // Gradient of sigma
                 // The sign is counter-intuitive, but see Danilov et al. (2015)
