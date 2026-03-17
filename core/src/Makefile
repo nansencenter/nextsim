@@ -25,7 +25,15 @@ ifdef USE_OASIS
 	CHAN = MPI1
 endif
 
-ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+ifneq (,$(strip $(filter DEBUG,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS += -g -O1 -fsanitize=address -fno-omit-frame-pointer -DNDEBUG
+	LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
+ifneq ($(KERNEL),Linux)
+	CXXFLAGS += -Wl,-no_pie
+endif
+endif
+
+ifneq (,$(strip $(filter VALGRIND,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -g -O0 -DNDEBUG
 ifneq ($(KERNEL),Linux)
 	CXXFLAGS += -Wl,-no_pie
