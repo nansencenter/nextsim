@@ -18,7 +18,15 @@ ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
 
-ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+ifneq (,$(strip $(filter DEBUG,$(NEXTSIM_BUILD_TYPE))))
+	CCFLAGS += -g -O1 -fsanitize=address -fno-omit-frame-pointer -DNDEBUG
+	LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
+ifneq ($(KERNEL),Linux)
+	CCFLAGS += -Wl,-no_pie
+endif
+endif
+
+ifneq (,$(strip $(filter VALGRIND,$(NEXTSIM_BUILD_TYPE))))
 	CCFLAGS += -g -O0 -DNDEBUG
 ifneq ($(KERNEL),Linux)
 	CCFLAGS += -Wl,-no_pie

@@ -19,7 +19,13 @@ ifdef USE_OASIS
 	LDFLAGS += -L$(OASIS_DIR)/lib -lpsmile.$(CHAN) -lmct -lmpeu -lscrip $(LD_EXTRA_OASIS)
 endif
 
-ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+ifneq (,$(strip $(filter DEBUG,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
+	CXXFLAGS += -g -O1 -fsanitize=address -fno-omit-frame-pointer -DNDEBUG
+	LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
+endif
+
+ifneq (,$(strip $(filter VALGRIND PROFILE,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
 	CXXFLAGS += -g -O0 -DNDEBUG
 ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
