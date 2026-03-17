@@ -772,10 +772,7 @@ Drifters::updateConc(GmshMesh const& moved_mesh,
     for (int i = 0; i < M_drifter_i.size(); i++)
     {
         if (M_drifter_i[i] == -1)
-        {
-            conc_drifters[M_drifter_i[i]] = 0.;
             continue;
-        }
         conc_drifters[M_drifter_i[i]] = global_conc[i];
     }
 }//updateConc
