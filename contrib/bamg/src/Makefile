@@ -17,7 +17,15 @@ CXXFLAGS += -std=c++14
 
 CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -D_MULTITHREADING_
 
-ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
+ifneq (,$(strip $(filter DEBUG,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS += -g -O1 -fsanitize=address -fno-omit-frame-pointer -DNDEBUG
+	LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
+ifneq ($(KERNEL),Linux)
+	CXXFLAGS += -Wl,-no_pie
+endif
+endif
+
+ifneq (,$(strip $(filter VALGRIND,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -g -O0 -DNDEBUG
 ifneq ($(KERNEL),Linux)
 	CXXFLAGS += -Wl,-no_pie
