@@ -370,7 +370,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
             {
                 const int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
-                if ( elt_num < 0 ) continue;
+                if ( elt_num < 0 ) break;
 
                 if ( ! visited(elt_num, triangles) )
                     checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
@@ -419,7 +419,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
             {
                 const int elt_num = bamgmesh->ElementConnectivity[3*current_triangle+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
-                if ( elt_num < 0 ) continue;
+                if ( elt_num < 0 ) break;
 
                 /*
                  * Find the triangle adjacent to the current one by comparing
