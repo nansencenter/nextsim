@@ -362,7 +362,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
         Y[i] = bamgmesh->Vertices[3*nodeID[i]+1];
 
         // If we're inside we note the point and call self for the surrounding triangles
-        inCell[i] = checkIfInside(gridCornerX, gridCornerY, X[i], Y[i]);
+        inCell[i] = checkIfInside(gridCornerX, gridCornerY, X[i], Y[i], false);
         if ( inCell[i] )
         {
             points.push_back(std::make_pair(X[i],Y[i]));
@@ -391,7 +391,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     int counter = 0;
     for (int i=0; i<num_corners; ++i)
     {
-        if ( checkIfInside(X, Y, gridCornerX[i], gridCornerY[i]) )
+        if ( checkIfInside(X, Y, gridCornerX[i], gridCornerY[i], true) )
         {
             points.push_back(std::make_pair(gridCornerX[i],gridCornerY[i]));
             ++counter;
@@ -461,38 +461,57 @@ inline bool visited(int current_triangle, std::vector<int> const &triangles)
     return false;
 }
 
-/*
- * Check if points are inside polygon
- * Short and works for both triangles and quadrangles (or any higher order polygon).
- *
- * from https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
- *
- * Copyright (c) 1970-2003, Wm. Randolph Franklin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- *  1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimers.
- *  2. Redistributions in binary form must reproduce the above copyright notice in the documentation and/or other materials provided with the distribution.
- *  3. The name of W. Randolph Franklin may not be used to endorse or promote products derived from this Software without specific prior written permission.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
-inline bool checkIfInside(std::vector<double> const &vertx, std::vector<double> const &verty, double testx, double testy)
+
+// Check if points are inside polygon using a cross product
+bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& verty, double testx, double testy, bool inclusive)
 {
     // Initilisation and sanity check
-    bool inside = false;
-    int nvert = vertx.size();
+    const int nvert = vertx.size();
     assert(nvert==verty.size());
 
-    int i;
-    int j=nvert-1;
-    for (i=0; i<nvert; j=i++)
-        if ( ((verty[i]>testy) != (verty[j]>testy)) &&
-            (testx < (vertx[j]-vertx[i]) * (testy-verty[i]) / (verty[j]-verty[i]) + vertx[i]) )
-                inside = !inside;
+    // Check if the point is on a vertex of the triangle
+    const double eps = 1.e-3;
+    for (int i = 0; i < nvert; ++i)
+        if (std::abs(testx - vertx[i]) < eps && std::abs(testy - verty[i]) < eps)
+            return inclusive;
 
-    return inside;
-}
+    // The cross product
+    auto cross = [&](double ax, double ay, double bx, double by, double px, double py) {
+        return (bx - ax)*(py - ay) - (by - ay)*(px - ax);
+    };
+
+    // Check the cross product for all sides
+    bool hasPos = false;
+    bool hasNeg = false;
+    bool hasMaybe = false;
+    const double epsx = 1e-8;
+    for (int i=0; i<nvert; ++i) {
+
+        const double ax = vertx[i];
+        const double ay = verty[i];
+        const double bx = vertx[(i+1) % nvert]; // Wraps around to 0 at the end
+        const double by = verty[(i+1) % nvert];
+
+
+        const double cp = cross(ax, ay, bx, by, testx, testy);
+
+        if (cp >  epsx)
+            hasPos = true;
+        else if (cp < -epsx)
+            hasNeg = true;
+        else
+            hasMaybe = true;
+
+        // If we found both positive and negative cross products, the point is outside.
+        if (hasPos && hasNeg ) return false;
+    }
+
+    // If we're uncertain, then we take our cue from the caller
+    if ( hasMaybe ) return inclusive;
+
+    return true;
+
+} //checkIfInside
 
 // Check for intersection and add intersecting points to the list
 // https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
