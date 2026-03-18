@@ -17,7 +17,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 {
     // ---------- Initialisation ---------- //
     // Copy the triangle information
-    int numTriangles = bamgmesh->TrianglesSize[0];
+    const int numTriangles = bamgmesh->TrianglesSize[0];
     std::vector<int> indexTr(3*numTriangles);
     std::vector<double> elnum(numTriangles);
     for (int tr=0; tr<numTriangles; ++tr)
@@ -32,7 +32,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
     }
 
     // Copy the node information
-    int numNodes     = bamgmesh->VerticesSize[0];
+    const int numNodes     = bamgmesh->VerticesSize[0];
     std::vector<double> coordX(numNodes);
     std::vector<double> coordY(numNodes);
     for (int id=0; id<numNodes; ++id)
@@ -64,7 +64,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
     for (int ppoint=0; ppoint<grid_size; ++ppoint)
     {
         // Carefully take the right integer value for element number
-        int i_elnum_out = std::round(elnum_out[ppoint]);
+        const int i_elnum_out = std::round(elnum_out[ppoint]);
 
         // Don't do anything for land points
         if ( i_elnum_out >= 0 )
@@ -114,12 +114,12 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
     for (int i=0; i<gridP.size(); ++i)
     {
         // Calculate cell area
-        int ppoint = gridP[i];
+        const int ppoint = gridP[i];
         std::vector<std::pair<double,double>> points(num_corners);
         for (int corner=0; corner<num_corners; ++corner)
             points[corner] = std::make_pair(gridCornerX[num_corners*ppoint+corner],gridCornerY[num_corners*ppoint+corner]);
 
-        double r_cell_area = 1./area(points);
+        const double r_cell_area = 1./area(points);
 
         // walk through all the variables
         for (int var=0; var<nb_var; ++var)
@@ -180,7 +180,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
 
     // ---------- Initialisation ---------- //
     // Copy the triangle information of the _old mesh
-    int numTriangles = bamgmesh_old->TrianglesSize[0];
+    const int numTriangles = bamgmesh_old->TrianglesSize[0];
     std::vector<int> indexTr(3*numTriangles);
     std::vector<double> elnum(numTriangles);
     for (int tr=0; tr<numTriangles; ++tr)
@@ -195,7 +195,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
     }
 
     // Copy the node information
-    int numNodes     = bamgmesh_old->VerticesSize[0];
+    const int numNodes = bamgmesh_old->VerticesSize[0];
     std::vector<double> coordX(numNodes);
     std::vector<double> coordY(numNodes);
     for (int id=0; id<numNodes; ++id)
@@ -206,7 +206,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
 
     // Copy the triangle information of the _new mesh and calculate the barycentre
     // Keep the nomenclature for a grid (even if it's a mesh)
-    int grid_size = bamgmesh_new->TrianglesSize[0];
+    const int grid_size = bamgmesh_new->TrianglesSize[0];
     std::vector<double> gridX(grid_size);
     std::vector<double> gridY(grid_size);
     std::vector<double> gridCornerX(3*grid_size);
@@ -218,7 +218,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
         for (int i=0; i<3; ++i)
         {
             // grid corner == vertice
-            int id = bamgmesh_new->Triangles[4*tr+i] - 1; // Here we need C/C++ numbering
+            const int id = bamgmesh_new->Triangles[4*tr+i] - 1; // Here we need C/C++ numbering
             gridCornerX[3*tr+i] = bamgmesh_new->Vertices[3*id];
             gridCornerY[3*tr+i] = bamgmesh_new->Vertices[3*id+1];
 
@@ -257,7 +257,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
         assert( elnum_out[ppoint] >= 0. );
 
         // Carefully take the right integer value for element number
-        int i_elnum_out = std::round(elnum_out[ppoint]);
+        const int i_elnum_out = std::round(elnum_out[ppoint]);
 
         // Save the ppoint - for compatibility with ConservativeRemappingMeshToGrid
         gridP[ppoint] = ppoint;
@@ -271,7 +271,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
         std::vector<int> nodes_new(3);
         for ( int i=0; i<3; ++i )
         {
-            int id = bamgmesh_new->Triangles[4*ppoint+i] - 1; // Here we need C/C++ numbering
+            const int id = bamgmesh_new->Triangles[4*ppoint+i] - 1; // Here we need C/C++ numbering
 /*  The previous numbering of the nodes on the boundaries given by bamg is wrong.
  *  Bamg adds these nodes at the beginning of the list of nodes.
  *  In our case, these nodes are always the same as the boundary is neither
@@ -333,17 +333,17 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     /*
      * We must plant the flag here, before any recursion can happen. We must
      * also push_back on weights and remember where to write the final weight
-     * because some of the recursive calles may do a push_back of their own.
+     * because some of the recursive calls may do a push_back of their own.
      */
     triangles.push_back(current_triangle);
     weights.push_back(0.);
-    int loc = weights.size()-1;
+    const int loc = weights.size()-1;
 
     // This is a list of the points we use to calculate the area
     std::vector<std::pair<double,double>> points;
 
-    int num_corners = gridCornerX.size();
-    assert(num_corners = gridCornerY.size());
+    const int num_corners = gridCornerX.size();
+    assert(num_corners == gridCornerY.size());
 
     // ---------- Now we do the three checks ---------- //
 
@@ -365,10 +365,10 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
         {
             points.push_back(std::make_pair(X[i],Y[i]));
 
-            int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-            for (int j=0; j<num_elements; j++)
+            const int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+            for (int j = 0; j < num_elements; j++)
             {
-                int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
+                const int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
                 if ( elt_num < 0 ) continue;
 
@@ -417,7 +417,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
             // We don't know which of the (up to) three connected triangles is the right one so we must search
             for (int j=0; j<3; j++)
             {
-                int elt_num = bamgmesh->ElementConnectivity[3*current_triangle+j] - 1; // Here we need C/C++ numbering
+                const int elt_num = bamgmesh->ElementConnectivity[3*current_triangle+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
                 if ( elt_num < 0 ) continue;
 
@@ -429,7 +429,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
                 int counter = 0;
                 for (int k=0; k<3; ++k)
                 {
-                    int myID = bamgmesh->Triangles[4*elt_num+k] - 1; // Here we need C/C++ numbering
+                    const int myID = bamgmesh->Triangles[4*elt_num+k] - 1; // Here we need C/C++ numbering
                     if ( myID==nodeID[i] || myID==nodeID[prev] )
                         ++counter;
                 }
@@ -517,27 +517,27 @@ inline bool checkIfIntersecting(double X, double Y, double Xprev, double Yprev, 
 		std::vector<std::pair<double,double>> &points) // side-effect
 {
     // Initialise
-    int num_corners = gridCornerX.size();
-    assert(num_corners = gridCornerY.size());
+    const int num_corners = gridCornerX.size();
+    assert(num_corners == gridCornerY.size());
 
     bool ret_val = false;
-    double s1_x = X - Xprev;
-    double s1_y = Y - Yprev;
+    const double s1_x = X - Xprev;
+    const double s1_y = Y - Yprev;
 
     // Loop over the grid
     int prev=num_corners-1;
     for (int i=0; i<num_corners; prev=i++)
     {
-        double s2_x = gridCornerX[i] - gridCornerX[prev];
-        double s2_y = gridCornerY[i] - gridCornerY[prev];
+        const double s2_x = gridCornerX[i] - gridCornerX[prev];
+        const double s2_y = gridCornerY[i] - gridCornerY[prev];
 
         const double det = -s2_x * s1_y + s1_x * s2_y;
         if ( std::abs(det) < 1e-6 )
             continue; // The lines are parallel!
 
-        double rdet = 1./det;
-        double s = (-s1_y * (Xprev - gridCornerX[prev]) + s1_x * (Yprev - gridCornerY[prev])) * rdet;
-        double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
+        const double rdet = 1./det;
+        const double s = (-s1_y * (Xprev - gridCornerX[prev]) + s1_x * (Yprev - gridCornerY[prev])) * rdet;
+        const double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
 
         /*
          * Here we assume that the case of overlaping points is not an
@@ -565,20 +565,20 @@ inline double area(std::vector<std::pair<double,double>> &points)
 
     // Calculate value of shoelace formula
     double area = 0.;
-    int n = points.size();
+    const int n = points.size();
     int j = n-1;
     for (int i=0; i < n; j=i++)
         area += (points[j].first + points[i].first) * (points[j].second - points[i].second);
 
     // Return half the absolute value
     return std::abs(area) * 0.5;
-}
+} // area
 
 // Sort the points in a clock wise manner around the centre of the cloud of points
 inline void sortClockwise(std::vector<std::pair<double,double>> &points)
 {
     // Calculate the centre point
-    int n = points.size();
+    const int n = points.size();
     double centreX = 0.;
     double centreY = 0.;
     for (auto it=points.begin(); it!=points.end(); ++it)
@@ -586,7 +586,7 @@ inline void sortClockwise(std::vector<std::pair<double,double>> &points)
         centreX += it->first;
         centreY += it->second;
     }
-    double rn = 1./(double)n;
+    const double rn = 1./double(n);
     centreX *= rn;
     centreY *= rn;
 
