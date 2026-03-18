@@ -125,7 +125,7 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
         for (int var=0; var<nb_var; ++var)
         {
             // ... and contributing elements
-            interp_out[gridP[i]*nb_var+var] = 0;
+            interp_out[gridP[i]*nb_var+var] = 0.;
             for (int tr=0; tr<triangles[i].size(); ++tr)
                 interp_out[gridP[i]*nb_var+var] += interp_in[triangles[i][tr]*nb_var+var]*weights[i][tr];
 
@@ -213,8 +213,8 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
     std::vector<double> gridCornerY(3*grid_size);
     for (int tr = 0; tr < grid_size; ++tr)
     {
-        gridX[tr] = 0; // barycentre
-        gridY[tr] = 0;
+        gridX[tr] = 0.; // barycentre
+        gridY[tr] = 0.;
         for (int i=0; i<3; ++i)
         {
             // grid corner == vertice
@@ -225,8 +225,8 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
             gridX[tr] += gridCornerX[3*tr+i];
             gridY[tr] += gridCornerY[3*tr+i];
         }
-        gridX[tr] /= 3;
-        gridY[tr] /= 3;
+        gridX[tr] /= 3.;
+        gridY[tr] /= 3.;
     }
 
     // Initialise gridP, triangles, and weights
