@@ -20,7 +20,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
     const int numTriangles = bamgmesh->TrianglesSize[0];
     std::vector<int> indexTr(3*numTriangles);
     std::vector<double> elnum(numTriangles);
-    for (int tr=0; tr<numTriangles; ++tr)
+    for (int tr = 0; tr < numTriangles; ++tr)
     {
         // NB: Maintain bamg numbering for the call to InterpFromMeshToMesh (i.e. the first triangle is numbered 1 so we don't do Triangles[...]-1)
         indexTr[3*tr  ] = bamgmesh->Triangles[4*tr];
@@ -132,7 +132,7 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
             interp_out[gridP[i]*nb_var+var] *= r_cell_area;
         }
     }
-}
+} // ConservativeRemappingMeshToGrid
 
 // Apply weights going from grid to mesh
 void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &interp_in, int const nb_var, int const numElements, std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
@@ -183,7 +183,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
     const int numTriangles = bamgmesh_old->TrianglesSize[0];
     std::vector<int> indexTr(3*numTriangles);
     std::vector<double> elnum(numTriangles);
-    for (int tr=0; tr<numTriangles; ++tr)
+    for (int tr = 0; tr < numTriangles; ++tr)
     {
         // NB: Maintain bamg numbering for the call to InterpFromMeshToMesh (i.e. the first triangle is numbered 1 so we don't do Triangles[...]-1)
         indexTr[3*tr  ] = bamgmesh_old->Triangles[4*tr];
@@ -211,7 +211,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
     std::vector<double> gridY(grid_size);
     std::vector<double> gridCornerX(3*grid_size);
     std::vector<double> gridCornerY(3*grid_size);
-    for (int tr=0; tr<grid_size; ++tr)
+    for (int tr = 0; tr < grid_size; ++tr)
     {
         gridX[tr] = 0; // barycentre
         gridY[tr] = 0;
@@ -438,7 +438,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
                 assert(counter>=1);
                 assert(counter<=2);
 
-                if ( counter==2 && !visited(elt_num, triangles) )
+                if ( counter == 2 && !visited(elt_num, triangles) )
                     checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
             }
         }
@@ -447,17 +447,17 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     // We've checked everything. Finish by calculating the area
     weights[loc] = area(points);
 
-}
+}//checkTriangle
 
 // Check if we've already visited this triangle
 inline bool visited(int current_triangle, std::vector<int> const &triangles)
 {
-    for (auto it=triangles.begin(); it!=triangles.end(); ++it)
+    for (auto it = triangles.begin(); it != triangles.end(); ++it)
         if ( current_triangle == *it )
             return true;
 
     return false;
-}
+} // visited
 
 
 // Check if points are inside polygon using a cross product
@@ -551,7 +551,7 @@ inline bool checkIfIntersecting(double X, double Y, double Xprev, double Yprev, 
         }
     }
     return ret_val;
-}
+} // checkIfIntersecting
 
 // Calculate the area
 inline double area(std::vector<std::pair<double,double>> &points)
@@ -609,7 +609,7 @@ inline void sortClockwise(std::vector<std::pair<double,double>> &points)
         it->first  += centreX;
         it->second += centreY;
     }
-}
+} // sortClockwise
 
 // The custom sorting function
 // https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order <- the second code exmple
@@ -642,4 +642,4 @@ inline bool CWSort(std::pair<double,double> p1, std::pair<double,double> p2)
         return p2.first*p1.second < p2.second*p1.first;
     else
         return qa < qb;
-}
+} // CWSort
