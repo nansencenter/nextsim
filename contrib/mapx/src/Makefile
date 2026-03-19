@@ -13,21 +13,23 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 
 
 # add gcc option flags
-CCFLAGS += -pedantic -Wno-inline
+CCFLAGS += -pedantic -Wno-inline -DNDEBUG
 ifdef NEXTSIM_COMPILE_VERBOSE
-	CXXFLAGS += -v
+	CCFLAGS += -v
 endif
 
 ifneq (,$(strip $(filter DEBUG,$(NEXTSIM_BUILD_TYPE))))
-	CCFLAGS += -g -O1 -fsanitize=address -fno-omit-frame-pointer -DNDEBUG
-	LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
+	CCFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CCFLAGS))
+	CCFLAGS += -g -O1 -DDEBUGGING
+	CCFLAGS += -fsanitize=address,float-divide-by-zero -fno-omit-frame-pointer -fno-finite-math-only
 ifneq ($(KERNEL),Linux)
 	CCFLAGS += -Wl,-no_pie
 endif
 endif
 
 ifneq (,$(strip $(filter VALGRIND,$(NEXTSIM_BUILD_TYPE))))
-	CCFLAGS += -g -O0 -DNDEBUG
+	CCFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CCFLAGS))
+	CCFLAGS += -g -O0 -DDEBUGGING
 ifneq ($(KERNEL),Linux)
 	CCFLAGS += -Wl,-no_pie
 endif

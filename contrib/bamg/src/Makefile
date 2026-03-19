@@ -15,18 +15,20 @@ CXXFLAGS := $(filter-out -fopenmp -pthread,$(CXXFLAGS))
 
 CXXFLAGS += -std=c++14
 
-CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -D_MULTITHREADING_
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -D_MULTITHREADING_ -DNDEBUG
 
 ifneq (,$(strip $(filter DEBUG,$(NEXTSIM_BUILD_TYPE))))
-	CXXFLAGS += -g -O1 -fsanitize=address -fno-omit-frame-pointer -DNDEBUG
-	LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
+	CXXFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CXXFLAGS))
+	CXXFLAGS += -g -O1
+	CXXFLAGS += -fsanitize=address,float-divide-by-zero -fno-omit-frame-pointer -fno-finite-math-only
 ifneq ($(KERNEL),Linux)
 	CXXFLAGS += -Wl,-no_pie
 endif
 endif
 
 ifneq (,$(strip $(filter VALGRIND,$(NEXTSIM_BUILD_TYPE))))
-	CXXFLAGS += -g -O0 -DNDEBUG
+	CXXFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CXXFLAGS))
+	CXXFLAGS += -g -O0
 ifneq ($(KERNEL),Linux)
 	CXXFLAGS += -Wl,-no_pie
 endif
