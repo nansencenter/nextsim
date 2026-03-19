@@ -17,10 +17,10 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 {
     // ---------- Initialisation ---------- //
     // Copy the triangle information
-    int numTriangles = bamgmesh->TrianglesSize[0];
+    const int numTriangles = bamgmesh->TrianglesSize[0];
     std::vector<int> indexTr(3*numTriangles);
     std::vector<double> elnum(numTriangles);
-    for (int tr=0; tr<numTriangles; ++tr)
+    for (int tr = 0; tr < numTriangles; ++tr)
     {
         // NB: Maintain bamg numbering for the call to InterpFromMeshToMesh (i.e. the first triangle is numbered 1 so we don't do Triangles[...]-1)
         indexTr[3*tr  ] = bamgmesh->Triangles[4*tr];
@@ -32,7 +32,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
     }
 
     // Copy the node information
-    int numNodes     = bamgmesh->VerticesSize[0];
+    const int numNodes     = bamgmesh->VerticesSize[0];
     std::vector<double> coordX(numNodes);
     std::vector<double> coordY(numNodes);
     for (int id=0; id<numNodes; ++id)
@@ -42,15 +42,13 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
     }
 
     // Copy the grid information
-    int grid_size = gridX.size();
+    const int grid_size = gridX.size();
     assert(grid_size==gridY.size());
 
-    // Reset the size of gridP, triangles, and weights
-    // Doing this and using push_back is probably sub-optimal, but that's an
-    // optimisation for another day
-    gridP.resize(0);
-    triangles.resize(0);
-    weights.resize(0);
+    // Initialise gridP, triangles, and weights
+    gridP.resize(grid_size);
+    triangles.resize(grid_size);
+    weights.resize(grid_size);
 
     // Find which element each P-point hits - use -1 for land points
     double* elnum_out;
@@ -66,13 +64,13 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
     for (int ppoint=0; ppoint<grid_size; ++ppoint)
     {
         // Carefully take the right integer value for element number
-        int i_elnum_out = std::round(elnum_out[ppoint]);
+        const int i_elnum_out = std::round(elnum_out[ppoint]);
 
         // Don't do anything for land points
         if ( i_elnum_out >= 0 )
         {
             // Save the ppoints
-            gridP.push_back(ppoint);
+            gridP[ppoint] = ppoint;
 
             // coordinates and size of the grid cell
             std::vector<double> cornerX(4);
@@ -94,8 +92,8 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
             checkTriangle(bamgmesh, cornerX, cornerY, i_elnum_out, local_triangles, local_weights);
 
             // Save the weights and triangle numbers
-            triangles.push_back(local_triangles);
-            weights.push_back(local_weights);
+            triangles[ppoint] = local_triangles;
+            weights[ppoint] = local_weights;
         }
     }
     xDelete<double>(elnum_out);
@@ -116,25 +114,25 @@ void ConservativeRemappingMeshToGrid(double* &interp_out, std::vector<double> &i
     for (int i=0; i<gridP.size(); ++i)
     {
         // Calculate cell area
-        int ppoint = gridP[i];
+        const int ppoint = gridP[i];
         std::vector<std::pair<double,double>> points(num_corners);
         for (int corner=0; corner<num_corners; ++corner)
             points[corner] = std::make_pair(gridCornerX[num_corners*ppoint+corner],gridCornerY[num_corners*ppoint+corner]);
 
-        double r_cell_area = 1./area(points);
+        const double r_cell_area = 1./area(points);
 
         // walk through all the variables
         for (int var=0; var<nb_var; ++var)
         {
             // ... and contributing elements
-            interp_out[gridP[i]*nb_var+var] = 0;
+            interp_out[gridP[i]*nb_var+var] = 0.;
             for (int tr=0; tr<triangles[i].size(); ++tr)
                 interp_out[gridP[i]*nb_var+var] += interp_in[triangles[i][tr]*nb_var+var]*weights[i][tr];
 
             interp_out[gridP[i]*nb_var+var] *= r_cell_area;
         }
     }
-}
+} // ConservativeRemappingMeshToGrid
 
 // Apply weights going from grid to mesh
 void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &interp_in, int const nb_var, int const numElements, std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
@@ -182,10 +180,10 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
 
     // ---------- Initialisation ---------- //
     // Copy the triangle information of the _old mesh
-    int numTriangles = bamgmesh_old->TrianglesSize[0];
+    const int numTriangles = bamgmesh_old->TrianglesSize[0];
     std::vector<int> indexTr(3*numTriangles);
     std::vector<double> elnum(numTriangles);
-    for (int tr=0; tr<numTriangles; ++tr)
+    for (int tr = 0; tr < numTriangles; ++tr)
     {
         // NB: Maintain bamg numbering for the call to InterpFromMeshToMesh (i.e. the first triangle is numbered 1 so we don't do Triangles[...]-1)
         indexTr[3*tr  ] = bamgmesh_old->Triangles[4*tr];
@@ -197,7 +195,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
     }
 
     // Copy the node information
-    int numNodes     = bamgmesh_old->VerticesSize[0];
+    const int numNodes = bamgmesh_old->VerticesSize[0];
     std::vector<double> coordX(numNodes);
     std::vector<double> coordY(numNodes);
     for (int id=0; id<numNodes; ++id)
@@ -208,27 +206,27 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
 
     // Copy the triangle information of the _new mesh and calculate the barycentre
     // Keep the nomenclature for a grid (even if it's a mesh)
-    int grid_size = bamgmesh_new->TrianglesSize[0];
+    const int grid_size = bamgmesh_new->TrianglesSize[0];
     std::vector<double> gridX(grid_size);
     std::vector<double> gridY(grid_size);
     std::vector<double> gridCornerX(3*grid_size);
     std::vector<double> gridCornerY(3*grid_size);
-    for (int tr=0; tr<grid_size; ++tr)
+    for (int tr = 0; tr < grid_size; ++tr)
     {
-        gridX[tr] = 0; // barycentre
-        gridY[tr] = 0;
+        gridX[tr] = 0.; // barycentre
+        gridY[tr] = 0.;
         for (int i=0; i<3; ++i)
         {
             // grid corner == vertice
-            int id = bamgmesh_new->Triangles[4*tr+i] - 1; // Here we need C/C++ numbering
+            const int id = bamgmesh_new->Triangles[4*tr+i] - 1; // Here we need C/C++ numbering
             gridCornerX[3*tr+i] = bamgmesh_new->Vertices[3*id];
             gridCornerY[3*tr+i] = bamgmesh_new->Vertices[3*id+1];
 
             gridX[tr] += gridCornerX[3*tr+i];
             gridY[tr] += gridCornerY[3*tr+i];
         }
-        gridX[tr] /= 3;
-        gridY[tr] /= 3;
+        gridX[tr] /= 3.;
+        gridY[tr] /= 3.;
     }
 
     // Initialise gridP, triangles, and weights
@@ -259,7 +257,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
         assert( elnum_out[ppoint] >= 0. );
 
         // Carefully take the right integer value for element number
-        int i_elnum_out = std::round(elnum_out[ppoint]);
+        const int i_elnum_out = std::round(elnum_out[ppoint]);
 
         // Save the ppoint - for compatibility with ConservativeRemappingMeshToGrid
         gridP[ppoint] = ppoint;
@@ -273,7 +271,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
         std::vector<int> nodes_new(3);
         for ( int i=0; i<3; ++i )
         {
-            int id = bamgmesh_new->Triangles[4*ppoint+i] - 1; // Here we need C/C++ numbering
+            const int id = bamgmesh_new->Triangles[4*ppoint+i] - 1; // Here we need C/C++ numbering
 /*  The previous numbering of the nodes on the boundaries given by bamg is wrong.
  *  Bamg adds these nodes at the beginning of the list of nodes.
  *  In our case, these nodes are always the same as the boundary is neither
@@ -335,17 +333,17 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     /*
      * We must plant the flag here, before any recursion can happen. We must
      * also push_back on weights and remember where to write the final weight
-     * because some of the recursive calles may do a push_back of their own.
+     * because some of the recursive calls may do a push_back of their own.
      */
     triangles.push_back(current_triangle);
     weights.push_back(0.);
-    int loc = weights.size()-1;
+    const int loc = weights.size()-1;
 
     // This is a list of the points we use to calculate the area
     std::vector<std::pair<double,double>> points;
 
-    int num_corners = gridCornerX.size();
-    assert(num_corners = gridCornerY.size());
+    const int num_corners = gridCornerX.size();
+    assert(num_corners == gridCornerY.size());
 
     // ---------- Now we do the three checks ---------- //
 
@@ -362,17 +360,17 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
         Y[i] = bamgmesh->Vertices[3*nodeID[i]+1];
 
         // If we're inside we note the point and call self for the surrounding triangles
-        inCell[i] = checkIfInside(gridCornerX, gridCornerY, X[i], Y[i]);
+        inCell[i] = checkIfInside(gridCornerX, gridCornerY, X[i], Y[i], false);
         if ( inCell[i] )
         {
             points.push_back(std::make_pair(X[i],Y[i]));
 
-            int num_elements = bamgmesh->NodalElementConnectivitySize[1];
-            for (int j=0; j<num_elements; j++)
+            const int num_elements = bamgmesh->NodalElementConnectivitySize[1];
+            for (int j = 0; j < num_elements; j++)
             {
-                int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
+                const int elt_num = bamgmesh->NodalElementConnectivity[num_elements*nodeID[i]+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
-                if ( elt_num < 0 ) continue;
+                if ( elt_num < 0 ) break;
 
                 if ( ! visited(elt_num, triangles) )
                     checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
@@ -391,7 +389,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     int counter = 0;
     for (int i=0; i<num_corners; ++i)
     {
-        if ( checkIfInside(X, Y, gridCornerX[i], gridCornerY[i]) )
+        if ( checkIfInside(X, Y, gridCornerX[i], gridCornerY[i], true) )
         {
             points.push_back(std::make_pair(gridCornerX[i],gridCornerY[i]));
             ++counter;
@@ -419,9 +417,9 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
             // We don't know which of the (up to) three connected triangles is the right one so we must search
             for (int j=0; j<3; j++)
             {
-                int elt_num = bamgmesh->ElementConnectivity[3*current_triangle+j] - 1; // Here we need C/C++ numbering
+                const int elt_num = bamgmesh->ElementConnectivity[3*current_triangle+j] - 1; // Here we need C/C++ numbering
                 // Negative elt_num means there are no more elements belonging to this node
-                if ( elt_num < 0 ) continue;
+                if ( elt_num < 0 ) break;
 
                 /*
                  * Find the triangle adjacent to the current one by comparing
@@ -431,7 +429,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
                 int counter = 0;
                 for (int k=0; k<3; ++k)
                 {
-                    int myID = bamgmesh->Triangles[4*elt_num+k] - 1; // Here we need C/C++ numbering
+                    const int myID = bamgmesh->Triangles[4*elt_num+k] - 1; // Here we need C/C++ numbering
                     if ( myID==nodeID[i] || myID==nodeID[prev] )
                         ++counter;
                 }
@@ -440,7 +438,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
                 assert(counter>=1);
                 assert(counter<=2);
 
-                if ( counter==2 && !visited(elt_num, triangles) )
+                if ( counter == 2 && !visited(elt_num, triangles) )
                     checkTriangle(bamgmesh, gridCornerX, gridCornerY, elt_num, triangles, weights);
             }
         }
@@ -449,50 +447,69 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
     // We've checked everything. Finish by calculating the area
     weights[loc] = area(points);
 
-}
+}//checkTriangle
 
 // Check if we've already visited this triangle
 inline bool visited(int current_triangle, std::vector<int> const &triangles)
 {
-    for (auto it=triangles.begin(); it!=triangles.end(); ++it)
+    for (auto it = triangles.begin(); it != triangles.end(); ++it)
         if ( current_triangle == *it )
             return true;
 
     return false;
-}
+} // visited
 
-/*
- * Check if points are inside polygon
- * Short and works for both triangles and quadrangles (or any higher order polygon).
- *
- * from https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
- *
- * Copyright (c) 1970-2003, Wm. Randolph Franklin
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- *  1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimers.
- *  2. Redistributions in binary form must reproduce the above copyright notice in the documentation and/or other materials provided with the distribution.
- *  3. The name of W. Randolph Franklin may not be used to endorse or promote products derived from this Software without specific prior written permission.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
-inline bool checkIfInside(std::vector<double> const &vertx, std::vector<double> const &verty, double testx, double testy)
+
+// Check if points are inside polygon using a cross product
+bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& verty, double testx, double testy, bool inclusive)
 {
     // Initilisation and sanity check
-    bool inside = false;
-    int nvert = vertx.size();
+    const int nvert = vertx.size();
     assert(nvert==verty.size());
 
-    int i;
-    int j=nvert-1;
-    for (i=0; i<nvert; j=i++)
-        if ( ((verty[i]>testy) != (verty[j]>testy)) &&
-            (testx < (vertx[j]-vertx[i]) * (testy-verty[i]) / (verty[j]-verty[i]) + vertx[i]) )
-                inside = !inside;
+    // Check if the point is on a vertex of the triangle
+    const double eps = 1.e-3;
+    for (int i = 0; i < nvert; ++i)
+        if (std::abs(testx - vertx[i]) < eps && std::abs(testy - verty[i]) < eps)
+            return inclusive;
 
-    return inside;
-}
+    // The cross product
+    auto cross = [&](double ax, double ay, double bx, double by, double px, double py) {
+        return (bx - ax)*(py - ay) - (by - ay)*(px - ax);
+    };
+
+    // Check the cross product for all sides
+    bool hasPos = false;
+    bool hasNeg = false;
+    bool hasMaybe = false;
+    const double epsx = 1e-8;
+    for (int i=0; i<nvert; ++i) {
+
+        const double ax = vertx[i];
+        const double ay = verty[i];
+        const double bx = vertx[(i+1) % nvert]; // Wraps around to 0 at the end
+        const double by = verty[(i+1) % nvert];
+
+
+        const double cp = cross(ax, ay, bx, by, testx, testy);
+
+        if (cp >  epsx)
+            hasPos = true;
+        else if (cp < -epsx)
+            hasNeg = true;
+        else
+            hasMaybe = true;
+
+        // If we found both positive and negative cross products, the point is outside.
+        if (hasPos && hasNeg ) return false;
+    }
+
+    // If we're uncertain, then we take our cue from the caller
+    if ( hasMaybe ) return inclusive;
+
+    return true;
+
+} //checkIfInside
 
 // Check for intersection and add intersecting points to the list
 // https://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
@@ -500,35 +517,33 @@ inline bool checkIfIntersecting(double X, double Y, double Xprev, double Yprev, 
 		std::vector<std::pair<double,double>> &points) // side-effect
 {
     // Initialise
-    int num_corners = gridCornerX.size();
-    assert(num_corners = gridCornerY.size());
+    const int num_corners = gridCornerX.size();
+    assert(num_corners == gridCornerY.size());
 
     bool ret_val = false;
-    double s1_x = X - Xprev;
-    double s1_y = Y - Yprev;
+    const double s1_x = X - Xprev;
+    const double s1_y = Y - Yprev;
 
     // Loop over the grid
     int prev=num_corners-1;
     for (int i=0; i<num_corners; prev=i++)
     {
-        double s2_x = gridCornerX[i] - gridCornerX[prev];
-        double s2_y = gridCornerY[i] - gridCornerY[prev];
+        const double s2_x = gridCornerX[i] - gridCornerX[prev];
+        const double s2_y = gridCornerY[i] - gridCornerY[prev];
 
-        double det = -s2_x * s1_y + s1_x * s2_y;
-        if ( det == 0 )
+        const double det = -s2_x * s1_y + s1_x * s2_y;
+        if ( std::abs(det) < 1e-6 )
             continue; // The lines are parallel!
 
-        double rdet = 1./det;
-        double s = (-s1_y * (Xprev - gridCornerX[prev]) + s1_x * (Yprev - gridCornerY[prev])) * rdet;
-        double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
+        const double rdet = 1./det;
+        const double s = (-s1_y * (Xprev - gridCornerX[prev]) + s1_x * (Yprev - gridCornerY[prev])) * rdet;
+        const double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
 
         /*
-         * Here we assume that the case of overlaping points is an
-         * intersection. It will result in double counting in some cases, but
-         * not doing it would result in us not catching all the points all the
-         * time.
+         * Here we assume that the case of overlapping points is not an
+         * intersection. The corner point is caught by checkIfInside anyway.
          */
-        if (s >= 0 && s <= 1 && t >= 0 && t <= 1)
+        if (s > 0. && s < 1. && t > 0. && t < 1.)
         {
             // Intersection detected
             points.push_back(std::make_pair(Xprev + (t * s1_x), Yprev + (t * s1_y)));
@@ -536,7 +551,7 @@ inline bool checkIfIntersecting(double X, double Y, double Xprev, double Yprev, 
         }
     }
     return ret_val;
-}
+} // checkIfIntersecting
 
 // Calculate the area
 inline double area(std::vector<std::pair<double,double>> &points)
@@ -550,20 +565,20 @@ inline double area(std::vector<std::pair<double,double>> &points)
 
     // Calculate value of shoelace formula
     double area = 0.;
-    int n = points.size();
+    const int n = points.size();
     int j = n-1;
     for (int i=0; i < n; j=i++)
         area += (points[j].first + points[i].first) * (points[j].second - points[i].second);
 
     // Return half the absolute value
     return std::abs(area) * 0.5;
-}
+} // area
 
 // Sort the points in a clock wise manner around the centre of the cloud of points
 inline void sortClockwise(std::vector<std::pair<double,double>> &points)
 {
     // Calculate the centre point
-    int n = points.size();
+    const int n = points.size();
     double centreX = 0.;
     double centreY = 0.;
     for (auto it=points.begin(); it!=points.end(); ++it)
@@ -571,7 +586,7 @@ inline void sortClockwise(std::vector<std::pair<double,double>> &points)
         centreX += it->first;
         centreY += it->second;
     }
-    double rn = 1./(double)n;
+    const double rn = 1./double(n);
     centreX *= rn;
     centreY *= rn;
 
@@ -594,7 +609,7 @@ inline void sortClockwise(std::vector<std::pair<double,double>> &points)
         it->first  += centreX;
         it->second += centreY;
     }
-}
+} // sortClockwise
 
 // The custom sorting function
 // https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order <- the second code exmple
@@ -627,4 +642,4 @@ inline bool CWSort(std::pair<double,double> p1, std::pair<double,double> p2)
         return p2.first*p1.second < p2.second*p1.first;
     else
         return qa < qb;
-}
+} // CWSort
