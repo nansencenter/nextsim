@@ -540,8 +540,8 @@ inline bool checkIfIntersecting(double X, double Y, double Xprev, double Yprev, 
         const double t = ( s2_x * (Yprev - gridCornerY[prev]) - s2_y * (Xprev - gridCornerX[prev])) * rdet;
 
         /*
-         * Here we assume that the case of overlaping points is not an
-         * intersection. The corner point is cought by checkIfInside anyway.
+         * Here we assume that the case of overlapping points is not an
+         * intersection. The corner point is caught by checkIfInside anyway.
          */
         if (s > 0. && s < 1. && t > 0. && t < 1.)
         {
