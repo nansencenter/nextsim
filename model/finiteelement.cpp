@@ -6543,6 +6543,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
     const double concMin = 0.1;      // minimum ice concentration with ponds
     const double max_lid_thickness = 0.3; // maximum lid thickness
+    const double min_lid_thickness = 1e-3; // minimum lid thickness
 
     const double ice_to_water = physical::rhoi/physical::rhow;
     const double snow_to_water = physical::rhos/physical::rhow;
@@ -6592,13 +6593,13 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
             (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth);
 
     double delLidVolume = 0; // Volume increase is always positive!
-    if ( M_lid_volume[cpt] > 0. ) // a lid exits
+    if ( M_lid_volume[cpt] > 0. && D_pond_fraction[cpt] > 1e-11 ) // a lid exists
     {
         // Grow or melt the lid - lid volume is in water-equivalent meters
         /* Assume the pond water has the same salinity as sea ice and is at the
          * freezing point */
         const double TPond = -M_freezingpoint_mu*physical::si;
-        const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
+        const double lidThickness = std::max(min_lid_thickness, std::min(max_lid_thickness, M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt]));
         const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
         const double delLidThickness = ( std::min(Qia-Qic,0.) + Qic ) // surface + bottom
             *dt/(physical::rhoi*physical::Lf);
