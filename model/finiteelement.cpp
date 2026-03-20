@@ -1368,7 +1368,7 @@ FiniteElement::initOptAndParam()
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
         ("none", setup::BasalStressType::NONE)
-        ("lemieux", setup::BasalStressType::LEMIEUX)
+        ("lemieux", setup::BasalStressType::LEMIEUX);
     M_basal_stress_type = this->getOptionFromMap("setup.basal_stress-type", str2basal_stress);
         //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
