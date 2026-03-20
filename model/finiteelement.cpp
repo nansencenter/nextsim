@@ -1369,7 +1369,6 @@ FiniteElement::initOptAndParam()
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
         ("none", setup::BasalStressType::NONE)
         ("lemieux", setup::BasalStressType::LEMIEUX)
-        ("bouillon", setup::BasalStressType::BOUILLON);
     M_basal_stress_type = this->getOptionFromMap("setup.basal_stress-type", str2basal_stress);
         //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
@@ -10276,7 +10275,7 @@ FiniteElement::explicitSolve()
 
         double max_keel_depth=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
         double ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
-        double keel_depth;
+        double mean_keel_depth; // use (M_conc[cpt] * keel_depth) to avoid division by zero
         double critical_h;
         double critical_h_mod;
         double const min_water_depth = 2.; //m
@@ -10290,21 +10289,13 @@ FiniteElement::explicitSolve()
                 critical_h     = 0.;
                 critical_h_mod = 0.;
                 break;
-            case setup::BasalStressType::BOUILLON:
-                // Sylvain's grounding scheme
-                // TODO: Remove this one - we've never used it
-                keel_depth = ice_to_keel_factor * std::sqrt(M_thick[cpt]/M_conc[cpt]);
-                keel_depth = std::min( keel_depth, max_keel_depth );
-                critical_h     = M_conc[cpt] * std::pow(depth_eff / ice_to_keel_factor, 2.);
-                critical_h_mod = M_conc[cpt] * std::pow(keel_depth / ice_to_keel_factor, 2.);
-                break;
             case setup::BasalStressType::LEMIEUX:
                 // JF Lemieux's grounding (critical_h = h_c, critical_h_mod = h)
                 // Limit keel depth (JF doesn't do that).
-                keel_depth = k1 * M_thick[cpt] / M_conc[cpt];
-                keel_depth = std::min( keel_depth, max_keel_depth );
+                mean_keel_depth = k1 * M_thick[cpt];
+                mean_keel_depth = std::min( mean_keel_depth, M_conc[cpt] * max_keel_depth );
                 critical_h     = M_conc[cpt] * depth_eff / k1;
-                critical_h_mod = M_conc[cpt] * keel_depth / k1;
+                critical_h_mod = mean_keel_depth / k1;
                 break;
         }
 
