@@ -6098,13 +6098,13 @@ FiniteElement::thermo(int dt)
             }
             else // on a non-reset day, myi is only modified by melting, not freezing
             {
-                // We ignore the young ice for now
-                double del_c_ratio = std::min(M_conc[i]/old_conc,1.);
-                double del_v_ratio = std::min(M_thick[i]/old_vol,1.);
-                if  (del_v_ratio < 1.) // if there is some melt of old ice
+                if  ((M_thick[i] < old_vol) && (old_conc > 0) && (old_vol > 0)) // if there is some melt of old ice
                 {   
                     if (equal_melting)
                     {    
+                        // We ignore the young ice for now
+                        double const del_c_ratio = std::min(M_conc[i]/old_conc,1.);
+                        double const del_v_ratio = std::min(M_thick[i]/old_vol,1.);
                         del_ci_mlt_myi  = std::min(0.,M_conc_myi[i]*(del_c_ratio-1.));  // <0 
                         del_vi_mlt_myi  = std::min(0.,M_thick_myi[i]*(del_v_ratio-1.)); // <0
                     }
