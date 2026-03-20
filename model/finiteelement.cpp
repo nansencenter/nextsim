@@ -6806,7 +6806,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
             double f1   = h1/hi*2.; // Fraction of layer 1 ice found in the new layer 1
             double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (39)
             T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
-        } else {
+        } else if (hi > 0.) {
             // Upper layer ice is added to the lower layer
             // T2 changes, but T1 not
             double f1   = (2.*h1-hi)/hi; // Fraction of layer 1 ice found in new layer 2
