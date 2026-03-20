@@ -991,7 +991,7 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
 void
 FiniteElement::initBamg()
 {
-    bamgopt = new BamgOpts();
+    bamgopt = new BamgOpts();//TODO memory leak
 
     bamgopt->Crack             = 0;
     bamgopt->anisomax          = 1e30;
@@ -9706,6 +9706,7 @@ FiniteElement::readRestart(std::string const& name_str)
     std::vector<int> misc_int;
     std::vector<double> time_vec;
 
+    //TODO memory leak in this block - probably from bamg pointers
     if (M_rank == 0)
     {
 
