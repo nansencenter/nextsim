@@ -990,7 +990,7 @@ FiniteElement::checkReloadMainDatasets(double const CRtime)
 void
 FiniteElement::initBamg()
 {
-    bamgopt = new BamgOpts();
+    bamgopt = new BamgOpts();//TODO memory leak
 
     bamgopt->Crack             = 0;
     bamgopt->anisomax          = 1e30;
@@ -1367,8 +1367,7 @@ FiniteElement::initOptAndParam()
 
     const boost::unordered_map<const std::string, setup::BasalStressType> str2basal_stress= boost::assign::map_list_of
         ("none", setup::BasalStressType::NONE)
-        ("lemieux", setup::BasalStressType::LEMIEUX)
-        ("bouillon", setup::BasalStressType::BOUILLON);
+        ("lemieux", setup::BasalStressType::LEMIEUX);
     M_basal_stress_type = this->getOptionFromMap("setup.basal_stress-type", str2basal_stress);
         //! \param M_basal_stress_type (string) Option on the type of basal stress (none, from Lemieux et al., 2016 or from Bouillon)
     LOG(DEBUG) <<"BASALSTRESTYPE= "<< (int) M_basal_stress_type <<"\n";
@@ -6090,13 +6089,13 @@ FiniteElement::thermo(int dt)
             }
             else // on a non-reset day, myi is only modified by melting, not freezing
             {
-                // We ignore the young ice for now
-                double del_c_ratio = std::min(M_conc[i]/old_conc,1.);
-                double del_v_ratio = std::min(M_thick[i]/old_vol,1.);
-                if  (del_v_ratio < 1.) // if there is some melt of old ice
+                if  ((M_thick[i] < old_vol) && (old_conc > 0) && (old_vol > 0)) // if there is some melt of old ice
                 {   
                     if (equal_melting)
                     {    
+                        // We ignore the young ice for now
+                        double const del_c_ratio = std::min(M_conc[i]/old_conc,1.);
+                        double const del_v_ratio = std::min(M_thick[i]/old_vol,1.);
                         del_ci_mlt_myi  = std::min(0.,M_conc_myi[i]*(del_c_ratio-1.));  // <0 
                         del_vi_mlt_myi  = std::min(0.,M_thick_myi[i]*(del_v_ratio-1.)); // <0
                     }
@@ -6535,6 +6534,7 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
     const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
     const double concMin = 0.1;      // minimum ice concentration with ponds
     const double max_lid_thickness = 0.3; // maximum lid thickness
+    const double min_lid_thickness = 1e-3; // minimum lid thickness
 
     const double ice_to_water = physical::rhoi/physical::rhow;
     const double snow_to_water = physical::rhos/physical::rhow;
@@ -6584,13 +6584,13 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
             (M_lid_volume[cpt]+M_pond_volume[cpt])/pond_depth);
 
     double delLidVolume = 0; // Volume increase is always positive!
-    if ( M_lid_volume[cpt] > 0. ) // a lid exits
+    if ( M_lid_volume[cpt] > 0. && D_pond_fraction[cpt] > 1e-11 ) // a lid exists
     {
         // Grow or melt the lid - lid volume is in water-equivalent meters
         /* Assume the pond water has the same salinity as sea ice and is at the
          * freezing point */
         const double TPond = -M_freezingpoint_mu*physical::si;
-        const double lidThickness = M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt];
+        const double lidThickness = std::max(min_lid_thickness, std::min(max_lid_thickness, M_lid_volume[cpt]*water_to_ice/D_pond_fraction[cpt]));
         const double Qic = (TPond - M_tice[0][cpt]) / lidThickness * physical::ki;
         const double delLidThickness = ( std::min(Qia-Qic,0.) + Qic ) // surface + bottom
             *dt/(physical::rhoi*physical::Lf);
@@ -6798,7 +6798,7 @@ FiniteElement::thermoWinton(const double dt, const double conc, const double vol
             double f1   = h1/hi*2.; // Fraction of layer 1 ice found in the new layer 1
             double Tbar = f1*( T1 + qi*Tfr_ice/(Crho*T1) ) + (1-f1)*T2; // (39)
             T1 = ( Tbar - std::sqrt(Tbar*Tbar - 4*Tfr_ice*qi/Crho) )/2.; // (38)
-        } else {
+        } else if (hi > 0.) {
             // Upper layer ice is added to the lower layer
             // T2 changes, but T1 not
             double f1   = (2.*h1-hi)/hi; // Fraction of layer 1 ice found in new layer 2
@@ -9698,6 +9698,7 @@ FiniteElement::readRestart(std::string const& name_str)
     std::vector<int> misc_int;
     std::vector<double> time_vec;
 
+    //TODO memory leak in this block - probably from bamg pointers
     if (M_rank == 0)
     {
 
@@ -10266,7 +10267,7 @@ FiniteElement::explicitSolve()
 
         double max_keel_depth=28; // [m] from "A comprehensive analysis of the morphology of first-year sea ice ridges"
         double ice_to_keel_factor=19.28; // from "A comprehensive analysis of the morphology of first-year sea ice ridges"
-        double keel_depth;
+        double mean_keel_depth; // use (M_conc[cpt] * keel_depth) to avoid division by zero
         double critical_h;
         double critical_h_mod;
         double const min_water_depth = 2.; //m
@@ -10280,21 +10281,13 @@ FiniteElement::explicitSolve()
                 critical_h     = 0.;
                 critical_h_mod = 0.;
                 break;
-            case setup::BasalStressType::BOUILLON:
-                // Sylvain's grounding scheme
-                // TODO: Remove this one - we've never used it
-                keel_depth = ice_to_keel_factor * std::sqrt(M_thick[cpt]/M_conc[cpt]);
-                keel_depth = std::min( keel_depth, max_keel_depth );
-                critical_h     = M_conc[cpt] * std::pow(depth_eff / ice_to_keel_factor, 2.);
-                critical_h_mod = M_conc[cpt] * std::pow(keel_depth / ice_to_keel_factor, 2.);
-                break;
             case setup::BasalStressType::LEMIEUX:
                 // JF Lemieux's grounding (critical_h = h_c, critical_h_mod = h)
                 // Limit keel depth (JF doesn't do that).
-                keel_depth = k1 * M_thick[cpt] / M_conc[cpt];
-                keel_depth = std::min( keel_depth, max_keel_depth );
+                mean_keel_depth = k1 * M_thick[cpt];
+                mean_keel_depth = std::min( mean_keel_depth, M_conc[cpt] * max_keel_depth );
                 critical_h     = M_conc[cpt] * depth_eff / k1;
-                critical_h_mod = M_conc[cpt] * keel_depth / k1;
+                critical_h_mod = mean_keel_depth / k1;
                 break;
         }
 

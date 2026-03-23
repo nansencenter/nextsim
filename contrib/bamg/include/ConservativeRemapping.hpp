@@ -39,7 +39,7 @@ inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCor
 inline bool visited(int current_triangle, std::vector<int> const &triangles);
 
 // Check if points are inside polygon
-inline bool checkIfInside(std::vector<double> const &vertx, std::vector<double> const &verty, double testx, double testy);
+inline bool checkIfInside(const std::vector<double>& vertx, const std::vector<double>& verty, double testx, double testy, bool inclusive);
 
 // Check for intersection and add intersecting points to the list
 inline bool checkIfIntersecting(double X, double Y, double Xnext, double Ynext, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, // inputs
