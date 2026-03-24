@@ -375,6 +375,12 @@ namespace Nextsim
             ("dynamics.mevp.alpha", po::value<double>()->default_value( 500 ), "Alpha of the mEVP method (default 500)")
             ("dynamics.mevp.beta",  po::value<double>()->default_value( 500 ), "Beta of the mEVP method (default 500)")
 
+            // - Ridge ratio dependent drag
+            ("dynamics.ridging_dependent_drag",  po::value<bool>()->default_value( false ), "Increase atmospheric drag linearly proportional to the total ridge volume (true|[false]).")
+            ("dynamics.ridge_drag_factor",  po::value<double>()->default_value( 5.5e-4 ), "Multiplication factor for total ridge volume contribution to atmospheric drag.")
+            ("dynamics.scale_ocean_drag",  po::value<bool>()->default_value( true ), "Scale ocean drag so that ridged ice has same Nansen number as flat ice.")
+
+
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics
              //-----------------------------------------------------------------------------------

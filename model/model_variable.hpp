@@ -85,8 +85,10 @@ public:
         M_drag_ti         = 32,
         M_drag_ui_young   = 33,
         M_drag_ti_young   = 34,
-        M_pond_volume     = 35,
-        M_lid_volume      = 36,
+        M_drag_uiw        = 35,
+        M_drag_uiw_young  = 36,
+        M_pond_volume     = 37,
+        M_lid_volume      = 38,
 
         // Diagnostic variables
         D_conc         = 100,
