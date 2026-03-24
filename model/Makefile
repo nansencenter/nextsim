@@ -5,8 +5,7 @@ PROGNAME=nextsim.exec
 CXXFLAGS += -std=c++14
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
-		-DHAVE_CONFIG_H -D_MULTITHREADING_
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -DHAVE_CONFIG_H -D_MULTITHREADING_ -DNDEBUG
 ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
@@ -20,15 +19,15 @@ ifdef USE_OASIS
 endif
 
 ifneq (,$(strip $(filter DEBUG,$(NEXTSIM_BUILD_TYPE))))
-	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O1 -fsanitize=address -fno-omit-frame-pointer -DNDEBUG
-	LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
+	CXXFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CXXFLAGS))
+	CXXFLAGS += -g -O1
+	CXXFLAGS += -fsanitize=address,float-divide-by-zero -fno-omit-frame-pointer -fno-finite-math-only
 endif
 
 ifneq (,$(strip $(filter VALGRIND PROFILE,$(NEXTSIM_BUILD_TYPE))))
-	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O0 -DNDEBUG
-ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CXXFLAGS))
+	CXXFLAGS += -g -O0
+ifneq (,$(strip $(filter PROFILE,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -DWITHGPERFTOOLS
 endif
 endif
