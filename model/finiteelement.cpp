@@ -6191,6 +6191,7 @@ FiniteElement::IABulkFluxes(
     double const alb_sn   = vm["thermo.alb_sn"].as<double>();
     double const alb_pnd  = vm["thermo.alb_ponds"].as<double>();
 
+    const bool ridge_drag = vm["dynamics.ridging_dependent_drag"].as<bool>();
     double const ridge_drag_factor = vm ["dynamics.ridge_drag_factor"].as<double>();
     const bool scale_ocean_drag = vm["dynamics.scale_ocean_drag"].as<bool>();
 
@@ -6263,8 +6264,10 @@ FiniteElement::IABulkFluxes(
         // -------------------------------------------------
         // Drag coefficients
 
-        // Ridge-ratio dependent drag. Turn it off by setting ridge_drag_factor = 0!
-        const double neutral_drag = quad_drag_coef_air + M_thick[i]*M_ridge_ratio[i]*ridge_drag_factor;
+        double neutral_drag = quad_drag_coef_air;
+        // Ridge-ratio dependent drag if requested
+        if ( ridge_drag )
+           neutral_drag += M_thick[i]*M_ridge_ratio[i]*ridge_drag_factor;
 
         // We may want to change the ocean drag to preserve the Nansen Number
         // const double nansen2 = rhoair * quad_drag_coef_air / (physical::rhow * quad_drag_coef_water);
