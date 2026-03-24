@@ -710,7 +710,7 @@ ModelVariable::initElemental()
             // mean floe diameter
             M_name = "M_drag_uiw";
             M_export_name = "ice-ocean_drag";
-            M_prognostic = true;
+            M_prognostic = false;
             M_exporting = false;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
@@ -721,7 +721,7 @@ ModelVariable::initElemental()
             // mean floe diameter
             M_name = "M_drag_uiw_young";
             M_export_name = "ice-ocean_drag_young";
-            M_prognostic = true;
+            M_prognostic = false;
             M_exporting = false;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
