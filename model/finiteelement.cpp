@@ -4515,12 +4515,6 @@ FiniteElement::regrid(bool step)
 
     chrono.restart();
 
-    double displacement_factor = 2.;
-    int substep_nb=1;
-    int step_order=-1;
-    bool flip = true;
-    int substep = 0;
-
     std::vector<double> um_root;
 
     M_timer.tick("gatherNodalField");
@@ -4530,233 +4524,147 @@ FiniteElement::regrid(bool step)
     if (M_rank == 0 || use_MMG)
     {
         chrono.restart();
-        LOG(DEBUG) <<"Flip starts\n";
-
-        while (flip /*|| (minang<(vm["numerics.regrid_angle"].as<double>())/10.)*/)
-        {
-            ++substep;
-            displacement_factor /= 2.;
-            step_order++;
-
-            if (use_MMG) {
-                flip = this->flip(M_mesh,M_UM,displacement_factor);
-            }
-            else {
-                flip = this->flip(M_mesh_root,um_root,displacement_factor);
-            }
-
-            if (substep > 1)
-                LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
-        }
+        LOG(DEBUG) <<"Move starts\n";
 
         if (use_MMG) {
-            double min_displacement_factor;
-            int max_step_order;
-            boost::mpi::all_reduce(M_comm, displacement_factor, min_displacement_factor, boost::mpi::minimum<double>());
-            boost::mpi::all_reduce(M_comm, step_order, max_step_order, boost::mpi::maximum<int>());
-            displacement_factor = min_displacement_factor;
-            step_order = max_step_order;
+            M_mesh.move(M_UM, 1.);
+        }
+        if (M_rank == 0 && M_use_mesh_root) {
+            M_mesh_root.move(um_root,1.);
         }
 
-        LOG(DEBUG) <<"displacement_factor= "<< displacement_factor <<"\n";
+        LOG(DEBUG) <<"Move done in "<< chrono.elapsed() <<"s\n";
 
-        // int step_order_max = step_order;
-        // boost::mpi::reduce(M_comm, step_order, step_order_max, boost::mpi::maximum<int>(), 0);
-        // step_order = step_order_max;
+        chrono.restart();
 
-        LOG(DEBUG) << "STEP ORDER= "<< step_order <<"\n";
-
-        substep_nb = std::pow(2,step_order);
-
-        if(substep_nb!=1)
+        if (M_rank == 0 && !use_MMG) 
         {
-            LOG(WARNING) << substep_nb << "substeps will be needed for the remeshing!" <<"\n";
-            LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
+            LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
+            auto RX = M_mesh_root.coordX();
+            auto RY = M_mesh_root.coordY();
+
+            for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
+            {
+                bamgmesh_root->Vertices[3*id] = RX[id];
+                bamgmesh_root->Vertices[3*id+1] = RY[id] ;
+            }
+
+            LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
         }
 
-        LOG(DEBUG) <<"Flip done in "<< chrono.elapsed() <<"s\n";
-
-        substep_nb = 1;
-
-        for (int substep_i = 0; substep_i < substep_nb; substep_i++ )
+        if(M_mesh_type==setup::MeshType::FROM_SPLIT  && !use_MMG)
         {
-            //LOG(DEBUG) <<"substep_nb= "<< substep_nb <<"\n";
-
-            if (substep_i > 0) this->gatherNodalField(M_UM,um_root);
-
             chrono.restart();
-            LOG(DEBUG) <<"Move starts\n";
+            LOG(DEBUG) <<"Interp vertices starts\n";
+            this->interpVertices();
+            LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
+        }
 
-            if (use_MMG) {
-                M_mesh.move(M_UM, displacement_factor);
-            }
-            if (M_rank == 0 && M_use_mesh_root) {
-                M_mesh_root.move(um_root,displacement_factor);
-            }
+        M_timer.tick("adaptMesh");
+        LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
 
-            displacement_factor = 1;
+        if (use_MMG) {
+            // Store the previous mesh mostly for interpolation
+            M_prv_local_ndof = M_local_ndof;
+            M_prv_num_nodes = M_num_nodes;
+            M_prv_num_elements = M_local_nelements;
+            M_prv_global_num_nodes = M_mesh.numGlobalNodes();
+            M_prv_global_num_elements = M_mesh.numGlobalElements();
+            std::vector<double> coordX_prv = M_mesh.coordX();
+            std::vector<double> coordY_prv = M_mesh.coordY();
+            std::vector<int> triangles_prv = M_mesh.indexTr();
 
-            LOG(DEBUG) <<"Move done in "<< chrono.elapsed() <<"s\n";
-
-            chrono.restart();
-
-            if (M_rank == 0 && !use_MMG) 
+            // List of nodes with global id
+            std::vector<int> list_global_nodes_prv_local(M_mesh.numNodes()+1);
+            int n = 1;
+            for (auto it=M_mesh.nodes().begin(), en=M_mesh.nodes().end(); it!=en; ++it)
             {
-                LOG(DEBUG) <<"Move bamgmesh->Vertices starts\n";
-                auto RX = M_mesh_root.coordX();
-                auto RY = M_mesh_root.coordY();
-
-                for (int id=0; id<bamgmesh_root->VerticesSize[0]; ++id)
-                {
-                    bamgmesh_root->Vertices[3*id] = RX[id];
-                    bamgmesh_root->Vertices[3*id+1] = RY[id] ;
-                }
-
-                LOG(DEBUG) <<"Move bamgmesh->Vertices done in "<< chrono.elapsed() <<"s\n";
+                list_global_nodes_prv_local[n] = it->second.id;
+                n++;
             }
 
-            if(M_mesh_type==setup::MeshType::FROM_SPLIT  && !use_MMG)
+            // Gather element fields 
+            std::vector<double> interp_elt_in_local;
+            bool ghosts = false;
+            this->collectVariables(interp_elt_in_local, ghosts);
+
+            std::vector<double> field;
+            if (vm["numerics.metric_field"].as<std::string>() == "velocity")
             {
-                chrono.restart();
-                LOG(DEBUG) <<"Interp vertices starts\n";
-                this->interpVertices();
-                LOG(DEBUG) <<"Interp vertices done in "<< chrono.elapsed() <<"\n";
+                field.resize(M_mesh.numNodes());
+                for (int i = 0; i < M_mesh.numNodes(); ++i)
+                    field[i] = pow(M_VT[2*i]*M_VT[2*i] + M_VT[2*i+1]*M_VT[2*i+1], 0.5);
             }
-
-            M_timer.tick("adaptMesh");
-            LOG(DEBUG) <<"---TRUE AdaptMesh starts\n";
-
-            if (use_MMG) {
-                // Store the previous mesh mostly for interpolation
-                M_prv_local_ndof = M_local_ndof;
-                M_prv_num_nodes = M_num_nodes;
-                M_prv_num_elements = M_local_nelements;
-                M_prv_global_num_nodes = M_mesh.numGlobalNodes();
-                M_prv_global_num_elements = M_mesh.numGlobalElements();
-                std::vector<double> coordX_prv = M_mesh.coordX();
-                std::vector<double> coordY_prv = M_mesh.coordY();
-                std::vector<int> triangles_prv = M_mesh.indexTr();
-
-                // List of nodes with global id
-                std::vector<int> list_global_nodes_prv_local(M_mesh.numNodes()+1);
-                int n = 1;
-                for (auto it=M_mesh.nodes().begin(), en=M_mesh.nodes().end(); it!=en; ++it)
-                {
-                    list_global_nodes_prv_local[n] = it->second.id;
-                    n++;
-                }
-
-                // Gather element fields 
-                std::vector<double> interp_elt_in_local;
-                bool ghosts = false;
-                this->collectVariables(interp_elt_in_local, ghosts);
-
-                std::vector<double> field;
-                if (vm["numerics.metric_field"].as<std::string>() == "velocity")
-                {
-                    field.resize(M_mesh.numNodes());
-                    for (int i = 0; i < M_mesh.numNodes(); ++i)
-                        field[i] = pow(M_VT[i]*M_VT[i] + M_VT[i+M_mesh.numNodes()]*M_VT[i+M_mesh.numNodes()], 0.5);
-                }
-                else if (vm["numerics.metric_field"].as<std::string>() == "conc")
-                {
-                    field.resize(M_mesh.numTriangles());
-                    for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_conc[i];
-                }
-                else if (vm["numerics.metric_field"].as<std::string>() == "damage")
-                {
-                    field.resize(M_mesh.numTriangles());
-                    for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_damage[i];
-                }
-                else if (vm["numerics.metric_field"].as<std::string>() == "thick")
-                {
-                    field.resize(M_mesh.numTriangles());
-                    for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_thick[i];
-                }
-                else if (vm["numerics.metric_field"].as<std::string>() == "mixed")
-                {
-                    field.resize(M_mesh.numTriangles());
-                    for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = (M_damage[i] + M_thick[i])/2.;
-                }
-                else if (M_nb_regrid == 0)
-                {
-                    LOG(ERROR) << "The metric field given is not supported yet. A uniform field is used instead.\n";
-                    this->M_metric.A_max = 1.;
-                    mmgopt->hmin = mmgopt->hmin / this->M_metric.scale_factor_min;
-                    mmgopt->hmax = mmgopt->hmax / this->M_metric.scale_factor_max;
-                }
+            else if (vm["numerics.metric_field"].as<std::string>() == "conc")
+            {
+                field.resize(M_mesh.numTriangles());
+                for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_conc[i];
+            }
+            else if (vm["numerics.metric_field"].as<std::string>() == "damage")
+            {
+                field.resize(M_mesh.numTriangles());
+                for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_damage[i];
+            }
+            else if (vm["numerics.metric_field"].as<std::string>() == "thick")
+            {
+                field.resize(M_mesh.numTriangles());
+                for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = M_thick[i];
+            }
+            else if (vm["numerics.metric_field"].as<std::string>() == "mixed")
+            {
+                field.resize(M_mesh.numTriangles());
+                for (int i = 0; i < M_mesh.numTriangles(); ++i) field[i] = (M_damage[i] + M_thick[i])/2.;
+            }
+            else if (M_nb_regrid == 0)
+            {
+                LOG(ERROR) << "The metric field given is not supported yet. A uniform field is used instead.\n";
+                this->M_metric.A_max = 1.;
+                mmgopt->hmin = mmgopt->hmin / this->M_metric.scale_factor_min;
+                mmgopt->hmax = mmgopt->hmax / this->M_metric.scale_factor_max;
+            }
 
 #ifdef MMG
-                this->adaptMeshMMG(M_mesh, field, 1);
-                LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
-                M_timer.tock("adaptMesh");
+            this->adaptMeshMMG(M_mesh, field, 1);
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+            M_timer.tock("adaptMesh");
 #endif
 
-                M_timer.tick("interpFields");
-                this->interpFields_parallel(coordX_prv, coordY_prv, triangles_prv, list_global_nodes_prv_local, interp_elt_in_local);
-                LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
-                M_timer.tock("interpFields");
+            M_timer.tick("interpFields");
+            this->interpFields_parallel(coordX_prv, coordY_prv, triangles_prv, list_global_nodes_prv_local, interp_elt_in_local);
+            LOG(DEBUG) <<"interpFields done in "<< M_timer.lap("interpFields") <<"s\n";
+            M_timer.tock("interpFields");
+        }
+        else
+        {
 
-                if (displacement_factor != 1) {
-                    step_order = -1;
-                    substep = 0;
-                    displacement_factor *= 2;
-                    flip = true;
-                    while (flip /*|| (minang<(vm["numerics.regrid_angle"].as<double>())/10.)*/)
-                    {
-                        ++substep;
-                        displacement_factor /= 2.;
-                        step_order++;
+            this->adaptMeshBamg();
+            LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
+            M_timer.tock("adaptMesh");
 
-                        flip = this->flip(M_mesh,M_UM,displacement_factor);
+            // save mesh (only root process)
+            LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
+            LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
+            LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
+            LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
+            LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
-                        if (substep > 1)
-                            LOG(DEBUG) <<"FLIP DETECTED "<< substep-1 <<"\n";
-                    }
+            M_timer.tick("partition");
+            // Environment::logMemoryUsage("before partitioning...");
+            chrono.restart();
+            LOG(DEBUG) <<"Saving mesh starts\n";
+            if (M_partition_space == mesh::PartitionSpace::MEMORY)
+                M_mesh_root.writeToGModel();
+            else if (M_partition_space == mesh::PartitionSpace::DISK)
+                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+            LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
-                    double min_displacement_factor;
-                    int max_step_order;
-                    boost::mpi::all_reduce(M_comm, displacement_factor, min_displacement_factor, boost::mpi::minimum<double>());
-                    boost::mpi::all_reduce(M_comm, step_order, max_step_order, boost::mpi::maximum<int>());
-                    displacement_factor = min_displacement_factor;
-                    step_order = max_step_order;
-
-                    if (step_order > 0) substep_nb += std::pow(2,step_order-1);
-                }
-
-            }
-            else
-            {
-
-                this->adaptMeshBamg();
-                LOG(DEBUG) <<"---TRUE AdaptMesh done in "<< M_timer.lap("adaptMesh") <<"s\n";
-                M_timer.tock("adaptMesh");
-
-                // save mesh (only root process)
-                LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-                LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
-                LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-                LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-                LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
-
-                M_timer.tick("partition");
-                // Environment::logMemoryUsage("before partitioning...");
-                chrono.restart();
-                LOG(DEBUG) <<"Saving mesh starts\n";
-                if (M_partition_space == mesh::PartitionSpace::MEMORY)
-                    M_mesh_root.writeToGModel();
-                else if (M_partition_space == mesh::PartitionSpace::DISK)
-                    M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-                LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
-
-                // partition the mesh on root process (rank 0)
-                chrono.restart();
-                LOG(DEBUG) <<"Partitioning mesh starts\n";
-                M_mesh_root.partition(M_partitioned_mesh_filename,
-                        M_partitioner, M_partition_space, M_mesh_fileformat);
-                LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
-                M_timer.tock("partition");
-            }
+            // partition the mesh on root process (rank 0)
+            chrono.restart();
+            LOG(DEBUG) <<"Partitioning mesh starts\n";
+            M_mesh_root.partition(M_partitioned_mesh_filename,
+                    M_partitioner, M_partition_space, M_mesh_fileformat);
+            LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
+            M_timer.tock("partition");
         }
     } // rank 0 || use_MMG
 
@@ -10259,11 +10167,13 @@ FiniteElement::checkRegridding()
     bool regrid;
     double const minang = this->minAngle(M_mesh, M_UM, 1.);
     LOG(DEBUG) <<"REGRID ANGLE= "<< minang <<"\n";
-    bool const regrid_local =
-        (minang < vm["numerics.regrid_angle"].as<double>())
-        || this->flip(M_mesh, M_UM, 1.);
+    bool const regrid_local = (minang < vm["numerics.regrid_angle"].as<double>());
     boost::mpi::all_reduce(M_comm, regrid_local, regrid,
             std::plus<bool>());//NB "+" for bools is "or"
+
+    if ( this->flip(M_mesh, M_UM, 1.) )
+        throw std::runtime_error("Flipped element detected. Consider using a smaller time step.");
+
     return regrid;
 }//checkRegridding
 
