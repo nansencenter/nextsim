@@ -4008,7 +4008,7 @@ FiniteElement::interpFields_parallel(std::vector<double> const& coordX_prv, std:
         for (int j = 0; j < 3; j++)
         {
             const int n_nodes = M_mesh.triangles()[i].indices[j]-1;
-            UM_element[i] += this->hypot(M_UM[n_nodes], M_UM[nodes+M_num_nodes]);
+            UM_element[i] += this->hypot(M_UM[n_nodes], M_UM[n_nodes+M_num_nodes]);
         }
         UM_element[i] /= 3.;
     }
