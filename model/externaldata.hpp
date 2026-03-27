@@ -16,7 +16,7 @@
 #include <gmshmesh.hpp>
 #include <Bamgx.h>
 #include <InterpFromGridToMeshx.h>
-#include <InterpFromMeshToMesh2dx.h>
+#include <interpolation.hpp>
 #include <ConservativeRemapping.hpp>
 #include <netcdf>
 #include <dataset.hpp>
