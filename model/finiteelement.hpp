@@ -647,7 +647,6 @@ private:
     double M_fullday_counter;
     bool M_reuse_prec;
     bool M_regrid;
-    double M_regrid_old = 0.;
     double M_extended_coef = 1.6;
     int M_nb_regrid;
 
