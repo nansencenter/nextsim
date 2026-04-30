@@ -6167,6 +6167,7 @@ FiniteElement::thermo(int dt)
 
 }//thermo
 
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates ice-atmosphere fluxes through bulk formula.
 //! Called by the thermo() function.
@@ -6497,6 +6498,7 @@ FiniteElement::freezingPoint(const double sss)
 
 }//freezingPoint
 
+
 //------------------------------------------------------------------------------------------------------
 //! Calculates the surface albedo. Called by the thermoWinton() function.
 //! - Different schemes can be implemented, e.g., Semtner 1976, Untersteiner 1971, CCSM3, ...
@@ -6584,6 +6586,10 @@ FiniteElement::albedo(const double Tsurf, const double hs, const double frac_pnd
     return std::make_tuple(albedo,pen_sw);
 }//albedo
 
+
+//------------------------------------------------------------------------------------------------------
+//! Updates the melt-pond variables. Called by the thermo() function.
+
 inline void
 FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         const double hs, const double iceSurfaceMelt, const double snowMelt,
@@ -6610,18 +6616,21 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
                                + rain/physical::rhow*dt;
 
     // Get run-off from date
+    // - get limiting dates (1 May, 1 Oct)
     auto const p_time = Nextsim::datenumToPosixTime(M_current_time);
     int const year = p_time.date().year();
     double const datenum_may1 = Nextsim::getDatenum(year, 5, 1);
     double const datenum_oct1 = Nextsim::getDatenum(year, 10, 1);
 
-    // Get run-off weighting
+    // - get run-off date weighting
     double w_roff = 0.;// weight for before 1 May
     if (M_current_time > datenum_oct1)
         w_roff = 1.;
     else if (M_current_time > datenum_may1)
         w_roff = (M_current_time - datenum_may1) / (datenum_oct1 - datenum_may1);
     w_roff = std::max(0., std::min(1., w_roff));
+
+    // - get the run-off and apply it
     double const roff = (1 - w_roff) * roff_may + w_roff * roff_oct;
     M_pond_volume[cpt] += std::max(0., std::min(1., 1-roff))
         *availableWater*M_conc[cpt];
@@ -6635,7 +6644,6 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         M_pond_volume[cpt] = 0.;
         M_lid_volume[cpt] = 0.;
         D_pond_fraction[cpt] = 0.;
-
         return;
     }
 
@@ -6686,8 +6694,8 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         M_pond_volume[cpt] = 0.;
         D_pond_fraction[cpt] = 0.;
     }
+}// meltPonds
 
-}
 
 //------------------------------------------------------------------------------------------------------
 //! Caculates heat fluxes through the ice according to the Winton scheme (ice temperature, growth, and melt).
