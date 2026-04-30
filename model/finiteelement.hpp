@@ -197,7 +197,8 @@ public:
     inline double windSpeedElement(const int i);
     inline void meltPonds(const int cpt, const double dt, const double hi,
              const double hs, const double iceSurfaceMelt, const double snowMelt,
-             const double Qia, const double rain, const double roff, const double dep2frac);
+             const double Qia, const double rain,
+             const double roff_may, const double roff_oct, const double dep2frac);
     inline bool isPermeable(const int cpt);
 
     void checkReloadDatasets(external_data_vec const& ext_data_vec,

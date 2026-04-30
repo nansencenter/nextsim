@@ -5236,7 +5236,8 @@ FiniteElement::thermo(int dt)
     const std::string date_string_md = datenumToString( M_current_time, "%m%d"  );
 
     const bool use_meltponds = vm["thermo.use_meltponds"].as<bool>(); // Use meltpond scheme
-    double const meltponds_roff     = vm["thermo.meltpond_runoff_fraction"].as<double>();
+    double const meltponds_roff_may = vm["thermo.meltpond_runoff_fraction_may"].as<double>();
+    double const meltponds_roff_oct = vm["thermo.meltpond_runoff_fraction_oct"].as<double>();
     double const meltponds_dep2frac = vm["thermo.meltpond_depth_to_fraction"].as<double>();
 
     M_timer.tick("fluxes");
@@ -5843,7 +5844,9 @@ FiniteElement::thermo(int dt)
 
         // Meltponds. This version doesn't impact the emp balance ... but a future one should
         if (use_meltponds)
-            this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt, Qia[i], rain_on_ice, meltponds_roff, meltponds_dep2frac );
+            this->meltPonds(i, ddt, hi, hs, mlt_hi_top, del_hs_mlt,
+                    Qia[i], rain_on_ice, meltponds_roff_may, meltponds_roff_oct,
+                    meltponds_dep2frac );
 
         // Element mean ice-ocean heat flux
         double Qio_mean = Qio*old_conc + Qio_young*old_conc_young;
@@ -6584,7 +6587,8 @@ FiniteElement::albedo(const double Tsurf, const double hs, const double frac_pnd
 inline void
 FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
         const double hs, const double iceSurfaceMelt, const double snowMelt,
-        const double Qia, const double rain, const double roff, const double dep2frac)
+        const double Qia, const double rain,
+        const double roff_may, const double roff_oct, const double dep2frac)
 {
     // TODO: Make this tunable?
     const double hIceMin = 0.1;      // minimum ice thickness with ponds (m)
@@ -6605,10 +6609,22 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
                                - snowMelt*snow_to_water
                                + rain/physical::rhow*dt;
 
-    /* 20% of available water is runoff, rest goes into the pond. Scale with
-     * concentration as well, following Holland et al. (2012) */
-    // double const roff = (0.85 - 0.7*M_conc[cpt]) ; Holland et al. 2012
-    M_pond_volume[cpt] += (1-roff)*availableWater*M_conc[cpt];
+    // Get run-off from date
+    auto const p_time = Nextsim::datenumToPosixTime(M_current_time);
+    int const year = p_time.date().year();
+    double const datenum_may1 = Nextsim::getDatenum(year, 5, 1);
+    double const datenum_oct1 = Nextsim::getDatenum(year, 10, 1);
+
+    // Get run-off weighting
+    double w_roff = 0.;// weight for before 1 May
+    if (M_current_time > datenum_oct1)
+        w_roff = 1.;
+    else if (M_current_time > datenum_may1)
+        w_roff = (M_current_time - datenum_may1) / (datenum_oct1 - datenum_may1);
+    w_roff = std::max(0., std::min(1., w_roff));
+    double const roff = (1 - w_roff) * roff_may + w_roff * roff_oct;
+    M_pond_volume[cpt] += std::max(0., std::min(1., 1-roff))
+        *availableWater*M_conc[cpt];
 
     // Flush the pond if there's not enough ice. Skip everything if there's no pond.
     if ( M_pond_volume[cpt] <= 0.
