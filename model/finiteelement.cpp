@@ -6615,22 +6615,14 @@ FiniteElement::meltPonds(const int cpt, const double dt, const double hi,
                                - snowMelt*snow_to_water
                                + rain/physical::rhow*dt;
 
-    // Get run-off from date
-    // - get limiting dates (1 May, 1 Oct)
+    // Get run-off from date and apply it
     auto const p_time = Nextsim::datenumToPosixTime(M_current_time);
     int const year = p_time.date().year();
     double const datenum_may1 = Nextsim::getDatenum(year, 5, 1);
     double const datenum_oct1 = Nextsim::getDatenum(year, 10, 1);
-
-    // - get run-off date weighting
-    double w_roff = 0.;// weight for before 1 May
-    if (M_current_time > datenum_oct1)
-        w_roff = 1.;
-    else if (M_current_time > datenum_may1)
-        w_roff = (M_current_time - datenum_may1) / (datenum_oct1 - datenum_may1);
-    w_roff = std::max(0., std::min(1., w_roff));
-
-    // - get the run-off and apply it
+    // The date weighting w_roff is 0 before 1 May and 1 after 1 Oct
+    double const w_roff = std::max(0., std::min(1.,
+                (M_current_time - datenum_may1) / (datenum_oct1 - datenum_may1)));
     double const roff = (1 - w_roff) * roff_may + w_roff * roff_oct;
     M_pond_volume[cpt] += std::max(0., std::min(1., 1-roff))
         *availableWater*M_conc[cpt];
