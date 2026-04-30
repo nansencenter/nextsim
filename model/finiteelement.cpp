@@ -4963,8 +4963,14 @@ FiniteElement::anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const&
     int ier;
     if (partitioned)
     {
-        MMG2D_Set_dparameter(parmesh->mesh, parmesh->met, MMG2D_DPARAM_limit_angle, mmgopt->limit_angle);
-        ier = PMMG2D_parmmg2dlib_distributed(parmesh, M_VT.data());
+        if (M_regrid_old > 0.5) { // Extended remeshing
+          MMG2D_Set_dparameter(parmesh->mesh, parmesh->met, MMG2D_DPARAM_limit_angle, M_regrid_old*mmgopt->limit_angle);
+          ier = PMMG2D_parmmg2dlib_distributed(parmesh, M_VT.data());
+        }
+        else {
+          MMG2D_Set_dparameter(parmesh->mesh, parmesh->met, MMG2D_DPARAM_limit_angle, mmgopt->limit_angle);
+          ier = PMMG2D_parmmg2dlib_distributed(parmesh, M_VT.data());
+        }
     }
     else
     {
@@ -9932,6 +9938,8 @@ FiniteElement::step()
 
             LOG(VERBOSE) <<"---timer remesh:               "<< M_timer.lap("remesh") <<"s\n";
         }//M_regrid
+
+        if (use_MMG) M_regrid_old = pow(M_extended_coef, M_regrid_old) * M_regrid;
 
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
     }//bamg/mmg-regrid
