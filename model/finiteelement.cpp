@@ -4001,21 +4001,9 @@ FiniteElement::interpFields_parallel(std::vector<double> const& coordX_prv, std:
         M_UT[i+M_num_nodes] = interp_nd_out[M_nb_var_node*i+5];
     }
 
-    // Calculate the per-element displacement, to see if we need to to work there when remapping
-    std::vector<double> UM_element(M_mesh.numTriangles(), 0.);
-    for (int i = 0; i < M_mesh.numTriangles(); i++)
-    {
-        for (int j = 0; j < 3; j++)
-        {
-            const int n_nodes = M_mesh.triangles()[i].indices[j]-1;
-            UM_element[i] += this->hypot(M_UM[n_nodes], M_UM[n_nodes+M_num_nodes]);
-        }
-        UM_element[i] /= 3.;
-    }
-
     // Interpolate elements
     ConservativeRemappingFromMeshToMesh(interp_elt_out, background_interp_elt, M_nb_var_elt, background_triangles,
-                                        coordX_back, coordY_back, triangles, coordX, coordY, UM_element);
+                                        coordX_back, coordY_back, triangles, coordX, coordY);
 
     for(auto ptr: M_variables_elt)
     {

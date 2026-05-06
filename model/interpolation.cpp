@@ -447,7 +447,7 @@ ConservativeRemappingWithWeights(GmshMeshSeq const& mesh, std::vector<double> &g
 // Drop-in-replacement for InterpFromMeshToMesh2dCavities
 void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double>& interp_in, int nb_var,
                                          std::vector<int>& indexTr, std::vector<double>& coordX, std::vector<double>& coordY,
-                                         const std::vector<int>& new_indexTr, const std::vector<double>& new_coordX, const std::vector<double>& new_coordY, const std::vector<double>& UM)
+                                         const std::vector<int>& new_indexTr, const std::vector<double>& new_coordX, const std::vector<double>& new_coordY)
 {
     // We start off the same as ConservativeRemappingWeights - only here the new mesh replaces the grid
 
@@ -595,15 +595,8 @@ void ConservativeRemappingFromMeshToMesh(double* &interp_out, std::vector<double
         const double a = 2.*std::sqrt(A/std::sqrt(3));
         const double eps = 1e-5;
 
-        if ( UM[ppoint]/a < eps )
-        {
-            // If the grid hasn't moved, then we don't need to do anything
-            local_triangles.push_back(i_elnum_out);
-            local_weights.push_back(A);
-        } else {
-            // Call the recursive function (this is our work horse here)
-            checkTriangle(indexTr, coordX, coordY, cornerX, cornerY, i_elnum_out, list_triangles, list_neighbours, local_triangles, local_weights);
-        }
+        // Call the recursive function (this is our work horse here)
+        checkTriangle(indexTr, coordX, coordY, cornerX, cornerY, i_elnum_out, list_triangles, list_neighbours, local_triangles, local_weights);
 
         // Save the weights and triangle numbers
         triangles[ppoint] = local_triangles;
