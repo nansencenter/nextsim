@@ -462,7 +462,7 @@ GridOutput::updateGridMeanWorker(FEMeshType const& mesh, std::vector<double> con
             interp_in[nb_var*i+j] = variables[j].data_mesh[i];
     }
 
-    /* Non-regular grids, loaded into M_grid is handled by InterpFromMeshToMesh2dx or
+    /* Non-regular grids, loaded into M_grid is handled by InterpFromMeshToMesh2d or
      * ConservativeRemappingMeshToGrid.
      * Regular grids, based on the polar stereographic coordinate system and a regular spacing, are
      * handled by InterpFromMeshToGridx.
@@ -476,13 +476,13 @@ GridOutput::updateGridMeanWorker(FEMeshType const& mesh, std::vector<double> con
                                     M_gridP, M_grid.gridCornerX, M_grid.gridCornerY,
                                     M_triangles, M_weights, 4);
         else
-            InterpFromMeshToMesh2dx(&interp_out,
-                                    &indexTr[0],&coordX[0],&coordY[0],
-                                    numNodes,numTriangles,
-                                    &interp_in[0],
-                                    source_size,nb_var,
-                                    &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
-                                    true, 0.);
+            InterpFromMeshToMesh2d(&interp_out,
+                                   &indexTr[0],&coordX[0],&coordY[0],
+                                   numNodes,numTriangles,
+                                   &interp_in[0],
+                                   source_size,nb_var,
+                                   &M_grid.gridX[0],&M_grid.gridY[0],M_grid_size,
+                                   true, 0.);
     }
     else if (M_is_regular_grid)
     {

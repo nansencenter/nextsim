@@ -87,8 +87,6 @@ class Options: public DataSet{
 
 };
 
-#endif //ifndef _INPUTS_H_
-
 template <> inline void Options::Get(char** pvalue,const char* name,char* default_value){ /*{{{*/
 
 	/*Get option*/
@@ -107,3 +105,5 @@ template <> inline void Options::Get(char** pvalue,const char* name,char* defaul
 	}
 }
 /*}}}*/
+
+#endif //ifndef _CONTAINER_OPTIONS_H_
