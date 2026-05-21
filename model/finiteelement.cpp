@@ -8199,9 +8199,13 @@ FiniteElement::step()
         }
         M_timer.tock("Update ghosts");
 
+        LOG(VERBOSE) <<"---timer remapp:               "<< M_timer.lap("Incremental remapping") <<"s\n";
         M_timer.tock("Incremental remapping");
     }
-
+    else
+    {
+        throw std::runtime_error("Unknown value for numerics.advection" + vm["numerics.advection"].as<std::string>() + "\n");
+    }
 
     M_comm.barrier();
 
