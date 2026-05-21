@@ -12,7 +12,7 @@
 using namespace bamg;
 
 // Calculate the weights
-void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX, std::vector<double> &gridY, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
+void ConservativeRemappingWeights(BamgMesh* const bamgmesh, std::vector<double> &gridX, std::vector<double> &gridY, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
         std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights)
 {
     // ---------- Initialisation ---------- //
@@ -100,7 +100,7 @@ void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX
 }
 
 // Incremental remapping using ConservativeRemappingWeights and ConservativeRemappingMeshToGrid
-void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, int const nb_var, BamgMesh* bamgmesh, std::vector<double> &UM)
+void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, int const nb_var, BamgMesh* const bamgmesh, std::vector<double> const& UM)
 {
     // Copy the node information
     int numNodes = bamgmesh->VerticesSize[0];
@@ -216,7 +216,7 @@ void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &i
 // In this case we want to both calculate weights and apply them in the same step
 // Drop-in-replacement for InterpFromMeshToMesh2dCavities
 void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &interp_in, int nb_var,
-      BamgMesh* bamgmesh_old, BamgMesh* bamgmesh_new)
+      BamgMesh* const bamgmesh_old, BamgMesh* const bamgmesh_new)
 {
     // We start off the same as ConservativeRemappingWeights - only here the new mesh replaces the grid
 
@@ -369,7 +369,7 @@ void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &i
 }
 
 // Recursive function to check the current triangle
-inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_triangle, // inputs
+inline void checkTriangle(BamgMesh* const bamgmesh, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_triangle, // inputs
 		std::vector<int> &triangles, std::vector<double> &weights)  // outputs
 {
     /*

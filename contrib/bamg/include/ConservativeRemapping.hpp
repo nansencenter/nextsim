@@ -13,7 +13,7 @@
 #include <fstream>
 
 // Calculate the weights
-void ConservativeRemappingWeights(BamgMesh* bamgmesh, std::vector<double> &gridX, std::vector<double> &gridY, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
+void ConservativeRemappingWeights(BamgMesh* const bamgmesh, std::vector<double> &gridX, std::vector<double> &gridY, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY,
         std::vector<int> &gridP, std::vector<std::vector<int>> &triangles, std::vector<std::vector<double>> &weights);
 
 // Apply weights for a mesh-to-grid remapping
@@ -29,13 +29,13 @@ void ConservativeRemappingGridToMesh(double* &interp_out, std::vector<double> &i
 // In this case we want to both calculate weights and apply them in the same step
 // Drop-in-replacement for InterpFromMeshToMesh2dCavities
 void ConservativeRemappingMeshToMesh(double* &interp_out, std::vector<double> &interp_in, int nb_var,
-      BamgMesh* bamgmesh_old, BamgMesh* bamgmesh_new);
+      BamgMesh* const bamgmesh_old, BamgMesh* const bamgmesh_new);
 
 // Conservative remapping using a displacement of the bamgmesh (UM)
-void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, int const nb_var, BamgMesh* bamgmesh, std::vector<double> &UM);
+void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, int const nb_var, BamgMesh* const bamgmesh, std::vector<double> const& UM);
 
 // Recursive function to check the current triangle
-inline void checkTriangle(BamgMesh* bamgmesh, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_number, // inputs
+inline void checkTriangle(BamgMesh* const bamgmesh, std::vector<double> const &gridCornerX, std::vector<double> const &gridCornerY, int current_number, // inputs
 		std::vector<int> &number, std::vector<double> &weight);  // outputs
 
 // Check if we've already visited this triangle
