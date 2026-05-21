@@ -87,6 +87,9 @@ namespace physical
 
     //! Temperature of freezing of sea water [degrees Celsius]
     const double ocean_freezing_temp = -1.8;
+
+    //! The dry adiabatic lapse rate [K/m]
+    const double Gamma_d = 0.0098;
 }
 
 #endif

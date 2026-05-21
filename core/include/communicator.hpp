@@ -10,7 +10,7 @@
 #define __Communicator_H 1
 
 #include <boost/mpi.hpp>
-#include <boost/timer.hpp>
+#include <boost/timer/timer.hpp>
 
 namespace Nextsim
 {

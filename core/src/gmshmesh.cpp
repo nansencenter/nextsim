@@ -1069,32 +1069,20 @@ GmshMesh::nodalGrid()
         {
             for (int ii=0; ii<renumbering.size(); ++ii)
             {
-                for (int jj=0; jj<renumbering.size(); ++jj)
+                for (int jj=0; jj<ii; ++jj)
                 {
-                    if (ii != jj)
+                    std::vector<int> duplicated_dofs;
+
+                    std::set_intersection(renumbering[ii].begin(),renumbering[ii].end(),
+                                          renumbering[jj].begin(),renumbering[jj].end(),
+                                          std::back_inserter(duplicated_dofs));
+
+                    for (int kk=0; kk<duplicated_dofs.size(); ++kk)
                     {
-                        std::vector<int> duplicated_dofs;
+                        auto it = std::lower_bound(renumbering[ii].begin(), renumbering[ii].end(), duplicated_dofs[kk]);
+                        if (it != renumbering[ii].end() && *it == duplicated_dofs[kk]) renumbering[ii].erase(it);
 
-                        std::set_intersection(renumbering[ii].begin(),renumbering[ii].end(),
-                                              renumbering[jj].begin(),renumbering[jj].end(),
-                                              std::back_inserter(duplicated_dofs));
-
-                        if (duplicated_dofs.size() == 0)
-                            continue;
-
-                        for (int kk=0; kk<duplicated_dofs.size(); ++kk)
-                        {
-                            if (jj < ii)
-                            {
-                                renumbering[ii].erase(std::remove(renumbering[ii].begin(), renumbering[ii].end(), duplicated_dofs[kk]),
-                                                      renumbering[ii].end());
-
-                                if (M_comm.rank() == ii)
-                                {
-                                    M_local_ghost.push_back(duplicated_dofs[kk]);
-                                }
-                            }
-                        }
+                        if (M_comm.rank() == ii) M_local_ghost.push_back(duplicated_dofs[kk]);
                     }
                 }
             }
@@ -1185,6 +1173,9 @@ GmshMesh::nodalGrid()
             //M_local_ghost[k-M_nldof_without_ghost+M_nlghost] = rdofv;
         }
     }
+
+    M_nodes_vec.clear();
+    M_nodes_vec.shrink_to_fit();
 
     std::sort(M_local_ghost.begin(), M_local_ghost.end());
     M_global_num_nodes = M_num_nodes;
@@ -1450,18 +1441,12 @@ GmshMesh::allGather(std::vector<int> const& field_in, std::vector<std::vector<in
 
     std::vector<int> field_gather(num_elts);
 
-    if (M_comm.rank() == 0)
-    {
-        // int out_dof_size = std::accumulate(container_dof_size.begin(),container_dof_size.end(),0);
-        //renumbering_vector_root.resize(num_nodes);
-        boost::mpi::gatherv(M_comm, field_in, &field_gather[0], container_size, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, field_in, 0);
+    std::vector<int> displs(M_comm.size(), 0);
+    for (int k = 1; k < M_comm.size(); ++k) {
+        displs[k] = displs[k - 1] + container_size[k - 1];
     }
 
-    boost::mpi::broadcast(M_comm, &field_gather[0], num_elts, 0);
+    int ier = MPI_Allgatherv(&field_in[0], fd_size, MPI_INT, &field_gather[0], &container_size[0], &displs[0], MPI_INT, MPI_Comm(M_comm));
 
     field_out.resize(M_comm.size());
 
@@ -1558,8 +1543,16 @@ GmshMesh::coordY(double const& rotangle) const
 std::vector<double>
 GmshMesh::bCoordX() const
 {
-    std::vector<double> bcoord_x(M_num_triangles);
+    std::vector<double> node(M_num_nodes);
     int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        node[cpt] = it->second.coords[0];
+        ++cpt;
+    }
+
+    std::vector<double> bcoord_x(M_num_triangles);
+    cpt = 0;
     double x = 0.;
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
@@ -1567,7 +1560,7 @@ GmshMesh::bCoordX() const
 
         for (int i=0; i<3; ++i)
         {
-            x += M_nodes.find(it->indices[i])->second.coords[0];
+            x += node[it->indices[i]-1];
         }
 
         bcoord_x[cpt] = x/3.;
@@ -1581,8 +1574,16 @@ GmshMesh::bCoordX() const
 std::vector<double>
 GmshMesh::bCoordY() const
 {
-    std::vector<double> bcoord_y(M_num_triangles);
+    std::vector<double> node(M_num_nodes);
     int cpt = 0;
+    for (auto it=M_nodes.begin(), end=M_nodes.end(); it!=end; ++it)
+    {
+        node[cpt] = it->second.coords[1];
+        ++cpt;
+    }
+
+    std::vector<double> bcoord_y(M_num_triangles);
+    cpt = 0;
     double y = 0.;
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
@@ -1590,7 +1591,7 @@ GmshMesh::bCoordY() const
 
         for (int i=0; i<3; ++i)
         {
-            y += M_nodes.find(it->indices[i])->second.coords[1];
+            y += node[it->indices[i]-1];
         }
 
         bcoord_y[cpt] = y/3.;

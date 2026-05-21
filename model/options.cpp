@@ -375,6 +375,12 @@ namespace Nextsim
             ("dynamics.mevp.alpha", po::value<double>()->default_value( 500 ), "Alpha of the mEVP method (default 500)")
             ("dynamics.mevp.beta",  po::value<double>()->default_value( 500 ), "Beta of the mEVP method (default 500)")
 
+            // - Ridge ratio dependent drag
+            ("dynamics.ridging_dependent_drag",  po::value<bool>()->default_value( false ), "Increase atmospheric drag linearly proportional to the total ridge volume (true|[false]).")
+            ("dynamics.ridge_drag_factor",  po::value<double>()->default_value( 5.5e-4 ), "Multiplication factor for total ridge volume contribution to atmospheric drag.")
+            ("dynamics.scale_ocean_drag",  po::value<bool>()->default_value( true ), "Scale ocean drag so that ridged ice has same Nansen number as flat ice.")
+
+
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics
              //-----------------------------------------------------------------------------------
@@ -388,14 +394,14 @@ namespace Nextsim
             ("thermo.albedoW", po::value<double>()->default_value( 0.07 ), "")
             ("thermo.alb_scheme", po::value<int>()->default_value( 3 ), "")
             ("thermo.flooding", po::value<bool>()->default_value( true ), "")
-            ("thermo.alb_ice", po::value<double>()->default_value( 0.63 ), "")
-            ("thermo.alb_sn", po::value<double>()->default_value( 0.88 ), "")
+            ("thermo.alb_ice", po::value<double>()->default_value( 0.538 ), "")
+            ("thermo.alb_sn", po::value<double>()->default_value( 0.8256 ), "")
             ("thermo.alb_ponds", po::value<double>()->default_value( 0.30 ), "")
             ("thermo.I_0", po::value<double>()->default_value( 0.30 ), "Fraction of short-wave radiation that penetrates into the ice. The default (30%) is taken from Winton (2000).")
             ("thermo.Qdw", po::value<double>()->default_value( 0.5 ), "")
             ("thermo.Fdw", po::value<double>()->default_value( 0. ), "")
             ("thermo.newice_type", po::value<int>()->default_value( 4 ), "4: YOUNG_ICE; else CLASSIC")
-            ("thermo.melt_type", po::value<int>()->default_value( 1 ), "")
+            ("thermo.melt_type", po::value<int>()->default_value( 2 ), "")
             ("thermo.hnull", po::value<double>()->default_value( 0.25 ), "")
             ("thermo.PhiF", po::value<double>()->default_value( 4. ), "")
             ("thermo.PhiM", po::value<double>()->default_value( 0.5 ), "")
@@ -429,6 +435,14 @@ namespace Nextsim
              "Add a heat flux that compensates for assimilation of concentration")
             ("thermo.assim_flux_exponent", po::value<double>()->default_value(1.0),
              "Exponent of factor for heat flux that compensates for assimilation of concentration")
+            ("thermo.zref_wind", po::value<double>()->default_value(10.),
+             "Reference height for wind forcing [m]")
+            ("thermo.zref_temp", po::value<double>()->default_value(2.),
+             "Reference height for temperature forcing [m]")
+            ("thermo.force_neutral_atmosphere", po::value<bool>()->default_value(false),
+             "Don't modify the neutral (default) atmospheric drag coefficient to take atmospheric stability into account.")
+            ("thermo.limiting_lengthscale", po::value<double>()->default_value( 1. ),
+             "A limit for the Obukov length (m).")
 
 #ifdef AEROBULK
             ("thermo.ocean_bulk_formula", po::value<std::string>()->default_value( "coare" ), "Bulk formula to calculate ocean-atmosphere fluxes [ nextsim | coare (default) | coare3.5 | ncar | ecmwf ]")

@@ -152,8 +152,9 @@ public:
     void step();
     void run();
 
+    inline void updateSigmaVP(double const e, double const Pstar, double const C, double const delta_min, double const ralpha1, double const ralpha2);
     inline void updateSigmaEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min);
-    inline void updateSigmaMEVP(double const dte, double const e, double const Pstar, double const C, double const delta_min, double const alpha);
+    inline void updateSigmaMEVP(double const e, double const Pstar, double const C, double const delta_min, double const alpha);
     void explicitSolve();
 
     void nestingIce();
@@ -174,7 +175,8 @@ public:
             std::vector<double>& Qlw, std::vector<double>& Qsw,
             std::vector<double>& Qlh, std::vector<double>& Qsh,
             std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
-            std::vector<double>& alb_tot, bool bulk_for_young);
+            std::vector<double>& alb_tot,
+            ModelVariable& drag_ui, ModelVariable& drag_ti, ModelVariable& drag_uiw, bool bulk_for_young);
     inline std::tuple<double,double> albedo(const double Tsurf, const double hs, const double frac_pnd,
         const int alb_scheme, const double alb_ice, const double alb_sn, const double alb_pnd, const double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
@@ -736,6 +738,12 @@ private:
     ModelVariable M_conc_summer;        // Concentration at end of summer
     ModelVariable M_thick_summer;       // Thickness at end of summer
     ModelVariable M_del_vi_tend;        // Daily sum of ice volume tendency
+    ModelVariable M_drag_ui;            // Ice-atmosphere momentum drag coefficient
+    ModelVariable M_drag_ti;            // Ice-atmosphere thermodynamic drag coefficient
+    ModelVariable M_drag_ui_young;      // Ice-atmosphere momentum drag coefficient of young ice
+    ModelVariable M_drag_ti_young;      // Ice-atmosphere thermodynamic drag coefficient of young ice
+    ModelVariable M_drag_uiw;           // Ice-ocean momentum drag coefficient
+    ModelVariable M_drag_uiw_young;     // Ice-ocean momentum drag coefficient of young ice
     ModelVariable M_pond_volume;        // Volume of melt ponds per grid cell area
     ModelVariable M_lid_volume;         // Volume of melt pond lid per grid cell area
 
