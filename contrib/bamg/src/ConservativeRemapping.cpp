@@ -124,45 +124,17 @@ void IncrementalRemapping(double* &interp_out, std::vector<double> &interp_in, i
         // vertices of the moved mesh in a format checkTriangle understands
         std::vector<double> cornerX(3);
         std::vector<double> cornerY(3);
-        std::vector<std::pair<double,double>> points;
         for (int i=0; i<3; ++i)
         {
             int id = bamgmesh->Triangles[4*ppoint+i] - 1; // Here we need C/C++ numbering
-            cornerX[i] = bamgmesh->Vertices[3*id];
-            cornerY[i] = bamgmesh->Vertices[3*id+1];
-
-            /* Apply UM only if it's sufficiently large. The intersection and
-             * point-in-polygon algorithms don't neccesarily agree when the
-             * displacement is close to the rounding error. We also set UM to
-             * zero only if it's large enough. That way, no information is lost
-             * here. */
-            if ( std::hypot(UM[id],UM[id+numNodes]) > 1e-3 )
-            {
-                cornerX[i] += UM[id];
-                cornerY[i] += UM[id+numNodes];
-                UM[id] = 0.;
-                UM[id+numNodes] = 0.;
-            }
-            else
-            {
-                // Collect the points in case nothing's moving
-                points.push_back(std::make_pair(cornerX[i], cornerY[i]));
-            }
+            cornerX[i] = bamgmesh->Vertices[3*id] + UM[id];
+            cornerY[i] = bamgmesh->Vertices[3*id+1] + UM[id+numNodes];
         }
 
-        if ( points.size() == 3 )
-        {
-            // If nothing's moving then this is trivial
-            triangles[ppoint] = { ppoint };
-            weights[ppoint] = { area(points) };
-        }
-        else
-        {
-            // Call the recursive function (this is our work horse here)
-            // Here element number is the same as ppoint
-            checkTriangle(bamgmesh, cornerX, cornerY, ppoint, triangles[ppoint], weights[ppoint]);
-            assert(weights[ppoint][0] > 0.);
-        }
+        // Call the recursive function (this is our work horse here)
+        // Here element number is the same as ppoint
+        checkTriangle(bamgmesh, cornerX, cornerY, ppoint, triangles[ppoint], weights[ppoint]);
+        assert(weights[ppoint][0] > 0.);
     }
 
     // Now we apply the weights with GridToMesh

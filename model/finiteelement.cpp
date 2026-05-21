@@ -8179,8 +8179,8 @@ FiniteElement::step()
         M_timer.tick("Remap");
         int nb_var_element = M_prognostic_variables_elt.size();
         double* interp_out;
-        // NB! M_UM is reset by this call
         IncrementalRemapping(interp_out, interp_in, nb_var_element, bamgmesh, M_UM);
+        M_UM.assign(M_UM.size(), 0.);
         M_timer.tock("Remap");
         M_timer.tick("Redistribute");
 
