@@ -8162,44 +8162,53 @@ FiniteElement::step()
         LOG(VERBOSE) <<"NUMBER OF REGRIDDINGS = " << M_nb_regrid <<"\n";
         M_timer.tock("remesh");
     }//bamg-regrid
-    else if (vm["numerics.advection"].as<std::string>() == "Eulerian")
+    else if (vm["numerics.advection"].as<std::string>() == "Remapping")
     {
-        LOG(VERBOSE) << "Starting incremental remaping\n";
         M_timer.tick("Incremental remapping");
 
-        LOG(VERBOSE) << "Remap\n";
-        M_timer.tick("Collect");
-        // Collect element variables
-        std::vector<double> interp_in;
-        const bool ghosts = true;
-        this->collectVariables(interp_in, ghosts);
-        M_timer.tock("Collect");
-
-        // Conservative remaping from the moved to the original mesh
-        M_timer.tick("Remap");
-        int nb_var_element = M_prognostic_variables_elt.size();
-        double* interp_out;
-        IncrementalRemapping(interp_out, interp_in, nb_var_element, bamgmesh, M_UM);
-        M_UM.assign(M_UM.size(), 0.);
-        M_timer.tock("Remap");
-        M_timer.tick("Redistribute");
-
-        // redistribute elemental variables
-        // apply maxima during interpolation
-        this->redistributeVariables(interp_out, true);
-        xDelete<double>(interp_out);
-        M_timer.tock("Redistribute");
-
-        M_timer.tick("Update ghosts");
-        // update ghosts
-        for (int j = 0; j<M_prognostic_variables_elt.size(); j++)
+        if ( this->checkRegridding() )
         {
-            auto vptr = M_prognostic_variables_elt[j];
-            this->updateGhostElements(*vptr);
-        }
-        M_timer.tock("Update ghosts");
+            LOG(VERBOSE) << "Starting incremental remaping\n";
 
-        LOG(VERBOSE) <<"---timer remapp:               "<< M_timer.lap("Incremental remapping") <<"s\n";
+            LOG(VERBOSE) << "Remap\n";
+            M_timer.tick("Collect");
+            // Collect element variables
+            std::vector<double> interp_in;
+            const bool ghosts = true;
+            this->collectVariables(interp_in, ghosts);
+            M_timer.tock("Collect");
+
+            // Conservative remaping from the moved to the original mesh
+            M_timer.tick("Remap");
+            int nb_var_element = M_prognostic_variables_elt.size();
+            double* interp_out;
+            IncrementalRemapping(interp_out, interp_in, nb_var_element, bamgmesh, M_UM);
+            M_UM.assign(M_UM.size(), 0.);
+            M_timer.tock("Remap");
+            M_timer.tick("Redistribute");
+
+            // redistribute elemental variables
+            // apply maxima during interpolation
+            this->redistributeVariables(interp_out, true);
+            xDelete<double>(interp_out);
+            M_timer.tock("Redistribute");
+
+            M_timer.tick("Update ghosts");
+            // update ghosts
+            for (int j = 0; j<M_prognostic_variables_elt.size(); j++)
+            {
+                auto vptr = M_prognostic_variables_elt[j];
+                this->updateGhostElements(*vptr);
+            }
+            M_timer.tock("Update ghosts");
+
+            ++M_nb_regrid;
+
+            LOG(VERBOSE) <<"---timer remapp:               "<< M_timer.lap("Incremental remapping") <<"s\n";
+        }
+
+        LOG(VERBOSE) <<"NUMBER OF REMAPPINGS = " << M_nb_regrid <<"\n";
+
         M_timer.tock("Incremental remapping");
     }
     else

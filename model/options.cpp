@@ -76,7 +76,9 @@ namespace Nextsim
 
             // remeshing
             ("numerics.advection", po::value<std::string>()->default_value( "Lagrangian" ),
-                "Options for advection: Lagrangian (default) or Eulerian")
+                "Options for advection: Lagrangian (default) or Remapping")
+            ("numerics.remap_every_ts", po::value<bool>()->default_value( false ),
+                "When using incremental remapping, do so every time step, not only when the triangle angle criterion is met.")
             ("numerics.regrid_angle", po::value<double>()->default_value( 10. ),
                 "Minimum value that any angle in an element can have.")
             ("numerics.nit_ow", po::value<int>()->default_value( 50. ),
