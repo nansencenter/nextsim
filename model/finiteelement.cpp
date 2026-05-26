@@ -433,9 +433,12 @@ FiniteElement::rootMeshProcessing()
         if (!M_use_restart)
         {
             chrono.restart();
-            LOG(DEBUG) <<"AdaptMesh starts\n";
-            this->adaptMesh();
-            LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+            if (vm["numerics.advection"].as<std::string>() != "Remapping")
+            {
+                LOG(DEBUG) <<"AdaptMesh starts\n";
+                this->adaptMesh();
+                LOG(DEBUG) <<"AdaptMesh done in "<< chrono.elapsed() <<"s\n";
+            }
 
             // Add information on the number of partition to mesh filename
             LOG(DEBUG) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
