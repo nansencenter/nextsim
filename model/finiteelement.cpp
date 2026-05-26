@@ -8169,9 +8169,12 @@ FiniteElement::step()
     {
         M_timer.tick("Incremental remapping");
 
-        if ( this->checkRegridding() )
+        if ( vm["numerics.remap_every_ts"].as<bool>() || this->checkRegridding() )
         {
             LOG(VERBOSE) << "Starting incremental remaping\n";
+
+            if ( this->flip(M_mesh, M_UM, 1.) )
+                throw std::runtime_error("Flipped element detected! Consider using a smaller time step\n");
 
             LOG(VERBOSE) << "Remap\n";
             M_timer.tick("Collect");
