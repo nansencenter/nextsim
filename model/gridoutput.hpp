@@ -441,14 +441,14 @@ public:
                     longName = "Meltpond volume";
                     stdName  = "meltpond_volume";
                     Units    = "m";
-                    cell_methods = "area: mean where ice";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::meltpond_lid_volume):
                     name     = "meltpond_lid_volume";
                     longName = "Meltpond lid volume";
                     stdName  = "meltpond_lid_volume";
                     Units    = "m";
-                    cell_methods = "area: mean where ice";
+                    cell_methods = "area: mean where sea_ice";
                     break;
 
                 // MYI variables
@@ -730,7 +730,7 @@ public:
                     longName = "Meltpond area fraction";
                     stdName  = "meltpond_area_fraction";
                     Units    = "1";
-                    cell_methods = "area: mean where ice";
+                    cell_methods = "area: mean where sea_ice";
                     break;
 
                 // Coupling variables
