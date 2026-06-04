@@ -31,7 +31,7 @@ class Exporter
 {
 public:
 
-	Exporter();
+	Exporter(std::string const& precision = "float");
 
     template<typename Type>
     void writeContainer(std::fstream& out, std::vector<Type> const& container, std::string const precision);
@@ -53,8 +53,11 @@ public:
                    std::vector<int> const &idnod, std::vector<int> const &elements, Communicator M_comm);
 
     template<typename Type>
-	void writeField(MPI_File& out, std::vector<Type> const& field, std::string const& name, std::string const& precision,
-            Communicator M_comm, MPI_Offset& base_offset, std::vector<int>& rmap, int local_ndof, int num_nodes, int root);
+	void writeField(MPI_File& out, std::vector<Type> const& field, std::string const& name, Communicator M_comm, 
+                    MPI_Offset& base_offset, std::vector<int>& rmap, int local_ndof, int num_nodes, int root);
+
+    template<typename Type>
+    void writeField(std::fstream& out, std::vector<Type> const& field, std::string const& name);
 
 	void writeRecord(std::fstream& out, std::string const& rtype = "field");
 
@@ -69,6 +72,8 @@ private:
     //std::vector<int> M_type_record;
     std::vector<std::string> M_type_record;
     std::vector<std::string> M_name_record;
+
+    std::string M_precision;
 };
 } // Nextsim
 #endif
