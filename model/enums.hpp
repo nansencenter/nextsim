@@ -87,7 +87,6 @@ namespace setup
     {
         NONE     = 0,
         LEMIEUX  = 1,
-        BOUILLON = 2
     };
 
     enum class IceCategoryType
