@@ -4606,15 +4606,10 @@ FiniteElement::regrid(bool step)
             }
             else if (M_nb_regrid == 0)
             {
-                if (vm["numerics.metric_field"].as<std::string>() != "uniform")
-                    LOG(ERROR) << "The metric field given is not supported yet. A uniform field is used instead.\n";
-
+                LOG(ERROR) << "The metric field given is not supported yet. A uniform field is used instead.\n";
                 this->M_metric.A_max = 1.;
                 mmgopt->hmin = mmgopt->hmin / this->M_metric.scale_factor_min;
                 mmgopt->hmax = mmgopt->hmax / this->M_metric.scale_factor_max;
-
-                field.resize(M_mesh_root.numNodes());
-                std::iota(field.begin(), field.end(), 0.);
             }
 
 #ifdef MMG
