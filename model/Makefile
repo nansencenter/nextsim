@@ -33,6 +33,7 @@ endif
 endif
 
 # add include paths
+CXXFLAGS += -I.
 CXXFLAGS += -I$(NEXTSIMDIR)/core/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
@@ -50,10 +51,9 @@ ifdef USE_AEROBULK
 endif
 
 # boost
-ifeq ($(BOOST_DIR),/usr)
-	CXXFLAGS += -I$(BOOST_INCDIR)/ -I.
-else
-	CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
+# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems
+ifneq ($(BOOST_DIR),/usr)
+	CXXFLAGS += -isystem $(BOOST_INCDIR)
 endif
 
 # netcdf
@@ -68,17 +68,18 @@ ifdef USE_OASIS
 	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
 endif
 
-ifeq ($(NETCDF_DIR),/usr)
-	#needed for maud: need -I/usr/include otherwise have problems with stdlib.h
-	CXXFLAGS += -I$(NETCDF_DIR)/include
-	CXXFLAGS += -I$(NETCDF_CXX_DIR)/include
-else
+# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems
+ifneq ($(NETCDF_DIR),/usr)
 	CXXFLAGS += -isystem $(NETCDF_DIR)/include
+endif
+ifneq ($(NETCDF_CXX_DIR),/usr)
 	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
 endif
 
 # gmsh
-CXXFLAGS += -isystem $(GMSH_DIR)/include
+ifneq ($(GMSH_DIR),/usr)
+	CXXFLAGS += -isystem $(GMSH_DIR)/include
+endif
 
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
