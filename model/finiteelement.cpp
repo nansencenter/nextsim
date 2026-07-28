@@ -9671,30 +9671,30 @@ FiniteElement::writeRestart(std::string const& name_str)
                     % directory
                     % name_str ).str();
 
-        std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
-        if ( ! meshbin.good() )
+        std::fstream mesh_bin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
+        if ( ! mesh_bin.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
-        exporter.writeMesh(meshbin, M_mesh_root);
-        meshbin.close();
+        exporter.writeMesh(mesh_bin, M_mesh_root);
+        mesh_bin.close();
 
         // Then the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % directory
                     % name_str ).str();
 
-        std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
-        if ( ! meshrecord.good() )
+        std::fstream mesh_dat(filename, std::ios::out | std::ios::trunc);
+        if ( ! mesh_dat.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
-        exporter.writeRecord(meshrecord,"mesh");
-        meshrecord.close();
+        exporter.writeRecord(mesh_dat,"mesh");
+        mesh_dat.close();
 
         // === Write the prognostic variables ===
         // First the data
         filename = (boost::format( "%1%/field_%2%.bin" )
                     % directory
                     % name_str ).str();
-        std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
-        if ( ! outbin.good() )
+        std::fstream field_bin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
+        if ( ! field_bin.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
 
         std::vector<int> misc_int(4);
@@ -9703,13 +9703,13 @@ FiniteElement::writeRestart(std::string const& name_str)
         misc_int[2] = mesh_adapt_step;
         misc_int[3] = M_nb_regrid;
 
-        exporter.writeField(outbin, misc_int, "Misc_int");
-        exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+        exporter.writeField(field_bin, misc_int, "Misc_int");
+        exporter.writeField(field_bin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
 
         std::vector<double> timevec(1);
         timevec[0] = M_current_time;
-        exporter.writeField(outbin, timevec, "Time");
+        exporter.writeField(field_bin, timevec, "Time");
 
         // loop over the elemental variables that have been
         // gathered to elt_values_root
@@ -9722,37 +9722,37 @@ FiniteElement::writeRestart(std::string const& name_str)
                 int ri = M_rmap_elements[i];
                 tmp[i] = elt_values_root[nb_var_element*ri+j];
             }
-            exporter.writeField(outbin, tmp, M_restart_names_elt[j]);
+            exporter.writeField(field_bin, tmp, M_restart_names_elt[j]);
         }
 
-        exporter.writeField(outbin, M_VT_root, "M_VT");
-        exporter.writeField(outbin, M_UM_root, "M_UM");
-        exporter.writeField(outbin, M_UT_root, "M_UT");
+        exporter.writeField(field_bin, M_VT_root, "M_VT");
+        exporter.writeField(field_bin, M_UM_root, "M_UM");
+        exporter.writeField(field_bin, M_UT_root, "M_UT");
 
         // Add the drifters if they are initialised
         for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            it->addToRestart(exporter, outbin);
+            it->addToRestart(exporter, field_bin);
 
         // Add the previous numbering to the restart file
         // - used in adaptMesh (updateNodeIds)
         std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
             PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
-        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
+        exporter.writeField(field_bin, PreviousNumbering, "PreviousNumbering");
 
-        outbin.close();
+        field_bin.close();
 
         // Then the record
         filename = (boost::format( "%1%/field_%2%.dat" )
                     % directory
                     % name_str ).str();
 
-        std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
-        if ( ! outrecord.good() )
+        std::fstream field_dat(filename, std::ios::out | std::ios::trunc);
+        if ( ! field_dat.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
 
-        exporter.writeRecord(outrecord);
-        outrecord.close();
+        exporter.writeRecord(field_dat);
+        field_dat.close();
     }
 }//writeRestart
 
@@ -14290,70 +14290,63 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
         if (export_mesh)
         {
+            // mesh*.bin
             fileout = filenames[0]+".bin";
             LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
-            if(apply_displacement)
-            {
-                // move the mesh for the export
-                M_mesh_root.move(M_UM_root,1.);
-            }
+            // Make a copy of the mesh to avoid introduction of random modifications
+            // in the next timesteps introduced by two mesh moves (1 and -1) on M_mesh_root
+            auto output_mesh = M_mesh_root;
+            if(apply_displacement) output_mesh.move(M_UM_root,1.);
 
-            std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-            if ( !meshbin.good() )
+            std::fstream mesh_bin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+            if ( !mesh_bin.good() )
                 throw std::runtime_error("Cannot write to file: " + fileout);
 
-            exporter.writeMesh(meshbin, M_mesh_root);
-            meshbin.close();
+            exporter.writeMesh(mesh_bin, output_mesh);
+            mesh_bin.close();
 
-            if(apply_displacement)
-            {
-                // move it back after the export
-                M_mesh_root.move(M_UM_root,-1.);
-            }
 
+            // mesh*.dat
             fileout = filenames[0]+".dat";
-
             LOG(VERBOSE) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
 
-            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-            if ( !outrecord.good() )
+            std::fstream mesh_dat(fileout, std::ios::out | std::ios::trunc);
+            if ( !mesh_dat.good() )
                 throw std::runtime_error("Cannot write to file: " + fileout);
 
-            exporter.writeRecord(outrecord,"mesh");
-            outrecord.close();
+            exporter.writeRecord(mesh_dat,"mesh");
+            mesh_dat.close();
         }
 
         if (export_fields)
         {
+            // field*.bin
             fileout = filenames[1]+".bin";
             LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
-            std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-            if ( !outbin.good() )
+            std::fstream field_bin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+            if ( !field_bin.good() )
                 throw std::runtime_error("Cannot write to file: " + fileout);
 
             std::vector<double> timevec = {M_current_time};
             std::vector<int> regridvec = {M_nb_regrid};
 
-            exporter.writeField(outbin, timevec, "Time");
-            // exporter.writeField(outbin, regridvec, "M_nb_regrid");
-            // exporter.writeField(outbin, M_surface_root, "Element_area");
-            // exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+            exporter.writeField(field_bin, timevec, "Time");
 
             //manually export some vectors defined on the nodes
             std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
             if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
-                exporter.writeField(outbin, M_VT_root, "M_VT");
+                exporter.writeField(field_bin, M_VT_root, "M_VT");
 #if defined (OASIS)
             if (M_couple_waves && M_recv_wave_stress)
-                exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
+                exporter.writeField(field_bin, M_tau_wi_root, "M_tau_wi");
 #endif
             if (vm["output.save_forcing_fields"].as<bool>())
             {
-                exporter.writeField(outbin, M_wind_root, "M_wind");
-                exporter.writeField(outbin, M_ocean_root, "M_ocean");
-                exporter.writeField(outbin, M_ssh_root, "M_ssh");
+                exporter.writeField(field_bin, M_wind_root, "M_wind");
+                exporter.writeField(field_bin, M_ocean_root, "M_ocean");
+                exporter.writeField(field_bin, M_ssh_root, "M_ssh");
             }
 
 
@@ -14368,36 +14361,22 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
                     int ri = M_rmap_elements[i];
                     tmp[i] = elt_values_root[nb_var_element*ri+j];
                 }
-                exporter.writeField(outbin, tmp, names_elements[j]);
+                exporter.writeField(field_bin, tmp, names_elements[j]);
 
             }
 
-            outbin.close();
+            field_bin.close();
 
+            // field*.dat
             fileout = filenames[1]+".dat";
             LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
 
-            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-            if ( !outrecord.good() )
+            std::fstream field_dat(fileout, std::ios::out | std::ios::trunc);
+            if ( !field_dat.good() )
                 throw std::runtime_error("Cannot write to file: " + fileout);
 
-            exporter.writeRecord(outrecord);
-            outrecord.close();
-        }
-
-        outbin.close();
-
-        if (M_rank == 0)
-        {
-            fileout = filenames[1]+".dat";
-            LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-    
-            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-            if ( !outrecord.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
-    
-            exporter.writeRecord(outrecord);
-            outrecord.close();
+            exporter.writeRecord(field_dat);
+            field_dat.close();
         }
     }
 
