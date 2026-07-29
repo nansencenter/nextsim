@@ -773,6 +773,11 @@ FiniteElement::initDatasets()
             M_atmosphere_elements_dataset=DataSet("ecmwf_nrt_arome_ensemble_elements");
             break;
 
+        case setup::AtmosphereType::CARRA2:
+            M_atmosphere_nodes_dataset=DataSet("CARRA2_nodes");
+            M_atmosphere_elements_dataset=DataSet("CARRA2_elements");
+            break;
+
         default:
             std::cout << "invalid atmospheric forcing"<<"\n";throw std::logic_error("invalid atmospheric forcing");
     }
@@ -1275,7 +1280,8 @@ FiniteElement::initOptAndParam()
         ("cfsr", setup::AtmosphereType::CFSR)
         ("cfsr_hi", setup::AtmosphereType::CFSR_HI)
         ("ecmwf_nrt_arome", setup::AtmosphereType::ECMWF_NRT_AROME)
-        ("ecmwf_nrt_arome_ensemble", setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE);
+        ("ecmwf_nrt_arome_ensemble", setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE)
+        ("carra2", setup::AtmosphereType::CARRA2);
     M_atmosphere_type = this->getOptionFromMap("setup.atmosphere-type", str2atmosphere);
         //! \param M_atmosphere_type (enum) Option on the type of atm. forcing (constant, forecast or reanalyses)
     LOG(DEBUG)<<"AtmosphereType= "<< (int)M_atmosphere_type <<"\n";
@@ -1292,6 +1298,7 @@ FiniteElement::initOptAndParam()
         case setup::AtmosphereType::ECMWF_NRT:
         case setup::AtmosphereType::ECMWF_NRT_AROME:
         case setup::AtmosphereType::ECMWF_NRT_AROME_ENSEMBLE:
+        case setup::AtmosphereType::CARRA2:
                     quad_drag_coef_air = vm["dynamics.ECMWF_quad_drag_coef_air"].as<double>(); break;
         default:        std::cout << "invalid wind forcing"<<"\n";throw std::logic_error("invalid wind forcing");
     }
@@ -10972,6 +10979,21 @@ FiniteElement::forcingAtmosphere()
                     time_init, 0, 0, M_ensemble_member);
             M_precip=ExternalData(&M_atmosphere_elements_dataset, M_mesh, 6, false,
                     time_init, 0, 0, M_ensemble_member);
+        break;
+
+        // CARRA2
+        case setup::AtmosphereType::CARRA2:
+            M_wind=ExternalData(
+                &M_atmosphere_nodes_dataset,M_mesh,0,true,
+                time_init, M_spinup_duration);
+
+            M_tair=ExternalData(&M_atmosphere_elements_dataset,M_mesh,0,false,time_init);
+            M_sphuma=ExternalData(&M_atmosphere_elements_dataset,M_mesh,1,false,time_init);
+            M_mslp=ExternalData(&M_atmosphere_elements_dataset,M_mesh,2,false,time_init);
+            M_Qsw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,3,false,time_init);
+            M_Qlw_in=ExternalData(&M_atmosphere_elements_dataset,M_mesh,4,false,time_init);
+            M_snowfall=ExternalData(&M_atmosphere_elements_dataset,M_mesh,5,false,time_init);
+            M_precip=ExternalData(&M_atmosphere_elements_dataset,M_mesh,6,false,time_init);
         break;
 
         default:
