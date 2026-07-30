@@ -33,6 +33,7 @@ endif
 endif
 
 # add include paths
+CXXFLAGS += -I.
 CXXFLAGS += -I$(NEXTSIMDIR)/core/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
@@ -50,10 +51,9 @@ ifdef USE_AEROBULK
 endif
 
 # boost
-ifeq ($(BOOST_DIR),/usr)
-	CXXFLAGS += -I$(BOOST_INCDIR)/ -I.
-else
-	CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
+ifneq ($(BOOST_DIR),/usr)
+	# -isystem /usr/include causes problems with stdlib.h
+	CXXFLAGS += -isystem $(BOOST_INCDIR)/
 endif
 
 # netcdf
@@ -68,12 +68,10 @@ ifdef USE_OASIS
 	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
 endif
 
-ifeq ($(NETCDF_DIR),/usr)
-	#needed for maud: need -I/usr/include otherwise have problems with stdlib.h
-	CXXFLAGS += -I$(NETCDF_DIR)/include
-	CXXFLAGS += -I$(NETCDF_CXX_DIR)/include
-else
+ifneq ($(NETCDF_DIR),/usr)
 	CXXFLAGS += -isystem $(NETCDF_DIR)/include
+endif
+ifneq ($(NETCDF_CXX_DIR),/usr)
 	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
 endif
 
