@@ -9607,22 +9607,6 @@ FiniteElement::writeRestart(std::string const& name_str)
     std::vector<double> M_UM_root;
     std::vector<double> M_UT_root;
 
-#if 1
-    if (M_rank == 0)
-    {
-        // write node IDs manually to check against restarts
-        std::string filename = (boost::format( "%1%/restart/node_ids_%2%.txt" )
-                    % vm["output.exporter_path"].as<std::string>()
-                    % name_str ).str();
-        std::ofstream out_file(filename);
-        if (!out_file)
-            throw std::runtime_error("Cannot write to file: " + filename);
-        for (int val : M_mesh_root.id())
-            out_file << val << "\n";
-        out_file.close();
-    }
-#endif
-
     int tmp_nb_var=0;
 
     if (M_rank == 0)
@@ -14321,18 +14305,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
 
             exporter.writeMesh(mesh_bin, output_mesh);
             mesh_bin.close();
-
-            {
-                // write node IDs manually to check against binary output
-                std::string filename = filenames[0] + ".txt";
-                std::ofstream out_file(filename);
-                if (!out_file)
-                    throw std::runtime_error("Cannot write to file: " + filename);
-                for (int val : M_mesh_root.id())
-                    out_file << val << "\n";
-                out_file.close();
-            }
-
 
             // mesh*.dat
             fileout = filenames[0]+".dat";
