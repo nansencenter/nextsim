@@ -14322,6 +14322,17 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeMesh(mesh_bin, output_mesh);
             mesh_bin.close();
 
+            {
+                // write node IDs manually to check against binary output
+                std::string filename = filenames[0] + ".txt";
+                std::ofstream out_file(filename);
+                if (!out_file)
+                    throw std::runtime_error("Cannot write to file: " + filename);
+                for (int val : M_mesh_root.id())
+                    out_file << val << "\n";
+                out_file.close();
+            }
+
 
             // mesh*.dat
             fileout = filenames[0]+".dat";
