@@ -78,7 +78,9 @@ else
 endif
 
 # gmsh
-CXXFLAGS += -isystem $(GMSH_DIR)/include
+ifneq ($(GMSH_DIR),/usr)
+	CXXFLAGS += -isystem $(GMSH_DIR)/include
+endif
 
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
