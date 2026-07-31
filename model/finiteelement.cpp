@@ -415,7 +415,6 @@ FiniteElement::rootMeshProcessing()
             LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
             LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
             LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-            LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
 
             // save mesh (only root process)
@@ -435,7 +434,7 @@ FiniteElement::rootMeshProcessing()
             // partition the mesh on root process (rank 0)
             chrono.restart();
             M_mesh_root.partition(M_partitioned_mesh_filename,
-                    M_partitioner, M_partition_space, M_mesh_fileformat);
+                    M_partition_space, M_mesh_fileformat);
             //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
             LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
         }
@@ -1468,14 +1467,7 @@ FiniteElement::initOptAndParam()
     if(!M_moorings_snapshot)
         M_moorings_averaging_period = mooring_output_time_step/days_in_sec;
 
-    //! Sets the type of partitioner and partition space
-    const boost::unordered_map<const std::string, mesh::Partitioner> str2partitioner = boost::assign::map_list_of
-        ("chaco", mesh::Partitioner::CHACO)
-        ("metis", mesh::Partitioner::METIS);
-    M_partitioner = this->getOptionFromMap("mesh.partitioner", str2partitioner);
-        //! \param M_partitioner (string) Sets the type of partioner (CHACO or METIS)
-    LOG(DEBUG) << "MeshPartitioner: "<< (int)M_partitioner<<"\n";
-
+    //! Sets the partition space
     const boost::unordered_map<const std::string, mesh::PartitionSpace> str2partitionspace = boost::assign::map_list_of
         ("memory", mesh::PartitionSpace::MEMORY)
         ("disk", mesh::PartitionSpace::DISK);
@@ -3735,7 +3727,6 @@ FiniteElement::regrid(bool step)
             LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
             LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
             LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-            LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
             M_timer.tick("partition");
             // Environment::logMemoryUsage("before partitioning...");
@@ -3751,7 +3742,7 @@ FiniteElement::regrid(bool step)
             chrono.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
             M_mesh_root.partition(M_partitioned_mesh_filename,
-                    M_partitioner, M_partition_space, M_mesh_fileformat);
+                    M_partition_space, M_mesh_fileformat);
             LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
             M_timer.tock("partition");
 
@@ -10086,7 +10077,6 @@ FiniteElement::partitionMeshRestart()
         LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
         LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
         LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
-        LOG(DEBUG)<<"------------------------------partitioner   = "<< vm["mesh.partitioner"].as<std::string>() <<"\n";
 
         // Environment::logMemoryUsage("before partitioning...");
         chrono.restart();
@@ -10107,7 +10097,7 @@ FiniteElement::partitionMeshRestart()
         chrono.restart();
         LOG(DEBUG) <<"Partitioning mesh starts\n";
         M_mesh_root.partition(M_partitioned_mesh_filename,
-                M_partitioner, M_partition_space, M_mesh_fileformat);
+                M_partition_space, M_mesh_fileformat);
         LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
 

@@ -447,7 +447,6 @@ private:
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
     std::string M_mesh_ordering;
-    mesh::Partitioner M_partitioner;
     mesh::PartitionSpace M_partition_space;
     //fsd related
     setup::WeldingType M_welding_type    ;

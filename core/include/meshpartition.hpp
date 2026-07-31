@@ -9,20 +9,12 @@
 #ifndef __MeshPartition_HPP
 #define __MeshPartition_HPP 1
 
-#include <meshPartitionOptions.h>
-#include <meshPartition.h>
-#include <GModel.h>
+#include <gmsh.h>
 
 namespace Nextsim
 {
 namespace mesh
 {
-    enum class Partitioner
-    {
-        CHACO = 1,
-        METIS = 2
-    };
-
     enum class PartitionSpace
     {
         MEMORY = 0,

@@ -29,8 +29,6 @@ extern "C"
 #include <mapx.h>
 }
 
-int PartitionMesh( GModel *const model, meshPartitionOptions &options );
-
 namespace Nextsim
 {
 class GmshMeshSeq
@@ -61,7 +59,6 @@ public:
     void writeToFile(std::string const& filename);
 
     void partition(std::string const& filename,
-                   mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
                    mesh::PartitionSpace const& space=mesh::PartitionSpace::MEMORY,
                    std::string const& format="ascii");
 
@@ -134,12 +131,8 @@ public:
 
 private:
 
-    void partitionMemory(std::string const& filename,
-                         mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
-                         std::string const& format="ascii");
-
     void partitionDisk(std::string const& filename,
-                       mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
+                       int const& num_partitions,
                        std::string const& format="ascii");
 
 
@@ -162,8 +155,6 @@ private:
     // container for storing the mesh marker names
     std::map<std::string, std::vector<int> > M_marker_names;
 
-    //meshPartitionOptions M_partition_options;
-    GModel*  M_gmodel;
     std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
 };
 

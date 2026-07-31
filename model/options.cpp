@@ -115,8 +115,6 @@ namespace Nextsim
             // -- input
             ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "name of .msh file to use")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "name of .mpp projection file to use")
-            ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ),
-                "mesh partitioner: chaco or metis")
             ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ),
                 "Format for saving partitioned mesh. Options: ascii, binary")
             ("mesh.partitioner-space", po::value<std::string>()->default_value( "memory" ),
