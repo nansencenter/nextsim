@@ -1,4 +1,4 @@
-Polar Stereographic
+Polar Stereographic Ellipsoid
 90.0 0.0 60.0	lat0 lon0 lat1
 -30.000001	    rotation
 0.001	   	scale (km/map unit)

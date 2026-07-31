@@ -9480,21 +9480,14 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Dimension dimension_time={
-            name:"valid_time",
+            name:"time",
             cyclic:false
         };
 
+        // Definition of the grid
         std::vector<Dimension> dimensions_latlon(2);
         dimensions_latlon[0] = dimension_y;
         dimensions_latlon[1] = dimension_x;
-
-        std::vector<Dimension> dimensions(3);
-        dimensions[0] = dimension_time;
-        dimensions[1] = dimension_y;
-        dimensions[2] = dimension_x;
-
-        std::vector<Dimension> dimensions_time(1);
-        dimensions_time[0] = dimension_time;
 
         Variable latitude={
             filename_string: "", // All variables are in the same (grid) file
@@ -9532,69 +9525,14 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        Variable time_tmp={
-            filename_string: "", // All variables are in the same (grid) file
-            name: "valid_time",
-            dimensions: dimensions_time,
-            land_mask_defined: false,
-            land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
-            a: 1.,
-            b: 0.,
-            Units: "hours",
-            loaded_data: loaded_data_tmp,
-            interpolated_data: interpolated_data_tmp,
-            wavDirOptions: wavdiropt_none
-        };
-
-        // conversion factors: xnew = a*x + b
-        Variable u={
-            filename_string: "", // All variables are in the same (grid) file
-            name: "10u", // U10M
-            dimensions: dimensions,
-            land_mask_defined: false,
-            land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
-            a: 1.,
-            b: 0.,
-            Units: "m/s",
-            loaded_data: loaded_data_tmp,
-            interpolated_data: interpolated_data_tmp,
-            wavDirOptions: wavdiropt_none
-        };
-
-        Variable v={
-            filename_string: "", // All variables are in the same (grid) file
-            name: "10v", // V10M
-            dimensions: dimensions,
-            land_mask_defined: false,
-            land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
-            a: 1.,
-            b: 0.,
-            Units: "m/s",
-            loaded_data: loaded_data_tmp,
-            interpolated_data: interpolated_data_tmp,
-            wavDirOptions: wavdiropt_none
-        };
-
-        Grid grid_tmp={
+      Grid grid_tmp={
                 interpolation_method: InterpolationType::FromGridToMesh,
                 //interp_type : TriangleInterpEnum,  // slower
                 interp_type : BilinearInterpEnum,
                 //interp_type : NearestInterpEnum,
 
-                dirname:"",
-                filename_mask: "CARRA2_${VARSTRING}_y%Ym%m.nc",
+                dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
+                filename_mask: "CARRA2_${VARSTRING}_y%Ym%m_hours.nc",
                 gridfile: "",
                 reference_date: "1970-01-01",
 
@@ -9615,13 +9553,81 @@ DataSet::DataSet(char const *DatasetName)
                 masking: false
         };
 
+        grid=grid_tmp;
+
+        // Definition of the data
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        std::vector<Dimension> dimensions(3);
+        dimensions[0] = dimension_time;
+        dimensions[1] = dimension_y;
+        dimensions[2] = dimension_x;
+
+        Variable time_tmp={
+            filename_string: "u10", // All variables are in the same (grid) file
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        // conversion factors: xnew = a*x + b
+        Variable u={
+            filename_string: "u10", // Variables are in seperate files
+            name: "u10", // U10M
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable v={
+            filename_string: "v10", // Variables are in seperate files
+            name: "v10", // V10M
+            dimensions: dimensions,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "m/s",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+
         std::vector<Variable> variables_tmp(2);
         variables_tmp[0] = u;
         variables_tmp[1] = v;
 
         std::vector<int> uv_tmp(2);
-        uv_tmp[0] = 0;
-        uv_tmp[1] = 1;
+            uv_tmp[0] = 0;
+            uv_tmp[1] = 1;
 
         Vectorial_Variable uv={
             components_Id: uv_tmp,
@@ -9633,7 +9639,6 @@ DataSet::DataSet(char const *DatasetName)
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        grid= grid_tmp;
 
         loaded=false;
         interpolated=false;
@@ -9658,7 +9663,7 @@ DataSet::DataSet(char const *DatasetName)
         };
 
         Dimension dimension_time={
-            name:"valid_time", // "Time"
+            name:"time", // "valid_ime"
             cyclic:false
         };
 
@@ -9670,12 +9675,8 @@ DataSet::DataSet(char const *DatasetName)
         std::vector<Dimension> dimensions(3);
         dimensions[0] = dimension_time;
         dimensions[1] = dimension_y;
-        dimensions[2] = dimension_x;
+        dimensions[2] = dimension_x;  
         
-        std::vector<Dimension> dimensions_time(1);
-        dimensions_time[0] = dimension_time;
-
-
         Variable latitude={
             filename_string: "", // All variables are in the same (grid) file
             name: "latitude",
@@ -9712,31 +9713,13 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         };
 
-        Variable time_tmp={
-            filename_string: "", // All variables are in the same (grid) file
-            name: "valid_time",
-            dimensions: dimensions_time,
-            land_mask_defined: false,
-            land_mask_value: 0.,
-            NaN_mask_defined: false,
-            NaN_mask_value: 0.,
-            use_FillValue: true,
-            use_missing_value: true,
-            a: 1.,
-            b: 0.,
-            Units: "hours",
-            loaded_data: loaded_data_tmp,
-            interpolated_data: interpolated_data_tmp,
-            wavDirOptions: wavdiropt_none
-        };
-
         Grid grid_tmp={
             interpolation_method: InterpolationType::FromGridToMesh,
             //interp_type : TriangleInterpEnum, // slower
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
-            filename_mask: "CARRA2_${VARSTRING}_y%Ym%m.nc",
+            filename_mask: "CARRA2_${VARSTRING}_y%Ym%m_hours.nc",
             gridfile: "",
             reference_date:"1970-01-01",
 
@@ -9757,9 +9740,34 @@ DataSet::DataSet(char const *DatasetName)
             masking: false
         };
 
-        Variable tair={
+        grid= grid_tmp;
+        
+        // Definition of the data
+
+        std::vector<Dimension> dimensions_time(1);
+        dimensions_time[0] = dimension_time;
+
+        Variable time_tmp={
             filename_string: "", // All variables are in the same (grid) file
-            name:"2t",
+            name: "time",
+            dimensions: dimensions_time,
+            land_mask_defined: false,
+            land_mask_value: 0.,
+            NaN_mask_defined: false,
+            NaN_mask_value: 0.,
+            use_FillValue: true,
+            use_missing_value: true,
+            a: 1.,
+            b: 0.,
+            Units: "hours",
+            loaded_data: loaded_data_tmp,
+            interpolated_data: interpolated_data_tmp,
+            wavDirOptions: wavdiropt_none
+        };
+
+        Variable tair={
+            filename_string: "t2m", 
+            name:"t2m",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -9775,8 +9783,8 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; // T2M
         Variable sphuma={
-            filename_string: "", // All variables are in the same (grid) file
-            name:"2sh",
+            filename_string: "sh2", 
+            name:"sh2",
             dimensions: dimensions,
             land_mask_defined: false,
             land_mask_value: 0.,
@@ -9792,7 +9800,7 @@ DataSet::DataSet(char const *DatasetName)
             wavDirOptions: wavdiropt_none
         }; // Q2M 2m specific humidity
         Variable mslp={
-            filename_string: "", // All variables are in the same (grid) file
+            filename_string: "msl", 
             name:"msl",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -9810,7 +9818,7 @@ DataSet::DataSet(char const *DatasetName)
         }; //MSL Mean Sea Level Pressure
 
         Variable Qsw_in={
-            filename_string: "", // All variables are in the same (grid) file
+            filename_string: "ssrd", 
             name:"ssrd",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -9828,7 +9836,7 @@ DataSet::DataSet(char const *DatasetName)
         }; // SSRD Surface solar radiation downwards
 
         Variable Qlw_in={
-            filename_string: "", // All variables are in the same (grid) file
+            filename_string: "strd", 
             name:"strd",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -9846,7 +9854,7 @@ DataSet::DataSet(char const *DatasetName)
         }; //STRD Surface thermal radiation downwards
 
         Variable snowfall={
-            filename_string: "", // All variables are in the same (grid) file
+            filename_string: "titspf", 
             name:"titspf",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -9855,7 +9863,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./(3.*3600.),//integrated for 3 hours - convert from total to rate
+            a:1./(3.*3600.),    //integrated for 3 hours - convert from total to rate
             b:0.,
             Units:"kg/m^2/s",
             loaded_data: loaded_data_tmp,
@@ -9864,7 +9872,7 @@ DataSet::DataSet(char const *DatasetName)
         }; // Snowfall Time-interal of Solid precip
 
         Variable precip={
-            filename_string: "", // All variables are in the same (grid) file
+            filename_string: "tp", 
             name:"tp",
             dimensions: dimensions,
             land_mask_defined: false,
@@ -9873,7 +9881,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a:1./(3.*3600.),
+            a:1./(3.*3600.),  //integrated for 3 hours - convert from total to rate
             b:0.,
             Units:"kg/m^2/s",
             loaded_data: loaded_data_tmp,
@@ -9890,12 +9898,10 @@ DataSet::DataSet(char const *DatasetName)
         variables_tmp[5] = snowfall;
         variables_tmp[6] = precip;
 
-
         std::vector<Vectorial_Variable> vectorial_variables_tmp(0);
 
         variables= variables_tmp;
         vectorial_variables= vectorial_variables_tmp;
-        grid= grid_tmp;
 
         loaded=false;
         interpolated=false;
@@ -10475,6 +10481,7 @@ DataSet::getFilename(double const& current_time) const
     std::string fmask = grid.filename_mask;
     boost::replace_all(fmask, "${VARSTRING}", variables[0].filename_string);
     
+
     std::string dirname = grid.dirname;
     if ( ! boost::filesystem::exists(dirname) )
         dirname = (boost::format( "%1%/%2%" )
