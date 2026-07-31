@@ -53,8 +53,6 @@ public:
 
     GmshMeshSeq(GmshMeshSeq const& mesh);
 
-    //~GmshMeshSeq();
-
     void readFromFile(std::string const& filename);
     void writeToFile(std::string const& filename);
 
@@ -66,7 +64,6 @@ public:
     void reorder(bimap_type const& rmap_nodes, bimap_type const& rmap_elements);
 
     std::string const& version() const {return M_version;}
-    std::string const& ordering() const {return M_ordering;}
     std::string const& mppfile() const {return M_mppfile;}
 
     std::vector<point_type> const& nodes() const {return M_nodes;}
@@ -79,8 +76,6 @@ public:
     int numTriangles() const {return M_num_triangles;}
     int numEdges() const {return M_num_edges;}
 
-    void setOrdering(std::string const& order) {M_ordering=order;}
-
     void setNodes(std::vector<point_type> const& nodes) {M_nodes=nodes;}
     void setEdges(std::vector<element_type> const& edges) {M_edges=edges;}
     void setTriangles(std::vector<element_type> const& triangles) {M_triangles=triangles;}
@@ -90,9 +85,7 @@ public:
     void setNumTriangles(int const& ntrs) {M_num_triangles=ntrs;}
 
     void update(std::vector<point_type> const& nodes,
-                std::vector<element_type> const& triangles,
-                std::string const& ordering = "gmsh");
-
+                std::vector<element_type> const& triangles);
 
     void stereographicProjection();
 
@@ -139,7 +132,6 @@ private:
 private:
 
     std::string M_version;
-    std::string M_ordering;
     std::string M_mppfile;
     std::vector<point_type> M_nodes;
     std::vector<element_type> M_triangles;
@@ -156,6 +148,8 @@ private:
     std::map<std::string, std::vector<int> > M_marker_names;
 
     std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
+
+    bool testTriangleOrientation(std::vector<std::vector<double>> const& vertices) const;
 };
 
 } // Nextsim

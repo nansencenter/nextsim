@@ -56,8 +56,6 @@ FiniteElement::distributedMeshProcessing(bool start)
         M_mesh = mesh_type();
     }
 
-    M_mesh.setOrdering("gmsh");
-
     LOG(VERBOSE) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
     chrono.restart();
@@ -285,7 +283,6 @@ FiniteElement::rootMeshProcessing()
     {
 
         // read the original input mesh
-        M_mesh_root.setOrdering(M_mesh_ordering);
         LOG(DEBUG) <<"Reading root mesh starts\n";
         chrono.restart();
         M_mesh_root.readFromFile(M_mesh_filename);
@@ -412,7 +409,6 @@ FiniteElement::rootMeshProcessing()
             LOG(DEBUG) <<"filename= "<< M_partitioned_mesh_filename <<"\n";
 
             LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-            LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
             LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
             LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
 
@@ -1438,13 +1434,6 @@ FiniteElement::initOptAndParam()
             % M_mesh_basename
             ).str();
     M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the partitioned mesh file (used if mesh.partitioner-space=="disk")
-
-    // mesh ordering
-    std::vector<std::string> order_opts = {"gmsh", "bamg"};
-    M_mesh_ordering = this->getAllowedOption("mesh.ordering", order_opts);
-        //! \param M_mesh_ordering (std::string) Mesh ordering ("gmsh" or "bamg")
-    LOG(DEBUG) <<"MESH_ORDERING = "<< M_mesh_ordering <<"\n";
-
 
     //! Sets options on the use of moorings
     M_use_moorings =  vm["moorings.use_moorings"].as<bool>(); //! \param M_use_moorings (boolean) Option on the use of moorings
@@ -3724,7 +3713,6 @@ FiniteElement::regrid(bool step)
             // save mesh (only root process)
 
             LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-            LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
             LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
             LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
 
@@ -10074,7 +10062,6 @@ FiniteElement::partitionMeshRestart()
     if (M_rank == 0)
     {
         LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
-        LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
         LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
         LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
 

@@ -32,9 +32,6 @@ extern "C"
 #include <mapx.h>
 }
 
-// originally from Gmsh
-//void SwapBytes(char *array, int size, int n);
-
 
 namespace Nextsim
 {
@@ -54,22 +51,16 @@ public:
 
     GmshMesh( GmshMesh const& mesh );
 
-    // GmshMesh(std::vector<point_type> const& nodes,
-    //          std::vector<element_type> const& edges,
-    //          std::vector<element_type> const& triangles,
-    //          Communicator const& comm = Environment::comm());
 
     void readFromFile(std::string const& filename, std::string const& format="ascii");
     void readFromFileBinary(std::ifstream& ifs);
     void readFromFileASCII(std::ifstream& ifs);
-    void writeToFile(std::string const& filename);
     void move(std::vector<double> const& um, double factor);
     void allGather(std::vector<int> const& field_in, std::vector<std::vector<int> >& field_out, int& acc_size);
     void nodalGrid();
 
     Communicator const& comm() const { return M_comm; }
     std::string const& version() const {return M_version;}
-    std::string const& ordering() const {return M_ordering;}
     std::string const& mppfile() const {return M_mppfile;}
     std::map<int, point_type > const& nodes() const {return M_nodes;}
     std::vector<element_type> const& triangles() const {return M_triangles;}
@@ -92,7 +83,6 @@ public:
     int numTrianglesWithoutGhost() const {return M_num_triangles_without_ghost;}
 
     void setCommunicator(Communicator const& comm) {M_comm=comm;}
-    void setOrdering(std::string const& order) {M_ordering=order;}
 
     void setNodes(std::map<int, point_type > const& nodes) {M_nodes=nodes;}
     void setEdges(std::vector<element_type> const& edges) {M_edges=edges;}
@@ -115,12 +105,6 @@ public:
     bimap_type const& transferMap() const {return M_transfer_map_reordered;}
 
     bimap_type const& transferMapElt() const {return M_transfer_map_elt;}
-    //bimap_type const& transferMapReordered() const {return M_transfer_map_reordered;}
-
-    //bimap_type const& mapNodes() const {return M_reorder_map_nodes;}
-    //std::map<int,int> const& mapNodes() const {return M_reorder_map_nodes;}
-    //bimap_type const& mapElements() const {return M_reorder_map_elements;}
-    //std::map<int,int> const& mapElements() const {return M_reorder_map_elements;}
 
     std::vector<int> const& mapNodes() const {return M_map_nodes;}
     std::vector<int> const& mapElements() const {return M_map_elements;}
@@ -162,7 +146,6 @@ private:
 
     Communicator M_comm;
     std::string M_version;
-    std::string M_ordering;
     std::string M_mppfile;
     LogLevel M_log_level;
     bool M_log_all;
@@ -200,20 +183,13 @@ private:
     // container for storing the mesh marker names
     std::map<std::string, std::vector<int> > M_marker_names;
 
-    //bimap_type M_reorder_map_nodes;
-    //std::map<int,int> M_reorder_map_nodes; (not stored in memory)
-    //bimap_type M_reorder_map_elements;
-    //std::map<int,int> M_reorder_map_elements; (not stored in memory)
-
     std::vector<int> M_map_elements;
     std::vector<int> M_map_nodes;
 
     std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
 
-    //int getNumVerticesForElementType(int type);
-    //const char* getElementTypeName(int type);
-    // originally from gmsh
     void SwapBytes(void *array, size_t size, size_t n);
+    bool testTriangleOrientation(std::vector<int> const& indices) const;
 };
 
 } // Nextsim

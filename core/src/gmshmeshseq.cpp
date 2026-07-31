@@ -15,7 +15,6 @@ namespace Nextsim
 GmshMeshSeq::GmshMeshSeq()
     :
     M_version("2.2"),
-    M_ordering("gmsh"),
     M_nodes(),
     M_triangles(),
     M_edges(),
@@ -35,7 +34,6 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
                          std::vector<element_type> const& triangles)
     :
     M_version("2.2"),
-    M_ordering("gmsh"),
     M_nodes(nodes),
     M_triangles(triangles),
     M_edges(edges),
@@ -52,7 +50,6 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
                          std::vector<element_type> const& triangles)
     :
     M_version("2.2"),
-    M_ordering("gmsh"),
     M_nodes(nodes),
     M_triangles(triangles),
     M_num_nodes(nodes.size()),
@@ -66,7 +63,6 @@ GmshMeshSeq::GmshMeshSeq(std::vector<point_type> const& nodes,
 GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
         :
     M_version(mesh.M_version),
-    M_ordering(mesh.M_ordering),
     M_mppfile(mesh.M_mppfile),
     M_nodes(mesh.M_nodes),
     M_triangles(mesh.M_triangles),
@@ -76,6 +72,7 @@ GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
     M_log_all(mesh.M_log_all)
 
 {}
+
 
 void
 GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
@@ -153,7 +150,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
             std::string( __buf ) == "$ParametricNodes") )
     {
         LOG(ERROR)<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either"
-        << "$Nodes or $ParametricNodes.\n";
+        << "$NOD, $Nodes or $ParametricNodes.\n";
     }
 
     bool has_parametric_nodes = ( std::string( __buf ) == "$ParametricNodes" );
@@ -198,15 +195,22 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
 
     int cpt_edge = 0;
     int cpt_triangle = 0;
+    bool first_triangle = true;
+    bool reverse_order;
 
     for(int i = 0; i < numElements; i++)
     {
+        int const eltype_edge = 1;
+        int const eltype_triangle = 2;
         int number, type, physical = 0, elementary = 0, numVertices;
         int numTags;
 
         gmshfile >> number  // elm-number
              >> type // elm-type
              >> numTags; // number-of-tags
+
+        ASSERT((type == eltype_edge) || (type == eltype_triangle), "Expecting only edges or triangles in msh file");
+        numVertices = (type == eltype_edge)? 2 : 3;
 
         for(int j = 0; j < numTags; j++)
         {
@@ -216,20 +220,10 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
             else if(j == 1) elementary = tag;
         }
 
-        numVertices = Nextsim::entities::getNumVerticesForElementType(type);
-
-        ASSERT(numVertices!=0,"unknown number of vertices for element type");
-
         std::vector<int> indices(numVertices);
         for(int j = 0; j < numVertices; j++)
-        {
             gmshfile >> indices[j];
-        }
 
-        if (M_ordering=="bamg")
-        {
-            std::next_permutation(indices.begin()+1,indices.end());
-        }
 
         if (type == 2)
         {
@@ -239,8 +233,17 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
                                                     elementary,
                                                     numVertices,
                                                     indices );
-
             M_triangles.push_back(gmshElt);
+
+            if (first_triangle)
+            {
+                auto const vertices = this->vertices(indices);
+                reverse_order = this->testTriangleOrientation(vertices);
+                first_triangle = false;
+            }
+
+            if (reverse_order)
+                std::next_permutation(indices.begin()+1,indices.end());
 
             ++cpt_triangle;
         }
@@ -252,30 +255,14 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
                                                     elementary,
                                                     numVertices,
                                                     indices );
-
             M_edges.push_back(gmshElt);
-
             ++cpt_edge;
         }
 
-
-        if ( __gt.find( type ) != __gt.end() )
-            ++__gt[ type ];
-        else
-            __gt[type]=1;
-
     } // element description loop
 
-    for ( auto const& it : __gt )
-    {
-        const char* name = Nextsim::entities::getElementTypeName(it.first);
-        LOG(DEBUG) << "Read " << it.second << " " << name << " elements\n";
-
-        if (std::string(name) == "Triangle 3")
-            M_num_triangles = it.second;
-        else if (std::string(name) == "Line 2")
-            M_num_edges = it.second;
-    }
+    M_num_triangles = cpt_triangle;
+    M_num_edges = cpt_edge;
 
     // make sure that we have read everything
     gmshfile >> __buf;
@@ -283,6 +270,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
     ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
 
 }//readFromFile
+
 
 void
 GmshMeshSeq::writeToFile(std::string const& gmshmshfile)
@@ -334,9 +322,7 @@ GmshMeshSeq::writeToFile(std::string const& gmshmshfile)
                  << "  " << tag2;
 
         for (int i = 0; i < 3; i++ )
-        {
             gmshfile << "  " << it->indices[i];
-        }
         gmshfile << "\n";
 
         ++element;
@@ -347,10 +333,8 @@ GmshMeshSeq::writeToFile(std::string const& gmshmshfile)
 
 void
 GmshMeshSeq::update(std::vector<point_type> const& nodes,
-                    std::vector<element_type> const& triangles,
-                    std::string const& ordering)
+                    std::vector<element_type> const& triangles)
 {
-    M_ordering = ordering;
     M_nodes = nodes;
     M_triangles = triangles;
     M_num_nodes = nodes.size();
@@ -419,15 +403,18 @@ GmshMeshSeq::writeToGModel()
     std::vector<std::size_t> elemTags;
     std::vector<std::size_t> elemNodeTags;
 
+    int cpt_elem = 0;
     for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
     {
         // tags need to be >= 1
-        elemTags.push_back(it->number + 1);
+        elemTags.push_back(cpt_elem + 1);
         // reverse triangle orientation as it seems to get flipped
-        // during partitioning
+        // during partitioning. This is now just for testing against partitioning on disk,
+        // as GmshMesh::readFile* tests for reordering
         elemNodeTags.push_back(it->indices[0]);
         elemNodeTags.push_back(it->indices[2]);
         elemNodeTags.push_back(it->indices[1]);
+        ++cpt_elem;
     }
 
 
@@ -478,9 +465,7 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
         << " -part " << Environment::comm().size();
 
     if (format == "binary")
-    {
         gmshstr << " -bin";
-    }
 
     gmshstr
         << " -setnumber Mesh.MshFileVersion 2.2"
@@ -917,5 +902,17 @@ GmshMeshSeq::vertices(std::vector<int> const& indices,
             vertices[i][k] += factor*um[indices[i]-1+k*M_num_nodes];
     return vertices;
 }//vertices
+
+
+// ------------------------------------------------
+//! check if we need to reverse the order (want area < 0 in the file)
+//! called by GmshMeshSeq::readFromFile()
+bool
+GmshMeshSeq::testTriangleOrientation(std::vector<std::vector<double>> const& vertices) const
+{
+    double jac = (vertices[1][0]-vertices[0][0])*(vertices[2][1]-vertices[0][1]);
+    jac -= (vertices[2][0]-vertices[0][0])*(vertices[1][1]-vertices[0][1]);
+    return jac < 0;
+}//testTriangleOrientation
 
 } // Nextsim

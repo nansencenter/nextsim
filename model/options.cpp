@@ -122,9 +122,6 @@ namespace Nextsim
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
                 "from_unref (implies constant vertex length) or from_split (implies variable vertex length)")
-            ("mesh.ordering", po::value<std::string>()->default_value( "gmsh" ),
-                "ordering: gmsh (default) or bamg - try bamg if you get negative areas")
-
 
             // -- moorings
             ("moorings.use_moorings", po::value<bool>()->default_value( false ), "do we use moorings (netcdf output to grid)?")

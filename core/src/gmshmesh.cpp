@@ -23,7 +23,6 @@ GmshMesh::GmshMesh(Communicator const& comm)
     :
     M_comm(comm),
     M_version("2.2"),
-    M_ordering("gmsh"),
     M_nodes(),
     M_triangles(),
     M_edges(),
@@ -42,8 +41,6 @@ GmshMesh::GmshMesh(Communicator const& comm)
     M_transfer_map(),
     M_transfer_map_reordered(),
     M_transfer_map_elt(),
-    //M_reorder_map_nodes(),
-    //M_reorder_map_elements(),
     M_map_nodes(),
     M_map_elements(),
     timer(),
@@ -56,7 +53,6 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     :
     M_comm(mesh.M_comm),
     M_version(mesh.M_version),
-    M_ordering(mesh.M_ordering),
     M_mppfile(mesh.M_mppfile),
     M_log_level(mesh.M_log_level),
     M_log_all(mesh.M_log_all),
@@ -77,8 +73,6 @@ GmshMesh::GmshMesh(GmshMesh const& mesh)
     M_num_triangles_without_ghost(mesh.M_num_triangles_without_ghost),
     M_transfer_map(mesh.M_transfer_map),
     M_transfer_map_reordered(mesh.M_transfer_map_reordered),
-    //M_reorder_map_nodes(mesh.M_reorder_map_nodes),
-    //M_reorder_map_elements(mesh.M_reorder_map_elements)
     M_map_nodes(mesh.M_map_nodes),
     M_map_elements(mesh.M_map_elements)
 {}
@@ -229,16 +223,15 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
     LOG(DEBUG) << "Reading " << numElements << " elements...\n";
     std::map<int,int> __gt;
 
-    int cpt_edge = 0;
-    int cpt_triangle = 0;
-    int num_edge = 0;
-    int num_edge_diff = 0;
+    M_num_triangles = 0;
     bool first_triangle = true;
+    bool reverse_order;
 
     for(int i = 0; i < numElements; i++)
     {
         int number, type, physical = 0, elementary = 0;
         int const numVertices = 3;// only use triangular elements here
+        int const eltype_triangle = 2;
         std::vector<int> ghosts;
         std::vector<bool> ghostNodes;
         int numTags;
@@ -248,13 +241,8 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
              >> type // elm-type
              >> numTags; // number-of-tags
 
-        // Skip non-triangular elements (type != 2)
-        if (type != 2)
-        {
-            ifs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            ++num_edge;
-            continue;
-        }
+        // only non-triangular elements
+        ASSERT(type == eltype_triangle, "Expecting only triangles in partitioned msh file");
 
         int numPartitions = 1;
 
@@ -275,26 +263,14 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
             ifs >> indices[j];
         }
 
-        if (M_ordering=="bamg")
-        {
-            std::next_permutation(indices.begin()+1,indices.end());
-        }
-
         if (first_triangle)
         {
-            if (num_edge == 0)
-            {
-                num_edge_diff = 0;
-            }
-            else
-            {
-                num_edge_diff = (number == 1) ? 0 : num_edge;
-            }
-
+            reverse_order = this->testTriangleOrientation(indices);
             first_triangle = false;
         }
 
-        number = number - num_edge_diff;
+        if (reverse_order)
+            std::next_permutation(indices.begin()+1,indices.end());
 
         Nextsim::entities::GMSHElement gmshElt( number,
                                                 type,
@@ -312,35 +288,10 @@ GmshMesh::readFromFileASCII(std::ifstream& ifs)
         if (gmshElt.isOnProcessor() == false)
             continue;
 
-        if (type == 2)
-        {
-            M_triangles.push_back(gmshElt);
-            ++cpt_triangle;
-        }
-        else if (type == 1)
-        {
-            M_edges.push_back(gmshElt);
-            ++cpt_edge;
-        }
-
-        if ( __gt.find( type ) != __gt.end() )
-            ++__gt[ type ];
-        else
-            __gt[type]=1;
+        M_triangles.push_back(gmshElt);
+        ++M_num_triangles;
 
     } // element description loop
-
-    M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
-
-    for ( auto const& it : __gt )
-    {
-        const char* name = Nextsim::entities::getElementTypeName(it.first);
-
-        if (std::string(name) == "Triangle 3")
-            M_num_triangles = it.second;
-        else if (std::string(name) == "Line 2")
-            M_num_edges = it.second;
-    }
 
     // make sure that we have read everything
     ifs >> buf;
@@ -383,7 +334,7 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
         {
             swap = true;
             LOG(DEBUG) << "one before swap : " << one << "\n";
-            if(swap) GmshMesh::SwapBytes(&one, sizeof(int), 1); // Note: removed (char*) cast
+            if(swap) GmshMesh::SwapBytes(&one, sizeof(int), 1);
             LOG(DEBUG) << "one after swap : " << one << "\n";
             LOG(DEBUG) <<"Swapping bytes from binary file (to be done)\n";
         }
@@ -405,14 +356,14 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
             std::string( buf ) == "$Nodes" ||
             std::string( buf ) == "$ParametricNodes") )
     {
-        LOG(WARNING)<< "invalid nodes string '" << buf << "' in gmsh importer. It should be either $Nodes.\n";
+        LOG(WARNING)<< "invalid nodes string '" << buf << "' in gmsh importer. It should be either $NOD, $Nodes or $ParametricNodes.\n";
     }
 
     bool has_parametric_nodes = ( std::string( buf ) == "$ParametricNodes" );
     unsigned int __n;
     ifs >> __n;
 
-    // eat  '\n' in binary mode otherwise the next binary read will get screwd
+    // eat  '\n' in binary mode otherwise the next binary read will get screwed
     ifs.get();
 
     M_num_nodes = __n;
@@ -464,51 +415,29 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 
     std::map<int,int> __gt;
 
-    int cpt_edge = 0;
-    int cpt_triangle = 0;
-    int num_edge = 0;
-    int num_edge_diff = 0;
+    M_num_triangles = 0;
     bool first_triangle = true;
-
-    int cptii = 0;
+    bool reverse_order = false;
 
     int numElementsPartial = 0;
     while(numElementsPartial < numElements)
     {
+        int const numVertices = 3;// only use triangular elements here
+        int const eltype_triangle = 2;
+
         int header[3];
 
         ifs.read(reinterpret_cast<char*>(&header), 3*sizeof(int));
-        if(swap) GmshMesh::SwapBytes(header, sizeof(int), 3);  // Note: removed (char*) cast
+        if(swap) GmshMesh::SwapBytes(header, sizeof(int), 3);
 
         int type = header[0];
         int numElems = header[1];
         int numTags = header[2];
 
-        int numVertices = Nextsim::entities::getNumVerticesForElementType(type);
-        if (numVertices == 0)
-        {
-            std::cout << "Invalid GMSH element type " << type << "\n";
-            throw std::logic_error("Invalid GMSH element type");
-        }
-        const char* name = Nextsim::entities::getElementTypeName(type);
-
-        if ( numVertices <= 0 )
-        {
-            std::cout << "Unsupported element type " << name << "\n";
-            throw std::logic_error("Unsupported element type");
-        }
+        // only non-triangular elements
+        ASSERT(type == eltype_triangle, "Expecting only triangles in partitioned msh file");
 
         unsigned int n = 1 + numTags + numVertices;
-
-        if (type != 2)
-        {
-            int off = sizeof(int)*(1 + numTags + numVertices);
-            ifs.seekg(off, std::ios::cur); // skip from the direction (beginning/current/end) position of the file
-
-            numElementsPartial += numElems;
-            ++num_edge;
-            continue;
-        }
 
         std::vector<int> data(n);
         std::vector<int> indices(numVertices);
@@ -539,20 +468,15 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 
             std::copy( &data[numTags + 1], &data[numTags + 1]+numVertices, indices.begin() );
 
-            if (M_ordering=="bamg")
-            {
-                std::next_permutation(indices.begin()+1,indices.end());
-            }
-
             if (first_triangle)
             {
-                if (num_edge == 0)
-                    num_edge_diff = 0;
-                else
-                    num_edge_diff = (number == 1) ? 0 : num_edge;
+                reverse_order = this->testTriangleOrientation(indices);
+                std::cout << "1st triangle: reverse_order: " << reverse_order << "\n";
                 first_triangle = false;
             }
-            number = number - num_edge_diff;
+
+            if (reverse_order)
+                std::next_permutation(indices.begin()+1,indices.end());
 
             Nextsim::entities::GMSHElement gmshElt( number,
                                                     type,
@@ -570,41 +494,13 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
             if (gmshElt.isOnProcessor() == false)
                 continue;
 
-            if (type == 2)
-            {
-                M_triangles.push_back(gmshElt);
-                ++cpt_triangle;
-            }
-            else if (type == 1)
-            {
-                M_edges.push_back(gmshElt);
-                ++cpt_edge;
-            }
-
-            if ( __gt.find( type ) != __gt.end() )
-            {
-                ++__gt[ type ];
-            }
-            else
-            {
-                __gt[type]=1;
-            }
+            M_triangles.push_back(gmshElt);
+            ++M_num_triangles;
         }
 
         numElementsPartial += numElems;
 
     } // while
-
-    M_global_num_elements_from_serial = M_global_num_elements_from_serial - num_edge;
-
-    for ( auto const& it : __gt )
-    {
-        const char* name = Nextsim::entities::getElementTypeName(it.first);
-        if (std::string(name) == "Triangle 3")
-            M_num_triangles = it.second;
-        else if (std::string(name) == "Line 2")
-            M_num_edges = it.second;
-    }
 
     ifs >> buf;
 
@@ -613,69 +509,6 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 
     ASSERT(std::string( buf ) == "$EndElements","invalid end elements string");
 }// readFromFileBinary
-
-
-void
-GmshMesh::writeToFile(std::string const& gmshmshfile)
-{
-    std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
-
-    if (gmshfile.is_open())
-    {
-        gmshfile << "$MeshFormat\n";
-        gmshfile << "2.2 0 8\n";
-        gmshfile << "$EndMeshFormat\n";
-
-        gmshfile << "$Nodes\n";
-        gmshfile << M_num_nodes << "\n";
-
-        int node = 0;
-        for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
-        {
-            gmshfile << node + 1
-                     << "  " << it->second.coords[0]
-                     << "  " << it->second.coords[1]
-                     << "  0.0\n";
-
-            ++node;
-        }
-        gmshfile << "$EndNodes\n";
-
-
-        int element_type = 2;
-        int tag_num = 2;
-        int tag1 = 1;
-        int tag2 = 0;
-
-        gmshfile << "$Elements\n";
-        gmshfile << M_num_triangles << "\n";
-
-        int element = 0;
-        for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
-        {
-            gmshfile << element + 1
-                     << "  " << element_type
-                     << "  " << tag_num
-                     << "  " << tag1
-                     << "  " << tag2;
-
-            for (int i = 0; i < 3; i++ )
-            {
-                gmshfile << "  " << it->indices[i];
-            }
-            gmshfile << "\n";
-
-            ++element;
-        }
-        gmshfile << "$EndElements\n";
-    }
-    else
-    {
-        std::cout << "Cannot open " << gmshmshfile  << "\n";
-        std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
-        std::abort();
-    }
-}//writeToFile
 
 
 void
@@ -1325,9 +1158,7 @@ GmshMesh::nodalGrid()
             it->indices[i] = M_transfer_map.left.find(it->indices[i])->second;
 
             if (std::binary_search(M_local_ghost.begin(),M_local_ghost.end(),rdof))
-            {
                 it->ghostNodes[i] = true;
-            }
         }
     }
 
@@ -1806,6 +1637,28 @@ GmshMesh::vertices(std::vector<int> const& indices,
 }//vertices
 
 
+// ------------------------------------------------
+//! check if we need to reverse the order (want area < 0 in the file)
+//! called by GmshMesh::readFromFileASCII() and GmshMesh::readFromFileBinary()
+bool
+GmshMesh::testTriangleOrientation(std::vector<int> const& indices) const
+{
+    std::vector<std::vector<double>> vertices(3);
+    for(int i=0; i<3; i++)
+    {
+        auto coords = M_nodes_vec[indices[i] - 1].coords;
+        vertices[i] = {coords[0], coords[1]};
+    }
+    double jac = (vertices[1][0]-vertices[0][0])*(vertices[2][1]-vertices[0][1]);
+    jac -= (vertices[2][0]-vertices[0][0])*(vertices[1][1]-vertices[0][1]);
+    return jac < 0;
+}//testTriangleOrientation
+
+
+// ------------------------------------------------
+//! Used to reverse the order of bytes in each element of a vector
+//! This function used to be in GMSH v3.
+//! called by GmshMesh::readFromFileBinary()
 void GmshMesh::SwapBytes(void* array, size_t size, size_t n) {
     unsigned char* p = static_cast<unsigned char*>(array);
     for (size_t j = 0; j < n; ++j) {
