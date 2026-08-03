@@ -473,6 +473,7 @@ GmshMeshSeq::partitionDisk(std::string const& mshfile,
         << " -setnumber Mesh.MetisRefinementAlgorithm 2"
         << " -setnumber Mesh.PreserveNumberingMsh2 1"
         << " -part_ghosts"
+        << " -save"
         << " " << mshfile;
 
     LOG(DEBUG) << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
