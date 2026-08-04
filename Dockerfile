@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nansencenter/nextsim_base:arm64:latest
+ARG BASE_IMAGE=nansencenter/nextsim_base-arm64:latest
 FROM $BASE_IMAGE
 
 # Prepare environment
