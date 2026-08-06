@@ -394,7 +394,7 @@ FiniteElement::rootMeshProcessing()
 
             // Interpolate hminVertices and hmaxVertices onto the current mesh
             this->interpVertices();
-            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+            M_mesh_root.writeToFile(M_partitioned_mesh_filename);//TODO needed? will introduce rounding errors
         }
 
         if (!M_use_restart)
@@ -410,27 +410,19 @@ FiniteElement::rootMeshProcessing()
             LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
             LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-            LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
 
 
             // save mesh (only root process)
             chrono.restart();
-            if (M_partition_space == mesh::PartitionSpace::MEMORY)
-            {
-                // Environment::logMemoryUsage("before gmodel...");
-                M_mesh_root.initGModel();
-                M_mesh_root.writeToGModel();
-                // Environment::logMemoryUsage("before after...");
-            }
-            else if (M_partition_space == mesh::PartitionSpace::DISK)
-                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-            //LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
+            // Environment::logMemoryUsage("before gmodel...");
+            M_mesh_root.initGModel();
+            M_mesh_root.writeToGModel();
+            // Environment::logMemoryUsage("before after...");
             LOG(DEBUG) <<"Writing mesh done in "<< chrono.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
             chrono.restart();
-            M_mesh_root.partition(M_partitioned_mesh_filename,
-                    M_partition_space, M_mesh_fileformat);
+            M_mesh_root.partition(M_partitioned_mesh_filename, M_mesh_fileformat);
             //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
             LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
         }
@@ -1431,7 +1423,7 @@ FiniteElement::initOptAndParam()
             % M_comm.size()
             % M_mesh_basename
             ).str();
-    M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the partitioned mesh file (used if mesh.partitioner-space=="disk")
+    M_mesh_fileformat = vm["mesh.partitioner-fileformat"].as<std::string>(); //! \param M_mesh_fileformat (string) Format of the partitioned mesh file
 
     // mesh ordering
     std::vector<std::string> order_opts = {"gmsh", "bamg"};
@@ -1460,15 +1452,6 @@ FiniteElement::initOptAndParam()
     M_moorings_averaging_period = 0.;//! \param M_moorings_averaging_period (double) averaging period in days. Zero if outputting snapshots. Used in netcdf metadata
     if(!M_moorings_snapshot)
         M_moorings_averaging_period = mooring_output_time_step/days_in_sec;
-
-    //! Sets the partition space
-    const boost::unordered_map<const std::string, mesh::PartitionSpace> str2partitionspace = boost::assign::map_list_of
-        ("memory", mesh::PartitionSpace::MEMORY)
-        ("disk", mesh::PartitionSpace::DISK);
-
-    M_partition_space = this->getOptionFromMap("mesh.partitioner-space", str2partitionspace);
-        //! \param M_partition_space (string) Sets the space for partitions (memory or disk)
-    LOG(DEBUG) << "MeshPartitionerSpace:" << (int)M_partition_space<<"\n";
 
     //! - instantiate the drifter classes
     //  NB needs to be done before readRestart()
@@ -3702,17 +3685,13 @@ FiniteElement::regrid(bool step)
             // Environment::logMemoryUsage("before partitioning...");
             chrono.restart();
             LOG(DEBUG) <<"Saving mesh starts\n";
-            if (M_partition_space == mesh::PartitionSpace::MEMORY)
-                M_mesh_root.writeToGModel();
-            else if (M_partition_space == mesh::PartitionSpace::DISK)
-                M_mesh_root.writeToFile(M_partitioned_mesh_filename);
+            M_mesh_root.writeToGModel();
             LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
             // partition the mesh on root process (rank 0)
             chrono.restart();
             LOG(DEBUG) <<"Partitioning mesh starts\n";
-            M_mesh_root.partition(M_partitioned_mesh_filename,
-                    M_partition_space, M_mesh_fileformat);
+            M_mesh_root.partition(M_partitioned_mesh_filename, M_mesh_fileformat);
             LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
             M_timer.tock("partition");
 
@@ -10005,28 +9984,19 @@ FiniteElement::partitionMeshRestart()
         LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
         LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
         LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-        LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
 
         // Environment::logMemoryUsage("before partitioning...");
         chrono.restart();
         LOG(DEBUG) <<"Saving mesh starts\n";
-        if (M_partition_space == mesh::PartitionSpace::MEMORY)
-        {
-            M_mesh_root.initGModel();
-            M_mesh_root.writeToGModel();
-        }
-        else if (M_partition_space == mesh::PartitionSpace::DISK)
-        {
-            M_mesh_root.writeToFile(M_partitioned_mesh_filename);
-        }
+        M_mesh_root.initGModel();
+        M_mesh_root.writeToGModel();
 
         LOG(DEBUG) <<"Saving mesh done in "<< chrono.elapsed() <<"s\n";
 
         // partition the mesh on root process (rank 0)
         chrono.restart();
         LOG(DEBUG) <<"Partitioning mesh starts\n";
-        M_mesh_root.partition(M_partitioned_mesh_filename,
-                M_partition_space, M_mesh_fileformat);
+        M_mesh_root.partition(M_partitioned_mesh_filename, M_mesh_fileformat);
         LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
     }
 
@@ -14869,10 +14839,7 @@ FiniteElement::finalise(std::string current_time_system)
         delete bamgopt_previous;
 
         // clear GModel from mesh data structure
-        if (M_partition_space == mesh::PartitionSpace::MEMORY)
-        {
-            M_mesh_root.clear();
-        }
+        M_mesh_root.clear();
     }
 
     M_comm.barrier();
