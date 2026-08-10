@@ -51,7 +51,7 @@ ifdef USE_AEROBULK
 endif
 
 # boost
-# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems
+# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems with stdlib.h
 ifneq ($(BOOST_DIR),/usr)
 	CXXFLAGS += -isystem $(BOOST_INCDIR)
 endif
@@ -68,7 +68,7 @@ ifdef USE_OASIS
 	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
 endif
 
-# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems
+# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems with stdlib.h
 ifneq ($(NETCDF_DIR),/usr)
 	CXXFLAGS += -isystem $(NETCDF_DIR)/include
 endif

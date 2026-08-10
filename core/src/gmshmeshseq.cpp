@@ -430,55 +430,15 @@ GmshMeshSeq::writeToGModel()
 
 void
 GmshMeshSeq::partition(std::string const& mshfile,
-                       mesh::PartitionSpace const& space,
                        std::string const& format)
 {
 
-    int num_partitions = Environment::comm().size();
-    if (space == mesh::PartitionSpace::MEMORY)
-    {
-        gmsh::model::mesh::partition(num_partitions);
-        gmsh::write(mshfile);
-        gmsh::clear();
-    }
-    else if (space == mesh::PartitionSpace::DISK)
-        this->partitionDisk(mshfile, num_partitions, format);
-    else
-        throw std::logic_error("invalid partition space");
+    int const num_partitions = Environment::comm().size();
+    gmsh::model::mesh::partition(num_partitions);
+    gmsh::write(mshfile);
+    gmsh::clear();
 }
 
-void
-GmshMeshSeq::partitionDisk(std::string const& mshfile,
-                           int const& num_partitions,
-                           std::string const& format)
-{
-    if (!fs::exists(mshfile))
-    {
-        std::string const msg = "Cannot find mesh file" + mshfile;
-        throw std::runtime_error(msg);
-    }
-
-    std::ostringstream gmshstr;
-    gmshstr
-        << BOOST_PP_STRINGIZE( gmsh )
-        << " -setnumber General.Verbosity "<< Environment::vm()["debugging.gmsh_verbose"].as<int>()
-        << " -part " << Environment::comm().size();
-
-    if (format == "binary")
-        gmshstr << " -bin";
-
-    gmshstr
-        << " -setnumber Mesh.MshFileVersion 2.2"
-        << " -setnumber Mesh.MetisAlgorithm 2" // 1 = recursive (default), 2 = K-way
-        << " -setnumber Mesh.MetisRefinementAlgorithm 2"
-        << " -setnumber Mesh.PreserveNumberingMsh2 1"
-        << " -part_ghosts"
-        << " -save"
-        << " " << mshfile;
-
-    LOG(DEBUG) << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
-    auto err = ::system( gmshstr.str().c_str() );
-}
 
 void
 GmshMeshSeq::move(std::vector<double> const& um, double factor)

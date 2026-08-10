@@ -21,7 +21,6 @@
 
 #include <environment.hpp>
 #include <entities.hpp>
-#include <meshpartition.hpp>
 #include "debug.hpp"
 
 extern "C"
@@ -57,7 +56,6 @@ public:
     void writeToFile(std::string const& filename);
 
     void partition(std::string const& filename,
-                   mesh::PartitionSpace const& space=mesh::PartitionSpace::MEMORY,
                    std::string const& format="ascii");
 
     void move(std::vector<double> const& um, double factor);
@@ -121,13 +119,6 @@ public:
     void initGModel();
     void writeToGModel();
     void clear();
-
-private:
-
-    void partitionDisk(std::string const& filename,
-                       int const& num_partitions,
-                       std::string const& format="ascii");
-
 
 private:
 
