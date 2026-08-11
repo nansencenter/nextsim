@@ -164,7 +164,7 @@ public:
                 boost::unordered_map<std::string, std::vector<double>> & field_map_dbl
                 );
 
-        void addToRestart(Exporter &exporter, MPI_File &outbin, Communicator M_comm, MPI_Offset& base_offset);
+        void addToRestart(Exporter &exporter, std::fstream &outbin);
         bool isOutputTime(double const& current_time)
         {
             if(!M_is_initialised)

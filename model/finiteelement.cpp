@@ -9609,136 +9609,166 @@ FiniteElement::writeRestart(std::string const& name_str)
     LOG(DEBUG) <<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
     LOG(DEBUG) <<"M_ndof                    = "<< M_ndof <<"\n";
 
-    Exporter exporter;
-    std::string const precision = "double";
-    std::string filename;
+    // get names of the variables in the restart file,
+    // and set pointers to the data (pointers to the corresponding vectors)
+    // NB needs to be done on all processors
+    std::vector<double> elt_values_root;
+    this->gatherFieldsElementIO(elt_values_root, M_prognostic_variables_elt);
 
-    // === Start with the mesh ===
-    // First the data
-    // NB directory is never empty, due to the default of output.exporter_path
-    std::string directory = vm["output.exporter_path"].as<std::string>() + "/restart";
+    // fields defined on mesh nodes
+    std::vector<double> interp_in_nodes;
+    this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
 
-    // create the output directory if it does not exist
-    fs::path output_path(directory);
-    if ( !fs::exists(output_path) )
-        fs::create_directories(output_path);
+    std::vector<double> M_VT_root;
+    std::vector<double> M_UM_root;
+    std::vector<double> M_UT_root;
 
-    filename = (boost::format( "%1%/mesh_%2%.bin" )
-                % directory
-                % name_str ).str();
+    int tmp_nb_var=0;
 
-    // Write the file in parallel
-    MPI_File meshbin;
-    MPI_File_open(MPI_Comm(M_comm), filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY,
-                  MPI_INFO_NULL, &meshbin);
-
-    // Write the mesh and close the file
-    std::vector<int> rmap_nodes, rmap_elements;
-    int size_nodes = M_rmap_nodes.size();
-    boost::mpi::broadcast(M_comm, &size_nodes, 1, 0);
-    int size_elements = M_rmap_elements.size();
-    boost::mpi::broadcast(M_comm, &size_elements, 1, 0);
-    rmap_nodes.resize(size_nodes);
-    rmap_elements.resize(size_elements);
     if (M_rank == 0)
     {
-        rmap_nodes = M_rmap_nodes;
-        rmap_elements = M_rmap_elements;
+        M_VT_root.resize(2*M_ndof);
+        M_UM_root.resize(2*M_ndof);
+        M_UT_root.resize(2*M_ndof);
+
+        for (int i=0; i<M_ndof; ++i)
+        {
+            tmp_nb_var = 0;
+
+            // VT_X
+            M_VT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // VT_Y
+            M_VT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // UM_X
+            M_UM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // UM_Y
+            M_UM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // UT_X
+            M_UT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            // UT_Y
+            M_UT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
+            tmp_nb_var++;
+
+            if(tmp_nb_var>M_nb_var_node)
+            {
+                throw std::logic_error("tmp_nb_var not equal to nb_var");
+            }
+        }
     }
-    boost::mpi::broadcast(M_comm, &rmap_nodes[0], size_nodes, 0);
-    boost::mpi::broadcast(M_comm, &rmap_elements[0], size_elements, 0);
 
-    exporter.writeMesh(meshbin, M_mesh, rmap_nodes, rmap_elements);
-    MPI_File_close(&meshbin);
+    M_comm.barrier();
 
-    if (M_rank == 0) 
+    if (M_rank == 0)
     {
+        Exporter exporter("double");
+        std::string filename;
+
+        // === Start with the mesh ===
+        // First the data
+        // NB directory is never empty, due to the default of output.exporter_path
+        std::string directory = vm["output.exporter_path"].as<std::string>() + "/restart";
+
+        // create the output directory if it does not exist
+        fs::path output_path(directory);
+        if ( !fs::exists(output_path) )
+            fs::create_directories(output_path);
+
+        filename = (boost::format( "%1%/mesh_%2%.bin" )
+                    % directory
+                    % name_str ).str();
+
+        std::fstream mesh_bin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
+        if ( ! mesh_bin.good() )
+            throw std::runtime_error("Cannot write to file: " + filename);
+        exporter.writeMesh(mesh_bin, M_mesh_root);
+        mesh_bin.close();
+
         // Then the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % directory
                     % name_str ).str();
 
-        std::fstream meshrecord(filename, std::ios::out | std::ios::trunc);
-        if ( ! meshrecord.good() )
+        std::fstream mesh_dat(filename, std::ios::out | std::ios::trunc);
+        if ( ! mesh_dat.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
-        exporter.writeRecord(meshrecord,"mesh");
-        meshrecord.close();
-    }
+        exporter.writeRecord(mesh_dat,"mesh");
+        mesh_dat.close();
 
-    // === Write the prognostic variables ===
-    // First the data
-    filename = (boost::format( "%1%/field_%2%.bin" )
-                % directory
-                % name_str ).str();
+        // === Write the prognostic variables ===
+        // First the data
+        filename = (boost::format( "%1%/field_%2%.bin" )
+                    % directory
+                    % name_str ).str();
+        std::fstream field_bin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
+        if ( ! field_bin.good() )
+            throw std::runtime_error("Cannot write to file: " + filename);
 
-    MPI_Offset base_offset = 0;
-    MPI_File outbin;
-    MPI_File_open(MPI_Comm(M_comm), filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY,
-                  MPI_INFO_NULL, &outbin);
+        std::vector<int> misc_int(4);
+        misc_int[0] = pcpt;
+        misc_int[1] = M_flag_fix;
+        misc_int[2] = mesh_adapt_step;
+        misc_int[3] = M_nb_regrid;
 
-    std::vector<int> misc_int(4);
-    misc_int[0] = pcpt;
-    misc_int[1] = M_flag_fix;
-    misc_int[2] = mesh_adapt_step;
-    misc_int[3] = M_nb_regrid;
+        exporter.writeField(field_bin, misc_int, "Misc_int");
+        exporter.writeField(field_bin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
-    exporter.writeField(outbin, misc_int, "Misc_int", "int", M_comm, base_offset,
-                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
-    exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags", "int", M_comm, base_offset,
-                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
-    std::vector<double> timevec(1);// time always written as double
-    timevec[0] = M_current_time;
-    exporter.writeField(outbin, timevec, "Time", "double", M_comm, base_offset,
-                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
+        std::vector<double> timevec(1);
+        timevec[0] = M_current_time;
+        exporter.writeField(field_bin, timevec, "Time");
 
-    // loop over the elemental variables
-    int const nb_var_element = M_restart_names_elt.size();
-    for(int j = 0; j < nb_var_element; j++)
-    {
-        auto ptr = M_prognostic_variables_elt[j];
-        std::vector<double> tmp(M_local_nelements);
-        for (int i = 0; i < M_local_nelements; ++i)
+        // loop over the elemental variables that have been
+        // gathered to elt_values_root
+        int const nb_var_element = M_restart_names_elt.size();
+        for(int j=0; j<nb_var_element; j++)
         {
-            tmp[i] = (*ptr)[i];
+            std::vector<double> tmp(M_mesh_root.numTriangles());
+            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
+            {
+                int ri = M_rmap_elements[i];
+                tmp[i] = elt_values_root[nb_var_element*ri+j];
+            }
+            exporter.writeField(field_bin, tmp, M_restart_names_elt[j]);
         }
-        exporter.writeField(outbin, tmp, M_restart_names_elt[j], precision, M_comm, base_offset,
-                            rmap_elements, M_local_nelements, 0, 0);
-    }
 
-    exporter.writeField(outbin, M_VT, "M_VT", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
-    exporter.writeField(outbin, M_UM, "M_UM", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
-    exporter.writeField(outbin, M_UT, "M_UT", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+        exporter.writeField(field_bin, M_VT_root, "M_VT");
+        exporter.writeField(field_bin, M_UM_root, "M_UM");
+        exporter.writeField(field_bin, M_UT_root, "M_UT");
 
-    // Add the drifters if they are initialised
-    for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-        it->addToRestart(exporter, outbin, M_comm, base_offset);
+        // Add the drifters if they are initialised
+        for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+            it->addToRestart(exporter, field_bin);
 
-    // Add the previous numbering to the restart file
-    // - used in adaptMesh (updateNodeIds)
-    std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
-    if (M_rank == 0)
+        // Add the previous numbering to the restart file
+        // - used in adaptMesh (updateNodeIds)
+        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
             PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
+        exporter.writeField(field_bin, PreviousNumbering, "PreviousNumbering");
 
-    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering", precision, M_comm, base_offset,
-                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
+        field_bin.close();
 
-    MPI_File_close(&outbin);
-
-    if (M_rank == 0)
-    {
         // Then the record
         filename = (boost::format( "%1%/field_%2%.dat" )
                     % directory
                     % name_str ).str();
 
-        std::fstream outrecord(filename, std::ios::out | std::ios::trunc);
-        if ( ! outrecord.good() )
+        std::fstream field_dat(filename, std::ios::out | std::ios::trunc);
+        if ( ! field_dat.good() )
             throw std::runtime_error("Cannot write to file: " + filename);
 
-        exporter.writeRecord(outrecord);
-        outrecord.close();
+        exporter.writeRecord(field_dat);
+        field_dat.close();
     }
 }//writeRestart
 
@@ -9748,7 +9778,7 @@ FiniteElement::writeRestart(std::string const& name_str)
 void
 FiniteElement::readRestart(std::string const& name_str)
 {
-    Exporter exp_field, exp_mesh;
+    Exporter exp_field("double"), exp_mesh("double");
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
@@ -14217,6 +14247,9 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         bool const& export_fields, bool const& apply_displacement)
 {
 
+    std::vector<double> M_UM_root;
+    this->gatherNodalField(M_UM, M_UM_root);
+
     // fields defined on mesh elements
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
@@ -14224,146 +14257,141 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    // Need of the rmaps on each partition
-    std::vector<int> rmap_nodes, rmap_elements;
-    if (export_mesh || export_fields)
+    // get names of the variables in the output file,
+    // and set pointers to the data (pointers to the corresponding vectors)
+    // NB needs to be done on all processors
+    std::vector<double> M_surface_root;
+    auto names_elements = M_export_names_elt;
+    std::vector<ExternalData*> ext_data_elements;
+    std::vector<double> elt_values_root;
+    std::vector<double> M_VT_root;
+#if defined (OASIS)
+    std::vector<double> M_tau_wi_root;
+#endif
+    std::vector<double> M_wind_root;
+    std::vector<double> M_ocean_root;
+    std::vector<double> M_ssh_root;
+    if(export_fields)
     {
-        int size_nodes = M_rmap_nodes.size();
-        boost::mpi::broadcast(M_comm, &size_nodes, 1, 0);
-        int size_elements = M_rmap_elements.size();
-        boost::mpi::broadcast(M_comm, &size_elements, 1, 0);
-        rmap_nodes.resize(size_nodes);
-        rmap_elements.resize(size_elements);
-        if (M_rank == 0)
+        M_surface_root = this->surface(M_mesh_root, M_UM_root);
+
+        if(vm["output.save_forcing_fields"].as<bool>())
         {
-            rmap_nodes = M_rmap_nodes;
-            rmap_elements = M_rmap_elements;
+            ext_data_elements = M_external_data_elements;
+            for(auto name : M_external_data_elements_names)
+                names_elements.push_back(name);
         }
-        boost::mpi::broadcast(M_comm, &rmap_nodes[0], size_nodes, 0);
-        boost::mpi::broadcast(M_comm, &rmap_elements[0], size_elements, 0);
-    }
+        this->gatherFieldsElementIO(elt_values_root, M_export_variables_elt, ext_data_elements);
 
-    Exporter exporter;
-    std::string fileout;
-
-    if (export_mesh)
-    {
-        fileout = filenames[0]+".bin";
-        LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
-
-        // Make a copy of the mesh to avoid introduction of random modifications
-        // in the next timesteps introduced by two mesh moves (1 and -1) on M_mesh
-        mesh_type M_mesh_cpy = mesh_type();
-        M_mesh_cpy = M_mesh;
-
-        // move the mesh for the export
-        if(apply_displacement) M_mesh_cpy.move(M_UM,1.);
-
-        // Write the file in parallel
-        MPI_File meshbin;
-        MPI_File_open(MPI_Comm(M_comm), fileout.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, 
-                      MPI_INFO_NULL, &meshbin);
-
-        // Write the mesh and close the file
-        exporter.writeMesh(meshbin, M_mesh_cpy, rmap_nodes, rmap_elements);
-        MPI_File_close(&meshbin);
-
-        // Write the ascii file sequentially
-        if (M_rank == 0)
-        {
-            fileout = filenames[0]+".dat";
-
-            LOG(VERBOSE) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
-
-            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-            if ( !outrecord.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
-
-            exporter.writeRecord(outrecord,"mesh");
-            outrecord.close();
-        }
-    }
-
-    if (export_fields)
-    {
-        std::string const precision = vm["output.exporter_precision"].as<std::string>();
-        MPI_Offset base_offset = 0;
-
-        fileout = filenames[1]+".bin";
-        LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
-
-        MPI_File outbin;
-        MPI_File_open(MPI_Comm(M_comm), fileout.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, 
-                      MPI_INFO_NULL, &outbin);
-
-        // Nodes
-        std::vector<double> timevec = {M_current_time};// time always written as double
-        exporter.writeField(outbin, timevec, "Time", "double", M_comm, base_offset,
-                            rmap_nodes, M_local_ndof, M_num_nodes, 1);
-
-        //manually export some vectors defined on the nodes
-        std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
-        if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
-            exporter.writeField(outbin, M_VT, "M_VT", precision, M_comm, base_offset,
-                                rmap_nodes, M_local_ndof, M_num_nodes, 0);
+        // manually export some vectors defined on the nodes
+        this->gatherNodalField(M_VT, M_VT_root);
 #if defined (OASIS)
         if (M_couple_waves && M_recv_wave_stress)
-            exporter.writeField(outbin, M_tau_wi.getVector(), "M_tau_wi", precision, M_comm,
-                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+            this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
 #endif
         if (vm["output.save_forcing_fields"].as<bool>())
         {
-            exporter.writeField(outbin, M_wind.getVector(), "M_wind", precision, M_comm,
-                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
-            exporter.writeField(outbin, M_ocean.getVector(), "M_ocean", precision, M_comm,
-                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
-            exporter.writeField(outbin, M_ssh.getVector(), "M_ssh", precision, M_comm,
-                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+            this->gatherNodalField(M_wind.getVector(), M_wind_root);
+            this->gatherNodalField(M_ocean.getVector(), M_ocean_root);
+            this->gatherNodalField(M_ssh.getVector(), M_ssh_root);
+        }
+        this->gatherNodalField(M_wind.getVector(),M_wind_root);
+    }
+    M_comm.barrier();
+    if (M_rank == 0)
+    {
+
+        Exporter exporter(vm["output.exporter_precision"].as<std::string>());
+        std::string fileout;
+
+        if (export_mesh)
+        {
+            // mesh*.bin
+            fileout = filenames[0]+".bin";
+            LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
+
+            // Make a copy of the mesh to avoid introduction of random modifications
+            // in the next timesteps introduced by two mesh moves (1 and -1) on M_mesh_root
+            auto output_mesh = M_mesh_root;
+            if(apply_displacement) output_mesh.move(M_UM_root,1.);
+
+            std::fstream mesh_bin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+            if ( !mesh_bin.good() )
+                throw std::runtime_error("Cannot write to file: " + fileout);
+
+            exporter.writeMesh(mesh_bin, output_mesh);
+            mesh_bin.close();
+
+            // mesh*.dat
+            fileout = filenames[0]+".dat";
+            LOG(VERBOSE) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
+
+            std::fstream mesh_dat(fileout, std::ios::out | std::ios::trunc);
+            if ( !mesh_dat.good() )
+                throw std::runtime_error("Cannot write to file: " + fileout);
+
+            exporter.writeRecord(mesh_dat,"mesh");
+            mesh_dat.close();
         }
 
-        // Elements
-        int unused_int = 0;
-        auto names_elements = M_export_names_elt;
-        std::vector<double> elt_values_local(M_local_nelements);
-        for(int j = 0; j < M_export_variables_elt.size(); j++)
+        if (export_fields)
         {
-            auto ptr = M_export_variables_elt[j];
-            for (int i = 0; i < M_local_nelements; ++i)
-            {       
-                elt_values_local[i] = (*ptr)[i];
+            // field*.bin
+            fileout = filenames[1]+".bin";
+            LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
+
+            std::fstream field_bin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
+            if ( !field_bin.good() )
+                throw std::runtime_error("Cannot write to file: " + fileout);
+
+            std::vector<double> timevec = {M_current_time};
+            std::vector<int> regridvec = {M_nb_regrid};
+
+            exporter.writeField(field_bin, timevec, "Time");
+
+            //manually export some vectors defined on the nodes
+            std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
+            if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
+                exporter.writeField(field_bin, M_VT_root, "M_VT");
+#if defined (OASIS)
+            if (M_couple_waves && M_recv_wave_stress)
+                exporter.writeField(field_bin, M_tau_wi_root, "M_tau_wi");
+#endif
+            if (vm["output.save_forcing_fields"].as<bool>())
+            {
+                exporter.writeField(field_bin, M_wind_root, "M_wind");
+                exporter.writeField(field_bin, M_ocean_root, "M_ocean");
+                exporter.writeField(field_bin, M_ssh_root, "M_ssh");
             }
-            exporter.writeField(outbin, elt_values_local, names_elements[j], precision, M_comm,
-                                base_offset, rmap_elements, M_local_nelements, unused_int, 0);
-        }
-        if(vm["output.save_forcing_fields"].as<bool>())
-        {
-            for(auto name : M_external_data_elements_names) names_elements.push_back(name);
 
-        	for(int j = 0; j < M_external_data_elements.size(); j++)
-        	{
-        	    auto ptr = M_external_data_elements[j];
-        	    for (int i = 0; i<M_local_nelements; ++i)
+
+            // loop over the elemental variables that have been
+            // gathered to elt_values_root
+            int const nb_var_element = names_elements.size();
+            for(int j=0; j<nb_var_element; j++)
+            {
+                std::vector<double> tmp(M_mesh_root.numTriangles());
+                for (int i=0; i<M_mesh_root.numTriangles(); ++i)
                 {
-                	elt_values_local[i] = (*ptr)[i];
+                    int ri = M_rmap_elements[i];
+                    tmp[i] = elt_values_root[nb_var_element*ri+j];
                 }
-                exporter.writeField(outbin, elt_values_local, names_elements[j+M_export_variables_elt.size()], precision,
-                                    M_comm, base_offset, rmap_elements, M_local_nelements, unused_int, 0);
-        	}
-        }
+                exporter.writeField(field_bin, tmp, names_elements[j]);
 
-        MPI_File_close(&outbin);
+            }
 
-        if (M_rank == 0)
-        {
+            field_bin.close();
+
+            // field*.dat
             fileout = filenames[1]+".dat";
             LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-    
-            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-            if ( !outrecord.good() )
+
+            std::fstream field_dat(fileout, std::ios::out | std::ios::trunc);
+            if ( !field_dat.good() )
                 throw std::runtime_error("Cannot write to file: " + fileout);
-    
-            exporter.writeRecord(outrecord);
-            outrecord.close();
+
+            exporter.writeRecord(field_dat);
+            field_dat.close();
         }
     }
 
