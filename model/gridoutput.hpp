@@ -200,7 +200,8 @@ public:
         sialb        = 127,
         drag_ui      = 128,
         drag_ti      = 129,
-        meltpond_fraction = 130,
+        drag_uiw     = 130,
+        meltpond_fraction = 131,
 
         // Forcing variables
         tair     = 200,
@@ -1074,8 +1075,6 @@ public:
             GmshMeshSeq const& mesh_root = GmshMeshSeq());
     std::string initNetCDF(const std::string file_prefix, const fileLength file_length,
                            const double current_time, const bool append=false, bool parallel=false);
-    void sequential_initNetCDF(std::string filename);
-    void parallel_initNetCDF(std::string filename);
     void createProjectionVariable(netCDF::NcFile &dataFile);
     void createProjectionVariableParallel(int ncid);
     void appendNetCDF(std::string filename, double timestamp);
@@ -1098,7 +1097,6 @@ public:
 #endif
 
     void find_box(int& imin, int& imax, int& jmin, int& jmax, const std::vector<double>& box);
-    void find_indices(std::vector<int> list_indices, const std::vector<double>& box);
     void compute_exchange_points(const std::vector<std::vector<std::vector<double>>>& list_rectangles,
                                  const std::vector<double>& bounding_box,
                                  std::vector<std::vector<int>>& list_recv,

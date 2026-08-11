@@ -26,16 +26,15 @@ void
 Drifters::updateDrifters(GmshMesh const& movedmesh,
                          std::vector<double> & conc, double const& current_time)
 {
-    std::vector<double> conc_drifters(0);
-
     //! 1) Reset temporary (i.e. OSISAF) drifters if needed
-    //! \note this does outputting so needs conc_root
+    //! \note this does outputting so needs conc
     if(this->resetting(current_time))
         this->reset(movedmesh, conc, current_time);
 
     //! 2) Initialize if needed
     //! - need conc on the moved mesh
     //! - \note updates conc_drifters
+    std::vector<double> conc_drifters(0);
     if(this->initialising(current_time))
         this->initialise(movedmesh, conc, conc_drifters);
 
@@ -60,7 +59,7 @@ Drifters::updateDrifters(GmshMesh const& movedmesh,
         }
     }
 
-    //! 4) Add/remove drifters if needed
+    //! 4) Output drifters if needed
     if (this->isOutputTime(current_time))
     {
         int num_drifters = conc_drifters.size();
@@ -516,7 +515,7 @@ Drifters::find_partition(GmshMesh const& mesh, std::vector<double>& M_local_drif
     std::vector<double> coordX = mesh.coordX();
     std::vector<double> coordY = mesh.coordY();
     std::vector<int> triangles = mesh.indexTr();
-    for (int k = 0; k <= coordX.size(); k++)
+    for (int k = 0; k < coordX.size(); k++)
     {
         if (coordX[k] < xmin) xmin = coordX[k];
         if (coordX[k] > xmax) xmax = coordX[k];
@@ -728,36 +727,36 @@ Drifters::updateConc(GmshMesh const& moved_mesh,
     // Do nothing if we don't have to
     int num_drifters = M_i.size();
     boost::mpi::broadcast(M_comm, num_drifters, 0);
-
     if ( num_drifters == 0 ) return;
     conc_drifters.resize(num_drifters);
 
-    // move the mesh before interpolating
+    // interpolate with the moved mesh
     int const numNodes = moved_mesh.numNodes();
     int const numElements = moved_mesh.numTriangles();
-
     std::vector<int> M_triangle, M_nb_drifter;
     std::vector<double> M_local_drifter_X, M_local_drifter_Y;
 
     // Send the drifters on the local corresponding partitions
     this->find_partition(moved_mesh, M_local_drifter_X, M_local_drifter_Y, M_triangle, M_nb_drifter);
-
     std::vector<double> conc_local_drifters(M_local_drifter_X.size());
     for ( int i = 0; i < M_local_drifter_X.size(); ++i ) conc_local_drifters[i] = conc[M_triangle[i]];
 
     // Reconstruction of the drifters positions on root
     std::vector<int> M_drifter_i;
     std::vector<double> global_conc;
-
     int size = M_nb_drifter.size();
 
     if (M_comm.rank() == 0)
     {
-        M_drifter_i.resize(M_i.size());
-        global_conc.resize(M_i.size());
-
+        // Gather the counts from all ranks
         std::vector<int> rcounts(M_comm.size());
         boost::mpi::gather(M_comm, size, rcounts, 0);
+
+        // Calculate total size needed
+        int const total_count = std::accumulate(rcounts.begin(), rcounts.end(), 0);
+        M_drifter_i.resize(total_count);
+        global_conc.resize(total_count);
+
         boost::mpi::gatherv(M_comm, M_nb_drifter, &M_drifter_i[0], rcounts, 0);
         boost::mpi::gatherv(M_comm, conc_local_drifters, &global_conc[0], rcounts, 0);
     }
@@ -773,14 +772,11 @@ Drifters::updateConc(GmshMesh const& moved_mesh,
     for (int i = 0; i < M_drifter_i.size(); i++)
     {
         if (M_drifter_i[i] == -1)
-        {
-            conc_drifters[M_drifter_i[i]] = 0.;
             continue;
-        }
         conc_drifters[M_drifter_i[i]] = global_conc[i];
     }
-
 }//updateConc
+
 
 // --------------------------------------------------------------------------------------
 //! Masks out X and Y values where there is no ice
@@ -921,7 +917,7 @@ Drifters::backupOutputFile(std::string const& backup)
     if ( fs::exists(path1) )
     {
         fs::path path2(backup);
-        fs::copy_file(path1, path2, fs::copy_option::overwrite_if_exists);
+        fs::copy_file(path1, path2, fs::copy_options::overwrite_existing);
     }
 }//backupOutputFile()
 
