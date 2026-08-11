@@ -159,7 +159,7 @@ namespace Nextsim
                 "true: we output vectors relative to the output grid; false: we give their north-south components. NB only implemented for grid_type=regular")
 #ifdef NETCDF_PARALLEL
             ("moorings.parallel_output", po::value<bool>()->default_value( false ),
-             "Use true to save netcdf files in parallel. Note that this is only faster for larger meshes.")
+             "Use true to save netcdf files in parallel. Note that this sometimes hands, and is only faster for larger meshes.")
 #endif
 
 
