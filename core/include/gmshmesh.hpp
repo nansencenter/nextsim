@@ -32,9 +32,6 @@ extern "C"
 #include <mapx.h>
 }
 
-// originally from Gmsh
-//void SwapBytes(char *array, int size, int n);
-
 
 namespace Nextsim
 {
