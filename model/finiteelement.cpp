@@ -1211,7 +1211,6 @@ FiniteElement::initOptAndParam()
     // scale_coef is now set after initialising the mesh
     compr_strength = vm["dynamics.compr_strength"].as<double>(); //! \param compr_strength (double) Maximum compressive strength [N/m2]
     alea_factor = vm["dynamics.alea_factor"].as<double>(); //! \param alea_factor (double) Sets the width of the distribution of cohesion
-    C_fix = vm["dynamics.C0"].as<double>(); //! \param C0 (double) Cohesion at the reference scale (10 km) [Pa]
     tan_phi = vm["dynamics.tan_phi"].as<double>(); //! \param tan_phi (double) Internal friction coefficient (mu)
 
     //! Sets options on the thermodynamics scheme
