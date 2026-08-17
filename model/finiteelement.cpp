@@ -422,7 +422,6 @@ FiniteElement::rootMeshProcessing()
             // partition the mesh on root process (rank 0)
             chrono.restart();
             M_mesh_root.partition(M_partitioned_mesh_filename, M_mesh_fileformat);
-            //LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
             LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
         }
     }
