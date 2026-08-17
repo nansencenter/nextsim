@@ -1094,6 +1094,14 @@ public:
 
     void info();
 
+    void setCompression(const bool enableShuffle, const bool enableDeflate, const int compressionLevel)
+    {
+        shuffle = enableShuffle;
+        deflate = enableDeflate;
+        compression = compressionLevel;
+    }
+
+
 private:
 
     LogLevel M_log_level;
@@ -1147,6 +1155,12 @@ private:
 
     void stereographicProjection(std::vector<double> const & x, std::vector<double> const & y, std::vector<double> const & z,
         std::vector<double>& ps_x, std::vector<double>& ps_y);
+
+    // Compression options
+    bool shuffle = true;
+    bool deflate = true;
+    int compression = 9;
+
 };
 } // Nextsim
 #endif // __GridOutput_H
