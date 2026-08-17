@@ -3679,7 +3679,6 @@ FiniteElement::regrid(bool step)
             LOG(DEBUG)<<"------------------------------version       = "<< M_mesh_root.version() <<"\n";
             LOG(DEBUG)<<"------------------------------ordering      = "<< M_mesh_root.ordering() <<"\n";
             LOG(DEBUG)<<"------------------------------format        = "<< M_mesh_fileformat <<"\n";
-            LOG(DEBUG)<<"------------------------------space         = "<< vm["mesh.partitioner-space"].as<std::string>() <<"\n";
 
             M_timer.tick("partition");
             // Environment::logMemoryUsage("before partitioning...");

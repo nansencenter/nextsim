@@ -26,13 +26,17 @@ public:
     int id;
 };
 
+
+int const MSH_PNT = 15; // GMSH point element type (not available publicly)
+
+
 class GMSHElement
 {
 public:
     GMSHElement()
         :
         number( 0 ),
-        type( 15 ),  // MSH_PNT in Gmsh 4 (point element type)
+        type( MSH_PNT ),
         physical( 0 ),
         elementary( 0 ),
         numPartitions( 1 ),
