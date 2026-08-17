@@ -317,10 +317,8 @@ namespace Nextsim
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
             ("dynamics.C0", po::value<double>()->default_value( 2.0e6 ), "Pa")          // Cohesion value at 10 cm resolution (from Ólason et al., 2023)
-            ("dynamics.C_scale", po::value<double>()->default_value( 0.1 ), "m")        // The reference scale for dynamics.C0
-            ("dynamics.C_lin_coef", po::value<double>()->default_value( 0.04 ), "Pa/m")        // The reference scale for dynamics.C0
-            ("dynamics.C_scaling", po::value<std::string>()->default_value( "sqrt" ),
-                "How to calculate the cohesion scaling from C0 and C_scale (none, linear, [sqrt])")
+            ("dynamics.C_scale", po::value<double>()->default_value( 0.01 ), "m^2")     // The reference scale for dynamics.C0
+            ("dynamics.Weibull", po::value<double>()->default_value( 4 ), "")           // The Weibull modulus
 
 
             ("dynamics.nu0", po::value<double>()->default_value( 1./3. ), "")

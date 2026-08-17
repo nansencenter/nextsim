@@ -3938,8 +3938,18 @@ FiniteElement::updateBoundaryFlags()
 void
 FiniteElement::calcCohesion()
 {
+    const double r_m_Weibull = 1./vm["dynamics.Weibull"].as<double>();
+    const double c_ref = vm["dynamics.C0"].as<double>();
+    const double l_ref = vm["dynamics.C_scale"].as<double>();
+
     for (int i=0; i<M_num_elements; ++i)
+    {
+        const double C_fix = c_ref * std::pow(l_ref/M_surface[i], r_m_Weibull);
+        const double C_alea = alea_factor * C_fix;
         M_Cohesion[i] = C_fix+C_alea*(M_random_number[i]);
+    }
+
+    LOG(DEBUG) << "Mean cohesion: " << std::accumulate(M_Cohesion.begin(), M_Cohesion.end(), 0.) / M_num_elements << "\n";
 
 }//calcCohesion
 
@@ -7037,30 +7047,10 @@ FiniteElement::init()
     LOG(INFO) <<"TIMESTEP= "<< time_step <<" s\n";
     LOG(INFO) <<"DURATION= "<< duration/days_in_sec <<" day(s)\n";
 
-    // We need to set the scale_coef et al after initialising the mesh - this was previously done in initConstants
-    // Scale coeff is the ratio of the lab length scale, 0.1 m, and that of the mesh resolution (in terms of area of the element)
+    // We just use the mean mesh resolution to scale compr_strength - it's not that sensitive to the resolution anyway.
     boost::mpi::broadcast(M_comm, M_res_root_mesh, 0);
-    const std::string C_scaling = vm["dynamics.C_scaling"].as<std::string>();
 
-    if ( C_scaling == "linear" )
-    {
-        const double scale_coef = vm["dynamics.C_lin_coef"].as<double>() * ( vm["dynamics.C_scale"].as<double>() - M_res_root_mesh );
-        C_fix += scale_coef;
-        compr_strength += scale_coef;
-    }
-    else if ( C_scaling == "sqrt" )
-    {
-        const double scale_coef = std::sqrt(vm["dynamics.C_scale"].as<double>()/M_res_root_mesh);
-        C_fix *=  scale_coef;
-        compr_strength *= scale_coef;
-    }
-    else if ( C_scaling != "none" )
-    {
-        throw std::runtime_error("Unknown cohesion scaling dynamics.C_scaling: " + vm["dynamics.C_scaling"].as<std::string>());
-    }
-
-    C_alea   = alea_factor*C_fix;        // C_alea;... : alea sur la cohesion (Pa)
-    LOG(DEBUG) << "C_FIX = " << C_fix << "\n";
+    compr_strength *= std::pow(vm["dynamics.C_scale"].as<double>()/(M_res_root_mesh*M_res_root_mesh), 1./vm["dynamics.Weibull"].as<double>());
 
     if ( M_use_restart )
     {
