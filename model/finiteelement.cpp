@@ -394,7 +394,6 @@ FiniteElement::rootMeshProcessing()
 
             // Interpolate hminVertices and hmaxVertices onto the current mesh
             this->interpVertices();
-            M_mesh_root.writeToFile(M_partitioned_mesh_filename);//TODO needed? will introduce rounding errors
         }
 
         if (!M_use_restart)

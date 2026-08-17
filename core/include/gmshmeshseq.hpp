@@ -55,7 +55,6 @@ public:
     //~GmshMeshSeq();
 
     void readFromFile(std::string const& filename);
-    void writeToFile(std::string const& filename);
 
     void partition(std::string const& filename,
                    std::string const& format="ascii");
