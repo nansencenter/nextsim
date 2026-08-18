@@ -1157,9 +1157,9 @@ private:
         std::vector<double>& ps_x, std::vector<double>& ps_y);
 
     // Compression options
-    bool shuffle = true;
+    bool shuffle = false;
     bool deflate = true;
-    int compression = 9;
+    int compression = 4;
 
 };
 } // Nextsim
