@@ -9532,7 +9532,7 @@ DataSet::DataSet(char const *DatasetName)
                 //interp_type : NearestInterpEnum,
 
                 dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
-                filename_mask: "CARRA2_${VARSTRING}_y%Ym%m_hours.nc",
+                filename_mask: "CARRA2_${VARSTRING}_y%Ym%m.nc",
                 gridfile: "",
                 reference_date: "1970-01-01",
 
@@ -9719,7 +9719,7 @@ DataSet::DataSet(char const *DatasetName)
             interp_type : BilinearInterpEnum,
             //interp_type : NearestInterpEnum,
             dirname: Environment::vm()["setup.atmospheric_forcing_input_path"].as<std::string>(),
-            filename_mask: "CARRA2_${VARSTRING}_y%Ym%m_hours.nc",
+            filename_mask: "CARRA2_${VARSTRING}_y%Ym%m.nc",
             gridfile: "",
             reference_date:"1970-01-01",
 
