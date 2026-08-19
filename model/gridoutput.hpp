@@ -1094,14 +1094,6 @@ public:
 
     void info();
 
-    void setCompression(const bool enableShuffle, const bool enableDeflate, const int compressionLevel)
-    {
-        shuffle = enableShuffle;
-        deflate = enableDeflate;
-        compression = compressionLevel;
-    }
-
-
 private:
 
     LogLevel M_log_level;
