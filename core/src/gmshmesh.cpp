@@ -616,69 +616,6 @@ GmshMesh::readFromFileBinary(std::ifstream& ifs)
 
 
 void
-GmshMesh::writeToFile(std::string const& gmshmshfile)
-{
-    std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
-
-    if (gmshfile.is_open())
-    {
-        gmshfile << "$MeshFormat\n";
-        gmshfile << "2.2 0 8\n";
-        gmshfile << "$EndMeshFormat\n";
-
-        gmshfile << "$Nodes\n";
-        gmshfile << M_num_nodes << "\n";
-
-        int node = 0;
-        for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
-        {
-            gmshfile << node + 1
-                     << "  " << it->second.coords[0]
-                     << "  " << it->second.coords[1]
-                     << "  0.0\n";
-
-            ++node;
-        }
-        gmshfile << "$EndNodes\n";
-
-
-        int element_type = 2;
-        int tag_num = 2;
-        int tag1 = 1;
-        int tag2 = 0;
-
-        gmshfile << "$Elements\n";
-        gmshfile << M_num_triangles << "\n";
-
-        int element = 0;
-        for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
-        {
-            gmshfile << element + 1
-                     << "  " << element_type
-                     << "  " << tag_num
-                     << "  " << tag1
-                     << "  " << tag2;
-
-            for (int i = 0; i < 3; i++ )
-            {
-                gmshfile << "  " << it->indices[i];
-            }
-            gmshfile << "\n";
-
-            ++element;
-        }
-        gmshfile << "$EndElements\n";
-    }
-    else
-    {
-        std::cout << "Cannot open " << gmshmshfile  << "\n";
-        std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
-        std::abort();
-    }
-}//writeToFile
-
-
-void
 GmshMesh::move(std::vector<double> const& um, double factor)
 {
     if ((um.size() != 0) && (factor != 0))
