@@ -933,6 +933,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         data.putAtt("units",it->Units);
         data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
+        data.setCompression(shuffle, deflate, compression);
     }
     for (auto it=M_elemental_variables.begin(); it!=M_elemental_variables.end(); ++it)
     {
@@ -945,6 +946,7 @@ GridOutput::initNetCDF(std::string file_prefix, fileLength file_length, double c
         data.putAtt("units",it->Units);
         data.putAtt("cell_methods", cell_methods_time + it->cell_methods);
         data.putAtt("_FillValue", netCDF::ncFloat, M_miss_val);
+        data.setCompression(shuffle, deflate, compression);
     }
 
     // - set the global attributes
