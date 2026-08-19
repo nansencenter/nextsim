@@ -1100,9 +1100,9 @@ private:
         std::vector<double>& ps_x, std::vector<double>& ps_y);
 
     // Compression options
-    bool shuffle = false;
-    bool deflate = true;
-    int compression = 4;
+    static constexpr bool shuffle = false;
+    static constexpr bool deflate = true;
+    static constexpr int compression = 4;
 
 };
 } // Nextsim
