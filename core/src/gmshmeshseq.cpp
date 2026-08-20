@@ -7,8 +7,7 @@
  */
 
 #include <gmshmeshseq.hpp>
-#include <GModel.h>
-#include <GmshMessage.h>
+#include <gmsh.h>
 #include <boost/format.hpp>
 
 namespace Nextsim
@@ -77,13 +76,6 @@ GmshMeshSeq::GmshMeshSeq(GmshMeshSeq const& mesh)
     M_log_all(mesh.M_log_all)
 
 {}
-
-// GmshMeshSeq::~GmshMeshSeq()
-// {
-//     //M_gmodel->deleteMesh();
-//     //M_gmodel->destroy();
-//     delete M_gmodel;
-// }
 
 void
 GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
@@ -156,13 +148,11 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
 
     // Read NODES
 
-    //std::cout << "buf: "<< __buf << "\n";
-
     if ( !( std::string( __buf ) == "$NOD" ||
             std::string( __buf ) == "$Nodes" ||
             std::string( __buf ) == "$ParametricNodes") )
     {
-        LOG(ERROR)<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either" 
+        LOG(ERROR)<< "invalid nodes string '" << __buf << "' in gmsh importer. It should be either"
         << "$Nodes or $ParametricNodes.\n";
     }
 
@@ -172,7 +162,6 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
 
     M_num_nodes = __n;
 
-    //std::map<int, Nextsim::entities::GMSHPoint > gmshpts;
     LOG(DEBUG) << "Reading "<< __n << " nodes\n";
 
     M_nodes.resize(__n);
@@ -192,9 +181,6 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
     }
 
     gmshfile >> __buf;
-    //std::cout << "buf: "<< __buf << "\n";
-
-    // make sure that we have read all the points
 
     ASSERT(std::string( __buf ) == "$EndNodes","invalid end nodes string");
 
@@ -207,10 +193,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
     int numElements;
     gmshfile >> numElements;
 
-    //M_num_elements = numElements;
-
     LOG(DEBUG) << "Reading " << numElements << " elements...\n";
-    //std::list<Nextsim::entities::GMSHElement> __et; // tags in each element
     std::map<int,int> __gt;
 
     int cpt_edge = 0;
@@ -233,7 +216,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
             else if(j == 1) elementary = tag;
         }
 
-        numVertices = MElement::getInfoMSH(type);
+        numVertices = Nextsim::entities::getNumVerticesForElementType(type);
 
         ASSERT(numVertices!=0,"unknown number of vertices for element type");
 
@@ -241,24 +224,12 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
         for(int j = 0; j < numVertices; j++)
         {
             gmshfile >> indices[j];
-            // check
-            //indices[j] = indices[j]-1;
         }
 
         if (M_ordering=="bamg")
         {
             std::next_permutation(indices.begin()+1,indices.end());
         }
-
-        // Nextsim::entities::GMSHElement gmshElt( number,
-        //                                         type,
-        //                                         physical,
-        //                                         elementary,
-        //                                         numVertices,
-        //                                         indices );
-
-        //__et.push_back( gmshElt );
-        //M_elements.insert(std::make_pair(number,gmshElt));
 
         if (type == 2)
         {
@@ -269,7 +240,6 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
                                                     numVertices,
                                                     indices );
 
-            //M_triangles.insert(std::make_pair(number,gmshElt));
             M_triangles.push_back(gmshElt);
 
             ++cpt_triangle;
@@ -283,7 +253,6 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
                                                     numVertices,
                                                     indices );
 
-            //M_edges.insert(std::make_pair(number,gmshElt));
             M_edges.push_back(gmshElt);
 
             ++cpt_edge;
@@ -299,8 +268,7 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
 
     for ( auto const& it : __gt )
     {
-        const char* name;
-        MElement::getInfoMSH( it.first, &name );
+        const char* name = Nextsim::entities::getElementTypeName(it.first);
         LOG(DEBUG) << "Read " << it.second << " " << name << " elements\n";
 
         if (std::string(name) == "Triangle 3")
@@ -314,69 +282,8 @@ GmshMeshSeq::readFromFile(std::string const& gmshmshfile)
 
     ASSERT(std::string( __buf ) == "$EndElements","invalid end elements string");
 
-    // we are done reading the MSH file
 }//readFromFile
 
-void
-GmshMeshSeq::writeToFile(std::string const& gmshmshfile)
-{
-    std::fstream gmshfile(gmshmshfile, std::ios::out | std::ios::trunc);
-
-    if (!gmshfile.is_open())
-    {
-        LOG(ERROR) << "Cannot open " << gmshmshfile  << "\n";
-        std::cerr << "error: open file " << gmshmshfile << " for output failed!" <<"\n";
-        std::abort();
-    }
-
-    gmshfile << "$MeshFormat\n";
-    gmshfile << "2.2 0 8\n";
-    gmshfile << "$EndMeshFormat\n";
-
-    gmshfile << "$Nodes\n";
-    gmshfile << M_num_nodes << "\n";
-
-    int node = 0;
-    for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
-    {
-        gmshfile << node + 1
-                 << "  " << it->coords[0]
-                 << "  " << it->coords[1]
-                 << "  0.0\n";
-
-        ++node;
-    }
-    gmshfile << "$EndNodes\n";
-
-
-    int element_type = 2;
-    int tag_num = 2;
-    int tag1 = 1;
-    int tag2 = 0;
-
-    gmshfile << "$Elements\n";
-    gmshfile << M_num_triangles << "\n";
-
-    int element = 0;
-    for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
-    {
-        gmshfile << element + 1
-                 << "  " << element_type
-                 << "  " << tag_num
-                 << "  " << tag1
-                 << "  " << tag2;
-
-        for (int i = 0; i < 3; i++ )
-        {
-            gmshfile << "  " << it->indices[i];
-        }
-        gmshfile << "\n";
-
-        ++element;
-    }
-    gmshfile << "$EndElements\n";
-
-}//writeToFile
 
 void
 GmshMeshSeq::update(std::vector<point_type> const& nodes,
@@ -428,151 +335,98 @@ GmshMeshSeq::clear_mesh()
 void
 GmshMeshSeq::initGModel()
 {
-    M_gmodel = new GModel();
+    gmsh::initialize();
+    gmsh::option::setNumber("General.Verbosity", Environment::vm()["debugging.gmsh_verbose"].as<int>());
+    gmsh::option::setNumber("Mesh.MshFileVersion", 2.2);
+    gmsh::option::setNumber("Mesh.Binary", Environment::vm()["mesh.partitioner-fileformat"].as<std::string>() == "binary"? 1 : 0 );
+    gmsh::option::setNumber("Mesh.NbPartitions", Environment::comm().size());
 
-    Msg::SetVerbosity(Environment::vm()["debugging.gmsh_verbose"].as<int>());
-    CTX::instance()->terminal = 1;
-    CTX::instance()->mesh.saveTopology = 0;
-    CTX::instance()->mesh.fileFormat = FORMAT_MSH;
-    CTX::instance()->mesh.mshFileVersion = 2.2;
-    //M_partition_options.num_partitions = Environment::comm().size();
-    CTX::instance()->partitionOptions.num_partitions = Environment::comm().size();
+    // partition options
+    gmsh::option::setNumber("Mesh.PartitionSplitMeshFiles", 0);
+    gmsh::option::setNumber("Mesh.PartitionCreateTopology", 0);  // KEY: prevents partitionFace creation which caused segfault in gmsh::clear()
+    gmsh::option::setNumber("Mesh.PartitionCreatePhysicals", 0);
+    gmsh::option::setNumber("Mesh.PartitionCreateGhostCells", 1);
+    // should we maintain backwards compatibility with pre-gmsh4
+    // eg to save the mesh in MSH2 format?
+    gmsh::option::setNumber("Mesh.PartitionOldStyleMsh2", 1);
+    gmsh::option::setNumber("Mesh.MetisAlgorithm", 2); // K-way
+    gmsh::option::setNumber("Mesh.MetisRefinementAlgorithm", 2);
+    gmsh::option::setNumber("Mesh.PreserveNumberingMsh2", 1);
 }
 
 void
 GmshMeshSeq::clear()
 {
-    delete M_gmodel;
+    gmsh::clear();
+    gmsh::finalize();
 }
 
 void
 GmshMeshSeq::writeToGModel()
 {
-    std::map<int, MVertex*> vertexMap;
-    std::vector<std::vector<int> > vertexIndices(M_num_triangles);
-    std::vector<int> elementNum(M_num_triangles);
-    std::vector<int> elementType(M_num_triangles);
-    std::vector<int> physical(M_num_triangles);
-    std::vector<int> elementary(M_num_triangles);
-    std::vector<int> partition(M_num_triangles);
+    LOG(DEBUG) << "writeToGModel starts\n";
+    // Create a new model
+    gmsh::model::add("mesh");
+
+    // Create discrete entity for the surface
+    int const surface_tag = 0;
+    gmsh::model::addDiscreteEntity(2, surface_tag);//dim = 2
+
+    // Add nodes
+    std::vector<std::size_t> nodeTags;
+    std::vector<double> nodeCoords;
+    std::vector<double> nodeParams;
 
     int cpt_node = 0;
     for (auto it=M_nodes.begin(), en=M_nodes.end(); it!=en; ++it)
     {
-        vertexMap.insert(std::make_pair(cpt_node+1, new MVertex(it->coords[0], it->coords[1], 0.)));
-        ++cpt_node;
+        // tags need to be >= 1
+        nodeTags.push_back(cpt_node + 1);
+        nodeCoords.push_back(it->coords[0]);
+        nodeCoords.push_back(it->coords[1]);
+        nodeCoords.push_back(0.0);
+        cpt_node ++ ;
     }
 
-    int cpt_element = 0;
+    gmsh::model::mesh::addNodes(2, surface_tag, nodeTags, nodeCoords, nodeParams);
 
-#if 0
-    // uncomment if needed to add the edge elements
-    for (auto it=M_edges.begin(), en=M_edges.end(); it!=en; ++it)
-    {
-        vertexIndices[cpt_element] = it->indices;
-        elementNum[cpt_element] = cpt_element+1;
-        elementType[cpt_element] = 1;
-        physical[cpt_element] = 0;;
-        elementary[cpt_element] = 0;;
-        partition[cpt_element] = 0;;
-        ++cpt_element;
-    }
-#endif
+    // Add triangle elements
+    std::vector<std::size_t> elemTags;
+    std::vector<std::size_t> elemNodeTags;
 
     for (auto it=M_triangles.begin(), en=M_triangles.end(); it!=en; ++it)
     {
-        vertexIndices[cpt_element] = it->indices;
-        elementNum[cpt_element] = cpt_element+1;
-        elementType[cpt_element] = 2;
-        physical[cpt_element] = 0;;
-        elementary[cpt_element] = 0;;
-        partition[cpt_element] = 0;;
-        ++cpt_element;
+        // tags need to be >= 1
+        elemTags.push_back(it->number + 1);
+        // reverse triangle orientation as it seems to get flipped
+        // during partitioning
+        elemNodeTags.push_back(it->indices[0]);
+        elemNodeTags.push_back(it->indices[2]);
+        elemNodeTags.push_back(it->indices[1]);
     }
 
-    M_gmodel = GModel::createGModel(
-                                    vertexMap,
-                                    elementNum,
-                                    vertexIndices,
-                                    elementType,
-                                    physical,
-                                    elementary,
-                                    partition
-                                    );
-}
+
+    // Element type 2 = triangle
+    gmsh::model::mesh::addElementsByType(surface_tag, 2, elemTags, elemNodeTags);
+
+    // Now add physical group
+    gmsh::model::addPhysicalGroup(2, {surface_tag}, 1);  // Surface dimension 2, group tag 1
+
+    LOG(DEBUG) << "writeToGModel done\n";
+}//writeToGModel
+
 
 void
 GmshMeshSeq::partition(std::string const& mshfile,
-                       mesh::Partitioner const& partitioner,
-                       mesh::PartitionSpace const& space,
                        std::string const& format)
 {
 
-    if ((partitioner != mesh::Partitioner::CHACO) && (partitioner != mesh::Partitioner::METIS))
-        throw std::logic_error("invalid partitioner");
-
-    if (space == mesh::PartitionSpace::MEMORY)
-        this->partitionMemory(mshfile, partitioner, format);
-    else if (space == mesh::PartitionSpace::DISK)
-        this->partitionDisk(mshfile, partitioner, format);
-    else
-        throw std::logic_error("invalid partition space");
+    int const num_partitions = Environment::comm().size();
+    gmsh::model::mesh::partition(num_partitions);
+    gmsh::write(mshfile);
+    gmsh::clear();
 }
 
-void
-GmshMeshSeq::partitionMemory(std::string const& mshfile,
-                             mesh::Partitioner const& partitioner,
-                             std::string const& format)
-{
-    CTX::instance()->partitionOptions.partitioner =  (int)partitioner;
-    CTX::instance()->partitionOptions.algorithm = 2;
-    //CTX::instance()->partitionOptions.edge_matching = 3;// comment it after
-    //CTX::instance()->partitionOptions.refine_algorithm = 2; // do not use because of non-contiguous mesh partition
-
-    CTX::instance()->partitionOptions.createPartitionBoundaries = false;
-
-    PartitionMesh( M_gmodel, CTX::instance()->partitionOptions);
-    M_gmodel->writeMSH(mshfile, 2.2, (format=="binary")?true:false);
-
-    M_gmodel->deleteMesh();
-    M_gmodel->destroy();
-}
-
-void
-GmshMeshSeq::partitionDisk(std::string const& mshfile,
-                           mesh::Partitioner const& partitioner,
-                           std::string const& format)
-{
-    if (!fs::exists(mshfile))
-    {
-        std::string const msg = "Cannot find mesh file" + mshfile;
-        throw std::runtime_error(msg);
-    }
-
-    CTX::instance()->partitionOptions.partitioner =  (int)partitioner;
-    CTX::instance()->mesh.binary = 1;
-
-    std::ostringstream gmshstr;
-    gmshstr << BOOST_PP_STRINGIZE( gmsh )
-            << " -" << 2
-            << " -part " << Environment::comm().size()
-            << " -format " << "msh2";
-
-    if (format == "binary")
-    {
-        gmshstr << " -bin";
-    }
-
-    gmshstr << " -string " << "\"Mesh.MshFileVersion="<< 2.2 <<";\""
-            << " -string " << "\"Mesh.Partitioner="<< (int)partitioner <<";\""
-            << " -string " << "\"Mesh.MetisAlgorithm="<< 2 <<";\"" // 1 = recursive (default), 2 = K-way
-            << " -string " << "\"Mesh.MetisRefinementAlgorithm="<< 2 <<";\""
-            << " -string " << "\"General.Verbosity="<< Environment::vm()["debugging.gmsh_verbose"].as<int>() << ";\""
-            << " " << mshfile;
-
-    LOG(DEBUG) << "[Gmsh::generate] execute '" <<  gmshstr.str() << "'\n";
-    auto err = ::system( gmshstr.str().c_str() );
-}
 
 void
 GmshMeshSeq::move(std::vector<double> const& um, double factor)
@@ -672,7 +526,7 @@ GmshMeshSeq::indexTr() const
     int cpt = 0;
     for (auto it=M_triangles.begin(), end=M_triangles.end(); it!=end; ++it)
     {
-        index[3*cpt] = it->indices[0];//it->first;
+        index[3*cpt] = it->indices[0];
         index[3*cpt+1] = it->indices[1];
         index[3*cpt+2] = it->indices[2];
         ++cpt;

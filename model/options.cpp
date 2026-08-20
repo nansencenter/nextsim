@@ -137,12 +137,8 @@ namespace Nextsim
             // -- input
             ("mesh.filename", po::value<std::string>()->default_value( "medium_Arctic_10km.msh" ), "name of .msh file to use")
             ("mesh.mppfile", po::value<std::string>()->default_value( "NpsNextsim.mpp" ), "name of .mpp projection file to use")
-            ("mesh.partitioner", po::value<std::string>()->default_value( "metis" ),
-                "mesh partitioner: chaco or metis")
             ("mesh.partitioner-fileformat", po::value<std::string>()->default_value( "binary" ),
                 "Format for saving partitioned mesh. Options: ascii, binary")
-            ("mesh.partitioner-space", po::value<std::string>()->default_value( "memory" ),
-                "where the partitioned mesh is kept (disk/memory)")
             //not used: ("mesh.hsize", po::value<double>()->default_value( 0.01 ), "") // to be checked
             ("mesh.type", po::value<std::string>()->default_value( "from_unref" ),
                 "from_unref (implies constant vertex length) or from_split (implies variable vertex length)")
@@ -396,6 +392,12 @@ namespace Nextsim
             // - mEVP!
             ("dynamics.mevp.alpha", po::value<double>()->default_value( 500 ), "Alpha of the mEVP method (default 500)")
             ("dynamics.mevp.beta",  po::value<double>()->default_value( 500 ), "Beta of the mEVP method (default 500)")
+
+            // - Ridge ratio dependent drag
+            ("dynamics.ridging_dependent_drag",  po::value<bool>()->default_value( false ), "Increase atmospheric drag linearly proportional to the total ridge volume (true|[false]).")
+            ("dynamics.ridge_drag_factor",  po::value<double>()->default_value( 5.5e-4 ), "Multiplication factor for total ridge volume contribution to atmospheric drag.")
+            ("dynamics.scale_ocean_drag",  po::value<bool>()->default_value( true ), "Scale ocean drag so that ridged ice has same Nansen number as flat ice.")
+
 
              //-----------------------------------------------------------------------------------
              //! - Thermodynamics

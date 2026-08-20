@@ -16,7 +16,7 @@ LIBRARYDIR=$(NEXTSIMDIR)/lib/
 CXXFLAGS += -std=c++14
 
 # add g++ option flags
-CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fpermissive
+CXXFLAGS += -pedantic -ftemplate-depth-256 -Wno-inline -fpermissive -DNDEBUG
 
 ifdef USE_OASIS
 	CXXFLAGS += -DOASIS
@@ -25,8 +25,18 @@ ifdef USE_OASIS
 	CHAN = MPI1
 endif
 
-ifneq (,$(strip $(filter DEBUG Debug debug,$(NEXTSIM_BUILD_TYPE))))
-	CXXFLAGS += -g -O0 -DNDEBUG
+ifneq (,$(strip $(filter DEBUG,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CXXFLAGS))
+	CXXFLAGS += -g -O1
+	CXXFLAGS += -fsanitize=address,float-divide-by-zero -fno-omit-frame-pointer -fno-finite-math-only
+ifneq ($(KERNEL),Linux)
+	CXXFLAGS += -Wl,-no_pie
+endif
+endif
+
+ifneq (,$(strip $(filter VALGRIND,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CXXFLAGS))
+	CXXFLAGS += -g -O0
 ifneq ($(KERNEL),Linux)
 	CXXFLAGS += -Wl,-no_pie
 endif
@@ -38,7 +48,7 @@ endif
 
 # add include paths
 CXXFLAGS += -I$(NEXTSIMDIR)/core/include -I/usr/local/include -I$(MPI_INC_DIR)/
-CXXFLAGS += -I$(BOOST_INCDIR)/ -I$(GMSH_DIR)/include/gmsh
+CXXFLAGS += -I$(BOOST_INCDIR)/ -I$(GMSH_DIR)/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
 
 ifeq ($(KERNEL),Linux)
@@ -62,8 +72,8 @@ LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
 
 # gmsh
-LDFLAGS += -Wl,-rpath,$(GMSH_DIR)/lib
-LDFLAGS += -L$(GMSH_DIR)/lib -lGmsh
+LDFLAGS += -Wl,-rpath,$(GMSH_LIB_DIR)
+LDFLAGS += -L$(GMSH_LIB_DIR) -lgmsh
 
 # mapx
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx

@@ -377,20 +377,20 @@ Drifters::sortDrifterNumbers()
 //! Add drifter info to restart
 //! Called by FiniteElement::writeRestart()
 void
-Drifters::addToRestart(Exporter &exporter, MPI_File& outbin, Communicator M_comm, MPI_Offset& base_offset)
+Drifters::addToRestart(Exporter &exporter, std::fstream &outbin)
 {
     // Do nothing if we don't have to
-    int keep_going = M_i.size() + M_is_initialised;
-    boost::mpi::broadcast(M_comm, &keep_going, 1, 0);
-    if (!keep_going) return;
+    if (!M_is_initialised)
+        return;
+    if (M_i.size() == 0)
+        return;
 
     // write the fields to file
     std::vector<double> const t = {M_time_init};
-    std::vector<int> unused;
-    exporter.writeField(outbin, M_i, "Drifter_ID_"        + M_tag, "int",  M_comm, base_offset, unused, 0, 0, 1);
-    exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag, "double", M_comm, base_offset, unused, 0, 0, 1);
-    exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag, "double", M_comm, base_offset, unused, 0, 0, 1);
-    exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag, "double", M_comm, base_offset, unused, 0, 0, 1);
+    exporter.writeField(outbin, M_i, "Drifter_ID_"        + M_tag);
+    exporter.writeField(outbin, M_X, "Drifter_x_"         + M_tag);
+    exporter.writeField(outbin, M_Y, "Drifter_y_"         + M_tag);
+    exporter.writeField(outbin, t,   "Drifter_time_init_" + M_tag);
 }//addToRestart()
 
 
@@ -727,36 +727,36 @@ Drifters::updateConc(GmshMesh const& moved_mesh,
     // Do nothing if we don't have to
     int num_drifters = M_i.size();
     boost::mpi::broadcast(M_comm, num_drifters, 0);
-
     if ( num_drifters == 0 ) return;
     conc_drifters.resize(num_drifters);
 
-    // move the mesh before interpolating
+    // interpolate with the moved mesh
     int const numNodes = moved_mesh.numNodes();
     int const numElements = moved_mesh.numTriangles();
-
     std::vector<int> M_triangle, M_nb_drifter;
     std::vector<double> M_local_drifter_X, M_local_drifter_Y;
 
     // Send the drifters on the local corresponding partitions
     this->find_partition(moved_mesh, M_local_drifter_X, M_local_drifter_Y, M_triangle, M_nb_drifter);
-
     std::vector<double> conc_local_drifters(M_local_drifter_X.size());
     for ( int i = 0; i < M_local_drifter_X.size(); ++i ) conc_local_drifters[i] = conc[M_triangle[i]];
 
     // Reconstruction of the drifters positions on root
     std::vector<int> M_drifter_i;
     std::vector<double> global_conc;
-
     int size = M_nb_drifter.size();
 
     if (M_comm.rank() == 0)
     {
-        M_drifter_i.resize(M_i.size());
-        global_conc.resize(M_i.size());
-
+        // Gather the counts from all ranks
         std::vector<int> rcounts(M_comm.size());
         boost::mpi::gather(M_comm, size, rcounts, 0);
+
+        // Calculate total size needed
+        int const total_count = std::accumulate(rcounts.begin(), rcounts.end(), 0);
+        M_drifter_i.resize(total_count);
+        global_conc.resize(total_count);
+
         boost::mpi::gatherv(M_comm, M_nb_drifter, &M_drifter_i[0], rcounts, 0);
         boost::mpi::gatherv(M_comm, conc_local_drifters, &global_conc[0], rcounts, 0);
     }
@@ -772,14 +772,11 @@ Drifters::updateConc(GmshMesh const& moved_mesh,
     for (int i = 0; i < M_drifter_i.size(); i++)
     {
         if (M_drifter_i[i] == -1)
-        {
-            conc_drifters[M_drifter_i[i]] = 0.;
             continue;
-        }
         conc_drifters[M_drifter_i[i]] = global_conc[i];
     }
-
 }//updateConc
+
 
 // --------------------------------------------------------------------------------------
 //! Masks out X and Y values where there is no ice

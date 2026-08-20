@@ -5,8 +5,7 @@ PROGNAME=nextsim.exec
 CXXFLAGS += -std=c++14
 
 # add g++ option flags
-CXXFLAGS += -ftemplate-depth-256 -Wno-inline \
-		-DHAVE_CONFIG_H -D_MULTITHREADING_
+CXXFLAGS += -ftemplate-depth-256 -Wno-inline -DHAVE_CONFIG_H -D_MULTITHREADING_ -DNDEBUG
 ifdef NEXTSIM_COMPILE_VERBOSE
 	CXXFLAGS += -v
 endif
@@ -19,15 +18,22 @@ ifdef USE_OASIS
 	LDFLAGS += -L$(OASIS_DIR)/lib -lpsmile.$(CHAN) -lmct -lmpeu -lscrip $(LD_EXTRA_OASIS)
 endif
 
-ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-	CXXFLAGS := $(filter-out -O3 -pthread,$(CXXFLAGS))
-	CXXFLAGS += -g -O0 -DNDEBUG
-ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+ifneq (,$(strip $(filter DEBUG,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CXXFLAGS))
+	CXXFLAGS += -g -O1
+	CXXFLAGS += -fsanitize=address,float-divide-by-zero -fno-omit-frame-pointer -fno-finite-math-only
+endif
+
+ifneq (,$(strip $(filter VALGRIND PROFILE,$(NEXTSIM_BUILD_TYPE))))
+	CXXFLAGS := $(filter-out -O3 -pthread -DNDEBUG,$(CXXFLAGS))
+	CXXFLAGS += -g -O0
+ifneq (,$(strip $(filter PROFILE,$(NEXTSIM_BUILD_TYPE))))
 	CXXFLAGS += -DWITHGPERFTOOLS
 endif
 endif
 
 # add include paths
+CXXFLAGS += -I.
 CXXFLAGS += -I$(NEXTSIMDIR)/core/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/bamg/include
 CXXFLAGS += -I$(NEXTSIMDIR)/contrib/mapx/include
@@ -45,10 +51,9 @@ ifdef USE_AEROBULK
 endif
 
 # boost
-ifeq ($(BOOST_DIR),/usr)
-	CXXFLAGS += -I$(BOOST_INCDIR)/ -I.
-else
-	CXXFLAGS += -isystem $(BOOST_INCDIR)/ -I.
+# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems with stdlib.h
+ifneq ($(BOOST_DIR),/usr)
+	CXXFLAGS += -isystem $(BOOST_INCDIR)
 endif
 
 # netcdf
@@ -63,17 +68,18 @@ ifdef USE_OASIS
 	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
 endif
 
-ifeq ($(NETCDF_DIR),/usr)
-	#needed for maud: need -I/usr/include otherwise have problems with stdlib.h
-	CXXFLAGS += -I$(NETCDF_DIR)/include
-	CXXFLAGS += -I$(NETCDF_CXX_DIR)/include
-else
+# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems with stdlib.h
+ifneq ($(NETCDF_DIR),/usr)
 	CXXFLAGS += -isystem $(NETCDF_DIR)/include
+endif
+ifneq ($(NETCDF_CXX_DIR),/usr)
 	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
 endif
 
 # gmsh
-CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
+ifneq ($(GMSH_DIR),/usr)
+	CXXFLAGS += -isystem $(GMSH_DIR)/include
+endif
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
@@ -86,6 +92,7 @@ LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
+LDFLAGS += -L$(GMSH_LIB_DIR) -lgmsh
 
 ifdef USE_ENSEMBLE
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -lpseudo2D

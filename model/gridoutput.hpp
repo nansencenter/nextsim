@@ -192,7 +192,8 @@ public:
         sialb        = 127,
         drag_ui      = 128,
         drag_ti      = 129,
-        meltpond_fraction = 130,
+        drag_uiw     = 130,
+        meltpond_fraction = 131,
 
         // Forcing variables
         tair     = 200,
@@ -1145,6 +1146,12 @@ private:
 
     void stereographicProjection(std::vector<double> const & x, std::vector<double> const & y, std::vector<double> const & z,
         std::vector<double>& ps_x, std::vector<double>& ps_y);
+
+    // Compression options
+    static constexpr bool shuffle = false;
+    static constexpr bool deflate = true;
+    static constexpr int compression = 4;
+
 };
 } // Nextsim
 #endif // __GridOutput_H

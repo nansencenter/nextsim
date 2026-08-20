@@ -222,7 +222,7 @@ public:
             std::vector<double>& Qlh, std::vector<double>& Qsh,
             std::vector<double>& I, std::vector<double>& subl, std::vector<double>& dQiadT,
             std::vector<double>& alb_tot,
-            ModelVariable& drag_ui, ModelVariable& drag_ti, bool bulk_for_young);
+            ModelVariable& drag_ui, ModelVariable& drag_ti, ModelVariable& drag_uiw, bool bulk_for_young);
     inline std::tuple<double,double> albedo(const double Tsurf, const double hs, const double frac_pnd,
         const int alb_scheme, const double alb_ice, const double alb_sn, const double alb_pnd, const double I_0);
     inline std::pair<double,double> specificHumidity(schemes::specificHumidity scheme, const int i, double temp = -999.);
@@ -497,8 +497,6 @@ private:
     setup::IceCategoryType M_ice_cat_type;
     setup::MeshType M_mesh_type;
     std::string M_mesh_ordering;
-    mesh::Partitioner M_partitioner;
-    mesh::PartitionSpace M_partition_space;
     //fsd related
     setup::WeldingType M_welding_type    ;
     setup::BreakupType M_breakup_type    ;
@@ -832,6 +830,8 @@ private:
     ModelVariable M_drag_ti;            // Ice-atmosphere thermodynamic drag coefficient
     ModelVariable M_drag_ui_young;      // Ice-atmosphere momentum drag coefficient of young ice
     ModelVariable M_drag_ti_young;      // Ice-atmosphere thermodynamic drag coefficient of young ice
+    ModelVariable M_drag_uiw;           // Ice-ocean momentum drag coefficient
+    ModelVariable M_drag_uiw_young;     // Ice-ocean momentum drag coefficient of young ice
     ModelVariable M_pond_volume;        // Volume of melt ponds per grid cell area
     ModelVariable M_lid_volume;         // Volume of melt pond lid per grid cell area
 
