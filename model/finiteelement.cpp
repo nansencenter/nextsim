@@ -4717,8 +4717,7 @@ FiniteElement::regrid(bool step)
                 // partition the mesh on root process (rank 0)
                 chrono.restart();
                 LOG(DEBUG) <<"Partitioning mesh starts\n";
-                M_mesh_root.partition(M_partitioned_mesh_filename,
-                        M_partitioner, M_partition_space, M_mesh_fileformat);
+                M_mesh_root.partition(M_partitioned_mesh_filename, M_mesh_fileformat);
                 LOG(DEBUG) <<"Partitioning mesh done in "<< chrono.elapsed() <<"s\n";
                 M_timer.tock("partition");
             }
@@ -11604,9 +11603,9 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeField(field_bin, M_dirichlet_flags_root, "M_dirichlet_flags");
 
         // needed for MMG remeshing (not needed for BAMG remeshing but doesn't do any harm)
-        exporter.writeField(outbin, M_neumann_flags_root, "M_neumann_flags");
-        exporter.writeField(outbin, M_dirichlet_flags_root_ordered, "M_dirichlet_flags_ordered");
-        exporter.writeField(outbin, M_neumann_flags_root_ordered, "M_neumann_flags_ordered");
+        exporter.writeField(field_bin, M_neumann_flags_root, "M_neumann_flags");
+        exporter.writeField(field_bin, M_dirichlet_flags_root_ordered, "M_dirichlet_flags_ordered");
+        exporter.writeField(field_bin, M_neumann_flags_root_ordered, "M_neumann_flags_ordered");
 
         std::vector<double> timevec(1);
         timevec[0] = M_current_time;
@@ -11643,7 +11642,7 @@ FiniteElement::writeRestart(std::string const& name_str)
             if (M_rank == 0)
                 for ( int i=0; i<M_mesh_root.numNodes(); ++i )
                     PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
-            exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
+            exporter.writeField(field_bin, PreviousNumbering, "PreviousNumbering");
         }
 
         // Then the record
