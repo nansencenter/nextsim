@@ -4793,16 +4793,16 @@ FiniteElement::adaptMeshBamg()
     this->updateBoundaryFlags();
     if(bamgopt->KeepVertices)
         this->updateNodeIds();
-}//adaptMesh
+}//adaptMeshBamg
 
 
 //------------------------------------------------------------------------------------------------------
-//!  Updates the node ID's after regriding and mesh adaptation. Called by the adaptMesh() function.
+//!  Updates the node ID's after regriding and mesh adaptation. Called by the adaptMeshBamg() function.
 void
 FiniteElement::updateNodeIds()
 {
     // Recompute the node ids
-    // - for during adaptMesh() if bamgopt->KeepVertices is set to 1
+    // - for during adaptMeshBamg() if bamgopt->KeepVertices is set to 1
     //M_mesh_previous_root is the mesh before importBamg was called
     std::vector<int> old_nodes_id = M_mesh_previous_root.id();
 
@@ -4841,7 +4841,7 @@ FiniteElement::updateNodeIds()
 
 //------------------------------------------------------------------------------------------------------
 //! Updates the boundary flags (Neumann vs Dirichlet) after regriding and mesh adaptation.
-//! Called by the adaptMesh() function.
+//! Called by the adaptMeshBamg() and readRestart functions.
 void
 FiniteElement::updateBoundaryFlags()
 {
@@ -4897,6 +4897,7 @@ FiniteElement::updateBoundaryFlags()
     LOG(DEBUG) <<"CLOSED: FLAGS SIZE AFTER= "<< M_dirichlet_flags_root.size() <<"\n";
     LOG(DEBUG) <<"OPEN  : FLAGS SIZE AFTER= "<< M_neumann_flags_root.size() <<"\n";
 }//updateBoundaryFlags
+
 
 #ifdef MMG
 //------------------------------------------------------------------------------------------------------
@@ -11634,7 +11635,7 @@ FiniteElement::writeRestart(std::string const& name_str)
             it->addToRestart(exporter, field_bin);
 
         // Add the previous numbering to the restart file
-        // - used in adaptMesh (updateNodeIds)
+        // - used in adaptMeshBamg (updateNodeIds)
         // - not available with MMG remeshing
         if (!use_MMG)
         {
@@ -11772,7 +11773,7 @@ FiniteElement::readRestart(std::string const& name_str)
             this->importBamg(bamgmesh_root);
             this->updateBoundaryFlags();// update boundary flags
     
-            //! - Adds the previous numbering from the restart file used in adaptMesh (updateNodeIds)
+            //! - Adds the previous numbering from the restart file used in adaptMeshBamg (updateNodeIds)
             std::vector<double> PreviousNumbering = field_map_dbl["PreviousNumbering"];
             for ( int i=0; i<M_mesh_root.numNodes(); ++i )
                 bamgmesh_root->PreviousNumbering[i] = PreviousNumbering[i];
@@ -15854,7 +15855,7 @@ FiniteElement::nodesToElements(double const* depth, std::vector<double>& v)
 
 // -------------------------------------------------------------------------------------
 //! Imports a BAMG mesh grid.
-//! Called by the readRestart() and adaptMesh functions.
+//! Called by the readRestart() and adaptMeshBamg functions.
 void
 FiniteElement::importBamg(BamgMesh const* bamg_mesh)
 {
