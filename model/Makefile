@@ -76,6 +76,10 @@ ifneq ($(NETCDF_CXX_DIR),/usr)
 	CXXFLAGS += -isystem $(NETCDF_CXX_DIR)/include
 endif
 
+ifdef USE_NETCDF_PARALLEL
+	CXXFLAGS += -DNETCDF_PARALLEL
+endif
+
 # gmsh
 ifneq ($(GMSH_DIR),/usr)
 	CXXFLAGS += -isystem $(GMSH_DIR)/include
