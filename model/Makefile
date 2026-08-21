@@ -51,7 +51,7 @@ ifdef USE_AEROBULK
 endif
 
 # boost
-# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems
+# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems with stdlib.h
 ifneq ($(BOOST_DIR),/usr)
 	CXXFLAGS += -isystem $(BOOST_INCDIR)
 endif
@@ -68,7 +68,7 @@ ifdef USE_OASIS
 	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
 endif
 
-# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems
+# don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems with stdlib.h
 ifneq ($(NETCDF_DIR),/usr)
 	CXXFLAGS += -isystem $(NETCDF_DIR)/include
 endif
@@ -77,7 +77,9 @@ ifneq ($(NETCDF_CXX_DIR),/usr)
 endif
 
 # gmsh
-CXXFLAGS += -isystem $(GMSH_DIR)/include/gmsh
+ifneq ($(GMSH_DIR),/usr)
+	CXXFLAGS += -isystem $(GMSH_DIR)/include
+endif
 
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
@@ -91,6 +93,7 @@ LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
+LDFLAGS += -L$(GMSH_LIB_DIR) -lgmsh
 
 ifdef USE_ENSEMBLE
 	LDFLAGS += -L$(NEXTSIMDIR)/lib -lpseudo2D

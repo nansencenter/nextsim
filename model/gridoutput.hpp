@@ -1147,6 +1147,12 @@ private:
 
     void stereographicProjection(std::vector<double> const & x, std::vector<double> const & y, std::vector<double> const & z,
         std::vector<double>& ps_x, std::vector<double>& ps_y);
+
+    // Compression options
+    static constexpr bool shuffle = false;
+    static constexpr bool deflate = true;
+    static constexpr int compression = 4;
+
 };
 } // Nextsim
 #endif // __GridOutput_H

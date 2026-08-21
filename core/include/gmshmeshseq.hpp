@@ -21,15 +21,12 @@
 
 #include <environment.hpp>
 #include <entities.hpp>
-#include <meshpartition.hpp>
 #include "debug.hpp"
 
 extern "C"
 {
 #include <mapx.h>
 }
-
-int PartitionMesh( GModel *const model, meshPartitionOptions &options );
 
 namespace Nextsim
 {
@@ -58,11 +55,8 @@ public:
     //~GmshMeshSeq();
 
     void readFromFile(std::string const& filename);
-    void writeToFile(std::string const& filename);
 
     void partition(std::string const& filename,
-                   mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
-                   mesh::PartitionSpace const& space=mesh::PartitionSpace::MEMORY,
                    std::string const& format="ascii");
 
     void move(std::vector<double> const& um, double factor);
@@ -134,17 +128,6 @@ public:
 
 private:
 
-    void partitionMemory(std::string const& filename,
-                         mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
-                         std::string const& format="ascii");
-
-    void partitionDisk(std::string const& filename,
-                       mesh::Partitioner const& partitioner=mesh::Partitioner::METIS,
-                       std::string const& format="ascii");
-
-
-private:
-
     std::string M_version;
     std::string M_ordering;
     std::string M_mppfile;
@@ -162,8 +145,6 @@ private:
     // container for storing the mesh marker names
     std::map<std::string, std::vector<int> > M_marker_names;
 
-    //meshPartitionOptions M_partition_options;
-    GModel*  M_gmodel;
     std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
 };
 

@@ -32,8 +32,6 @@ extern "C"
 #include <mapx.h>
 }
 
-// from Gmsh
-void SwapBytes(char *array, int size, int n);
 
 namespace Nextsim
 {
@@ -61,7 +59,6 @@ public:
     void readFromFile(std::string const& filename, std::string const& format="ascii");
     void readFromFileBinary(std::ifstream& ifs);
     void readFromFileASCII(std::ifstream& ifs);
-    void writeToFile(std::string const& filename);
     void move(std::vector<double> const& um, double factor);
     void allGather(std::vector<int> const& field_in, std::vector<std::vector<int> >& field_out, int& acc_size);
     void nodalGrid();
@@ -208,6 +205,9 @@ private:
     std::vector<int> M_map_nodes;
 
     std::map<std::string,std::pair<boost::mpi::timer,double> > timer;
+
+    // originally from gmsh
+    void SwapBytes(void *array, size_t size, size_t n);
 };
 
 } // Nextsim
