@@ -106,7 +106,8 @@ endif
 ifdef USE_MMG
     CXXFLAGS += -DMMG
     CXXFLAGS += -I$(PARMMG_DIR)/include
-    LDFLAGS += -L$(PARMMG_DIR)/lib -lmmg -lparmmg2d -lmetis
+    LDFLAGS += -L$(PARMMG_LIB_DIR) -lmmg -lparmmg2d
+    LDFLAGS += -L$(PARMMG_METIS_LIB_DIR) -lmetis
 endif
 
 ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
