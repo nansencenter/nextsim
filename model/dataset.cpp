@@ -9575,7 +9575,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: 1./3600., // Convert seconds to hours
             b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
@@ -9757,7 +9757,7 @@ DataSet::DataSet(char const *DatasetName)
             NaN_mask_value: 0.,
             use_FillValue: true,
             use_missing_value: true,
-            a: 1.,
+            a: 1./3600., // Convert seconds to hours
             b: 0.,
             Units: "hours",
             loaded_data: loaded_data_tmp,
