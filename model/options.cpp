@@ -312,9 +312,9 @@ namespace Nextsim
             ("dynamics.young", po::value<double>()->default_value( 5.9605e+08 ), "Pa")  // 5.3645e+09 gives an elastic wave speed of 1500 m/s and td0 = 6.666 s for resolution of 10 km
                                                                                         // 2.3842e+09 gives an elastic wave speed of 1000 m/s and td0 = 10 s for of 10 km
                                                                                         // 5.9605e+08 gives an elastic wave speed of 500 m/s and td0 = 20 s for resolution of 10 km
-            ("dynamics.C0", po::value<double>()->default_value( 2.0e6 ), "Pa")          // Cohesion value at 10 cm resolution (from Ólason et al., 2023)
-            ("dynamics.C_scale", po::value<double>()->default_value( 0.01 ), "m^2")     // The reference scale for dynamics.C0
-            ("dynamics.Weibull", po::value<double>()->default_value( 4 ), "")           // The Weibull modulus
+            ("dynamics.C0", po::value<double>()->default_value( 4430. ), "Pa")          // Cohesion value at 10 km resolution (from Korosov et al., 2026)
+            ("dynamics.C_scale", po::value<double>()->default_value( 55.5e6 ), "m^2")   // The reference scale for dynamics.C0
+            ("dynamics.Weibull", po::value<double>()->default_value( 16 ), "")          // The Weibull modulus
 
 
             ("dynamics.nu0", po::value<double>()->default_value( 1./3. ), "")
@@ -335,7 +335,7 @@ namespace Nextsim
                 // from V. Dansereau et al.: A Maxwell elasto-brittle rheology for sea ice modelling
 
             // - Water and air drag parameterizations
-            ("dynamics.ERA5_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
+            ("dynamics.ERA5_quad_drag_coef_air", po::value<double>()->default_value( 0.00228 ), "")
             ("dynamics.ECMWF_quad_drag_coef_air", po::value<double>()->default_value( 0.0020 ), "")
             ("dynamics.ASR_quad_drag_coef_air", po::value<double>()->default_value( 0.0049 ), "")
             ("dynamics.CFSR_quad_drag_coef_air", po::value<double>()->default_value( 0.0023 ), "")
@@ -357,7 +357,7 @@ namespace Nextsim
 
             // - Pressure term parameters
             ("dynamics.exponent_compression_factor", po::value<double>()->default_value( 1.5 ), "Power of ice thickness in the pressure term")
-            ("dynamics.compression_factor", po::value<double>()->default_value( 10e3 ), "Max pressure for damaged converging ice")
+            ("dynamics.compression_factor", po::value<double>()->default_value( 5.11e3 ), "Max pressure for damaged converging ice")
 
             // - EVP!
             ("dynamics.substeps", po::value<int>()->default_value( 120 ),
