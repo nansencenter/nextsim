@@ -10,7 +10,6 @@ ENV NEXTSIM_MESH_DIR=/mesh \
     CXX=mpicxx \
     FC=mpifort \
 # Compiler options
-    MPI_INC_DIR=/usr/lib/openmpi/include \
     CFLAGS="-O3 -fPIC" \
     CXXFLAGS="-O3 -pthread -fPIC -fopenmp " \
 # USE MMG
