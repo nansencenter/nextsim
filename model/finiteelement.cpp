@@ -52,7 +52,8 @@ FiniteElement::initMesh()
 
 //------------------------------------------------------------------------------------------------------
 //! Distribution of mesh processing for parallel computing.
-//! Called by the interpFields(), initMesh() and distributedMeshProcessing() functions.
+//! Called by the interpFields(), initMesh() and partitionMeshRestart
+//! functions
 void
 FiniteElement::distributedMeshProcessing(bool start)
 {
@@ -1311,6 +1312,7 @@ FiniteElement::initOptAndParam()
     {
        output_time_step = time_step;
     }
+    M_exporting_results = (output_time_step > 1.e-8);
 
     duration = (vm["simul.duration"].as<double>())*days_in_sec; //! \param duration (double) Duration of the simulation [s]
     if(duration<0)
@@ -4540,7 +4542,7 @@ FiniteElement::regrid(bool step)
 
         if(substep_nb!=1)
         {
-            LOG(WARNING) << substep_nb << "substeps will be needed for the remeshing!" <<"\n";
+            LOG(WARNING) << substep_nb << " substeps will be needed for the remeshing!" <<"\n";
             LOG(WARNING) << "Warning: It is probably due to very high ice speed, check your fields!\n";
         }
 
@@ -8893,6 +8895,36 @@ FiniteElement::thermoIce0(const double dt, const double conc, const double voli,
 }//thermoIce0
 
 
+// ==============================================================================
+//! if we are using MMG remesher without OASIS,
+//! we sometimes don't need the root mesh. This function
+//! gives the conditions to check.
+//! called by init()
+bool FiniteElement::needRootMesh() const {
+
+    // Conservative remapping needs the root mesh
+    if(M_use_moorings &&
+            vm["moorings.use_conservative_remapping"].as<bool>())
+        return true;
+
+    // Diffusion of SST/SSS need the root mesh
+    if ((vm["thermo.diffusivity_sst"].as<double>() > 0.) ||
+            (vm["thermo.diffusivity_sss"].as<double>() > 0.))
+        return true;
+
+    // Outputting binary files
+    // TODO reimplement parallel writing of binaries
+    if (M_exporting_results
+            || M_write_restart_start
+            || M_write_restart_interval
+            || M_write_restart_end)
+        return true;
+
+    // If we get here, we don't need the root mesh
+    return false;
+}//needRootMesh
+
+
 //------------------------------------------------------------------------------------------------------
 //! Initializes constants, dataset descriptions, the time, mesh, variables, forcings, bathymetry, moorings and drifters.
 //! * Also outputs initial mooring snapshots, drifter outputs, normal outputs and  restarts.
@@ -9016,14 +9048,19 @@ FiniteElement::init()
     this->checkOutputs(true);
 
 #ifndef OASIS
-    if (M_rank == 0 && use_MMG && (!M_use_moorings || !vm["moorings.use_conservative_remapping"].as<bool>()) && 
-        vm["thermo.diffusivity_sst"].as<double>() <= 0. && vm["thermo.diffusivity_sss"].as<double>() <= 0.) 
+    // - always need root mesh for OASIS
+    // - if using MMG remesher we sometimes don't need it
+    if ((M_rank == 0) && use_MMG)
     {
-        M_use_mesh_root = false;
-        M_mesh_root.clear_mesh();
-        M_mesh_previous_root.clear_mesh();
+        M_use_mesh_root = this->needRootMesh();
+        if (!M_use_mesh_root)
+        {
+            M_mesh_root.clear_mesh();
+            M_mesh_previous_root.clear_mesh();
+        }
     }
 #endif
+    LOG(DEBUG) << "Using root mesh: " << M_use_mesh_root<<"\n";
 
     //! - 10) Initialise timers
     M_timer = Timer();
@@ -10436,8 +10473,11 @@ FiniteElement::run()
     // **********************************************************************
     // Exporting results
     // **********************************************************************
-    this->updateIceDiagnostics();
-    this->exportResults("final", true, vm["output.export_fields"].as<bool>(), true);
+    if (M_exporting_results)
+    {
+        this->updateIceDiagnostics();
+        this->exportResults("final", true, vm["output.export_fields"].as<bool>(), true);
+    }
     if (M_write_restart_end)
         this->writeRestart("final");
 
@@ -16992,7 +17032,6 @@ FiniteElement::finalise(std::string current_time_system)
         }
         else
         {
-
             delete bamgopt;
             delete bamggeom_root;
             delete bamgmesh_root;
@@ -17005,10 +17044,11 @@ FiniteElement::finalise(std::string current_time_system)
             delete bamgmesh_previous;
             delete bamggeom_previous;
             delete bamgopt_previous;
-        }
 
-        // clear GModel from mesh data structure
-        M_mesh_root.clear();
+            // clear GModel from mesh data structure
+            // (built while partitioning with GMSH)
+            M_mesh_root.clear();
+        }
     }
 
     M_comm.barrier();
