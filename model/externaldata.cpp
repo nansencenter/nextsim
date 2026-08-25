@@ -1442,13 +1442,13 @@ ExternalData::interpolateDataset(Dataset *dataset, std::vector<double> const& RX
                                  &RX[0], &RY[0], M_target_size, 100000000., dataset->grid.interp_type); // We put an excessively high default value, so that it will most likely crashes when not finding data
         break;
         case InterpolationType::FromMeshToMesh2dx:
-            InterpFromMeshToMesh2dx(&data_out,
-                                &(dataset->grid.pfindex)[0],&dataset->grid.gridX[0],&dataset->grid.gridY[0],
-                                        dataset->grid.gridX.size(),dataset->grid.pfnels,
-                                        &data_in[0],
-                                        dataset->grid.gridX.size(),dataset->variables.size()*dataset->nb_forcing_step,
-                                        &RX[0], &RY[0], M_target_size,
-                                        false);
+            InterpFromMeshToMesh2d(&data_out,
+                                   &(dataset->grid.pfindex)[0],&dataset->grid.gridX[0],&dataset->grid.gridY[0],
+                                   dataset->grid.gridX.size(),dataset->grid.pfnels,
+                                   &data_in[0],
+                                   dataset->grid.gridX.size(),dataset->variables.size()*dataset->nb_forcing_step,
+                                   &RX[0], &RY[0], M_target_size,
+                                   false);
         break;
 #if defined OASIS
         case InterpolationType::ConservativeRemapping:

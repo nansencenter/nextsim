@@ -10,11 +10,9 @@ ENV NEXTSIM_MESH_DIR=/mesh \
     CXX=mpicxx \
     FC=mpifort \
 # Compiler options
-    CFLAGS="-O3 -fPIC" \
-    CXXFLAGS="-O3 -pthread -fPIC -fopenmp "
-
-# Compiler options
-ENV CCFLAGS=$CFLAGS
+    CFLAGS="-O3 -fPIC "
+ENV CCFLAGS=$CFLAGS \
+    CXXFLAGS="$CFLAGS -pthread -fopenmp "
 
 # copy source, compile and copy libs of mapx and bamg
 COPY contrib $NEXTSIMDIR/contrib

@@ -60,6 +60,22 @@ public:
     void readFromFileBinary(std::ifstream& ifs);
     void readFromFileASCII(std::ifstream& ifs);
     void move(std::vector<double> const& um, double factor);
+    //! Updates the mesh with a new set of nodes/triangles.
+    //! \param nodes     Node array. For the MMG-parallel path this MUST be the
+    //!                  FULL GLOBAL vertex array (indexed by global id-1, i.e.
+    //!                  triangle indices reference into it directly) -- NOT a
+    //!                  per-rank local subset. For the serial/root path (single
+    //!                  process) this is simply the whole mesh's nodes.
+    //! \param triangles Local (per-rank) triangles, including ghosts, whose
+    //!                  indices reference the global `nodes` array above.
+    //! \param numTrianglesGlobal  Global (deduplicated) triangle count.
+    //! \param numNodesGlobal      Global (deduplicated) node count. Pass -1
+    //!                  (default) for the serial/single-mesh case, where
+    //!                  nodes.size() IS the true (and only meaningful) count.
+    void update(std::vector<point_type> const& nodes,
+                std::vector<element_type> const& triangles,
+                int numTrianglesGlobal,
+                int numNodesGlobal = -1);
     void allGather(std::vector<int> const& field_in, std::vector<std::vector<int> >& field_out, int& acc_size);
     void nodalGrid();
 

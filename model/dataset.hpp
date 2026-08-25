@@ -12,7 +12,6 @@
 #include <environment.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 #include <Bamgx.h>
-#include <InterpFromMeshToMesh2dx.h>
 #include <InterpFromGridToMeshx.h>
 #include <InterpFromMeshToGridx.h>
 #include <netcdf>

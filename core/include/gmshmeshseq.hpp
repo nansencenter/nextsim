@@ -90,6 +90,11 @@ public:
                 std::vector<element_type> const& triangles,
                 std::string const& ordering = "gmsh");
 
+    void update_triangle(int const& i, element_type const& triangle);
+    void update_node(int const& i, point_type const& node);
+
+    void resize_triangle(int const& size);
+    void resize_node(int const& size);
 
     void stereographicProjection();
 
@@ -125,6 +130,7 @@ public:
     void initGModel();
     void writeToGModel();
     void clear();
+    void clear_mesh();
 
 private:
 
