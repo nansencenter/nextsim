@@ -4961,7 +4961,7 @@ FiniteElement::adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field, 
     // Compute the new mesh with MMG
     if (partitioned) 
     {
-        this->anisotropic_remeshing(parmesh, mesh, this->M_metric.components, partitioned);
+        this->anisotropicRemeshing(parmesh, mesh, this->M_metric.components, partitioned);
     }
     else 
     {
@@ -4976,11 +4976,11 @@ FiniteElement::adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field, 
         boost::mpi::broadcast(M_comm, parmesh->niter, 0);
         if (M_rank == 0)
         {
-            this->anisotropic_remeshing(parmesh, M_mesh_root, metric_field, partitioned);
+            this->anisotropicRemeshing(parmesh, M_mesh_root, metric_field, partitioned);
         }
         else
         {
-            this->anisotropic_remeshing(parmesh, mesh, metric_field, partitioned);
+            this->anisotropicRemeshing(parmesh, mesh, metric_field, partitioned);
         }
     }
 
@@ -4999,8 +4999,8 @@ FiniteElement::adaptMeshMMG(FEMeshType& mesh, std::vector<double> const& field, 
 //! Called by the adaptMeshMMG() function
 template<typename FEMeshType>
 void
-FiniteElement::anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh,
-                                     std::vector<std::vector<double>> const& metric_components, int partitioned)
+FiniteElement::anisotropicRemeshing(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh,
+        std::vector<std::vector<double>> const& metric_components, int partitioned)
 {
     int nbVertices;
     int nbTriangles;
@@ -5329,14 +5329,15 @@ FiniteElement::anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const&
     // Update the local mesh
     if (not_restart) M_mesh = mesh_type();
     M_mesh.setOrdering("gmsh");
-    M_mesh.update(mesh_nodes, mesh_triangles, nbTriangles_glob);
+    M_mesh.update(mesh_nodes, mesh_triangles, nbTriangles_glob, nbVertices);
     M_comm.barrier();
 
     if (M_comm.size() > 1) M_mesh.nodalGrid();
 
     chrono.restart();
 
-}// anisotropic_remeshing
+}// anisotropicRemeshing
+
 
 //------------------------------------------------------------------------------------------------------
 //! Convert GMSH mesh to MMG mesh
@@ -5582,7 +5583,7 @@ FiniteElement::convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh
 
 //------------------------------------------------------------------------------------------------------
 //! Updates the boundary flags (Neumann vs Dirichlet) after regriding and mesh adaptation.
-//! Called by the anisotropic_remeshing() functions.
+//! Called by the anisotropicRemeshing() function.
 void FiniteElement::boundary_flags(std::vector<std::vector<int>> list_edges, std::vector<int> Dirichlet_nodes,
                                    std::vector<int> Neumann_nodes, std::vector<int> Mask_Dirichlet, std::vector<int> Mask_Neumann)
 {

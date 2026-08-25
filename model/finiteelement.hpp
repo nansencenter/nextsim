@@ -155,7 +155,7 @@ public:
     void convert_mesh_MMG(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh, int partitioned);
 
     template<typename FEMeshType>
-    void anisotropic_remeshing(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh, 
+    void anisotropicRemeshing(PMMG2D_pParMesh &parmesh, FEMeshType const& mesh, 
                                std::vector<std::vector<double>> const& metric_components, int partitioned);
 
     void boundary_flags(std::vector<std::vector<int>> list_edges, std::vector<int> Dirichlet_nodes, 

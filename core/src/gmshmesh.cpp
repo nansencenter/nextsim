@@ -636,15 +636,33 @@ GmshMesh::move(std::vector<double> const& um, double factor)
 void
 GmshMesh::update(std::vector<point_type> const& nodes,
                  std::vector<element_type> const& triangles,
-                 int numElements)
+                 int numTrianglesGlobal,
+                 int numNodesGlobal)
 {
+#ifndef NDEBUG
+    // Sanity check: every triangle index must be a valid 1-based subscript
+    // into `nodes`. This is the invariant nodalGrid() silently depends on
+    // via M_nodes[k+1] = M_nodes_vec[local_dof_with_ghost[k]-1].
+    for (auto const& tri : triangles)
+        for (int idx : tri.indices)
+            ASSERT(idx >= 1 && idx <= (int)nodes.size(),
+                    "GmshMesh::update: triangle index out of range of node array "
+                    "(did you pass a local node subset where a global one was expected?)");
+#endif
+
     M_nodes_vec = nodes;
     M_triangles = triangles;
     M_num_nodes = nodes.size();
     M_num_triangles = triangles.size();
-    M_global_num_elements_from_serial = numElements;
-    M_global_num_nodes_from_serial = M_num_nodes;
+    M_global_num_elements_from_serial = numTrianglesGlobal;
+
+    // Explicit global node count, when known (parallel/MMG path).
+    // Falls back to nodes.size() for the serial/root-mesh case, where
+    // that value is already correct (no duplication across ranks to
+    // resolve, since there's only one rank/mesh).
+    M_global_num_nodes_from_serial = (numNodesGlobal >= 0) ? numNodesGlobal : M_num_nodes;
 }
+
 
 void
 GmshMesh::stereographicProjection()
@@ -799,9 +817,10 @@ GmshMesh::nodalGrid()
     // and reassigned as a ghost on that rank instead. Lower rank always
     // wins ownership. Applied in increasing `ii` order, this correctly
     // collapses n-way shared nodes (not just pairs) to a single owner.
-    if (M_num_nodes < num_nodes)
+    int const expected_global_num_nodes = M_global_num_nodes_from_serial;
+    if (expected_global_num_nodes < num_nodes)
     {
-        LOG(DEBUG)<<"---------------------------------------Post-processing needed for nodal mesh partition: "<< M_num_nodes <<" != "<< num_nodes <<"\n";
+        LOG(DEBUG)<<"---------------------------------------Post-processing needed for nodal mesh partition: "<< expected_global_num_nodes <<" < "<< num_nodes <<"\n";
 
         for (int ii=0; ii<renumbering.size(); ++ii)
         {
