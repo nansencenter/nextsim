@@ -115,7 +115,7 @@ GmshMesh::readFromFile(std::string const& gmshmshfile, std::string const& format
         this->nodalGrid();
 
     LOG(DEBUG)<<"-------------------INSIDE: NODALGRID done in "<< timer["in.nodal"].first.elapsed() <<"s\n";
-}
+}//readFromFile
 
 void
 GmshMesh::readFromFileASCII(std::ifstream& ifs)
@@ -1099,7 +1099,7 @@ GmshMesh::nodalGrid()
     M_nodes_vec.shrink_to_fit();
 
     std::sort(M_local_ghost.begin(), M_local_ghost.end());
-    M_global_num_nodes = M_num_nodes;
+    M_global_num_nodes = size;
     M_num_nodes = M_nodes.size();
 
     std::vector<int> triangles_num_without_ghost;
