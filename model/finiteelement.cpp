@@ -254,8 +254,11 @@ FiniteElement::bcMarkedNodes()
     LOG(DEBUG) << "Dirichlet flags= "<< M_dirichlet_flags.size() <<"\n";
     LOG(DEBUG) << "Neumann flags  = "<< M_neumann_flags.size() <<"\n";
 
+    M_dirichlet_flags.shrink_to_fit();
+    M_neumann_flags.shrink_to_fit();
 
     M_dirichlet_nodes.resize(2*(M_dirichlet_flags.size()));
+    M_dirichlet_nodes.shrink_to_fit();
     for (int i=0; i<M_dirichlet_flags.size(); ++i)
     {
         M_dirichlet_nodes[2*i] = M_dirichlet_flags[i];
@@ -263,6 +266,7 @@ FiniteElement::bcMarkedNodes()
     }
 
     M_neumann_nodes.resize(2*(M_neumann_flags.size()));
+    M_neumann_nodes.shrink_to_fit();
     for (int i=0; i<M_neumann_flags.size(); ++i)
     {
         M_neumann_nodes[2*i] = M_neumann_flags[i];
@@ -2931,12 +2935,17 @@ FiniteElement::gatherFieldsElementIO( std::vector<double>& elt_values_root,
 
     if (M_rank == 0)
     {
-        elt_values_root.resize(nb_var_element*M_mesh_root.numTriangles());
-        boost::mpi::gatherv(M_comm, elt_values_local, &elt_values_root[0], sizes_elements, 0);
+        std::copy(elt_values_local.begin(), elt_values_local.end(), std::back_inserter(elt_values_root));
+        for (int i = 1; i < M_comm.size(); i++)
+        {
+            std::vector<double> copy(sizes_elements[i]);
+            M_comm.recv(i, i, copy);
+            std::copy(copy.begin(), copy.end(), std::back_inserter(elt_values_root));
+        }
     }
     else
     {
-        boost::mpi::gatherv(M_comm, elt_values_local, 0);
+        M_comm.send(0, M_rank, elt_values_local);
     }
 
     LOG(DEBUG) <<"----------IO: GATHER ELEMENT done in "<< chrono.elapsed() <<"s\n";
@@ -3138,7 +3147,12 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
     LOG(DEBUG) <<"----------GATHER NODE starts\n";
 
     M_nb_var_node = 6;
-    std::vector<double> interp_node_in_local(M_nb_var_node*M_prv_local_ndof,0.);
+    std::vector<double> interp_node_in_local_VT(2*M_prv_local_ndof,0.);
+    std::vector<double> interp_node_in_local_UM(2*M_prv_local_ndof,0.);
+    std::vector<double> interp_node_in_local_UT(2*M_prv_local_ndof,0.);
+    std::vector<double> interp_in_nodes_VT;
+    std::vector<double> interp_in_nodes_UM;
+    std::vector<double> interp_in_nodes_UT;
 
     chrono.restart();
     //std::cout<<"Nodal Interp starts\n";
@@ -3146,54 +3160,52 @@ FiniteElement::gatherFieldsNode(std::vector<double>& interp_in_nodes, std::vecto
 
     for (int i=0; i<M_prv_local_ndof; ++i)
     {
-        int tmp_nb_var = 0;
-
         // VT
-        interp_node_in_local[M_nb_var_node*i] = M_VT[i];
-        tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_VT[i+M_prv_num_nodes];
-        tmp_nb_var++;
+        interp_node_in_local_VT[2*i] = M_VT[i];
+        interp_node_in_local_VT[2*i+1] = M_VT[i+M_prv_num_nodes];
 
         // UM
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i];
-        tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UM[i+M_prv_num_nodes];
-        tmp_nb_var++;
+        interp_node_in_local_UM[2*i] = M_UM[i];
+        interp_node_in_local_UM[2*i+1] = M_UM[i+M_prv_num_nodes];
 
         // UT
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i];
-        tmp_nb_var++;
-        interp_node_in_local[M_nb_var_node*i+tmp_nb_var] = M_UT[i+M_prv_num_nodes];
-        tmp_nb_var++;
-
-        if ( tmp_nb_var != M_nb_var_node )
-            throw std::logic_error("tmp_nb_var not equal to nb_var");
+        interp_node_in_local_UT[2*i] = M_UT[i];
+        interp_node_in_local_UT[2*i+1] = M_UT[i+M_prv_num_nodes];
     }
 
-    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
+    std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+
+    if (M_rank == 0)
+    {
+        interp_in_nodes_VT.resize(2*M_prv_global_num_nodes);
+        interp_in_nodes_UM.resize(2*M_prv_global_num_nodes);
+        interp_in_nodes_UT.resize(2*M_prv_global_num_nodes);
+
+        boost::mpi::gatherv(M_comm, interp_node_in_local_VT, &interp_in_nodes_VT[0], sizes_nodes, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UM, &interp_in_nodes_UM[0], sizes_nodes, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UT, &interp_in_nodes_UT[0], sizes_nodes, 0);
+    }
+    else
+    {
+        boost::mpi::gatherv(M_comm, interp_node_in_local_VT, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UM, 0);
+        boost::mpi::gatherv(M_comm, interp_node_in_local_UT, 0);
+    }
 
     if (M_rank == 0)
     {
         interp_in_nodes.resize(M_nb_var_node*M_prv_global_num_nodes);
-        boost::mpi::gatherv(M_comm, interp_node_in_local, &interp_in_nodes[0], sizes_nodes, 0);
-    }
-    else
-    {
-        boost::mpi::gatherv(M_comm, interp_node_in_local, 0);
-    }
-
-    if (M_rank == 0)
-    {
-        auto interp_in_nodes_nrd = interp_in_nodes;
 
         for (int i=0; i<M_prv_global_num_nodes; ++i)
         {
             int ri =  rmap_nodes[i];
 
-            for (int j=0; j<M_nb_var_node; ++j)
-            {
-                interp_in_nodes[M_nb_var_node*i+j] = interp_in_nodes_nrd[M_nb_var_node*ri+j];
-            }
+            interp_in_nodes[M_nb_var_node*i] = interp_in_nodes_VT[2*ri];
+            interp_in_nodes[M_nb_var_node*i+1] = interp_in_nodes_VT[2*ri+1];
+            interp_in_nodes[M_nb_var_node*i+2] = interp_in_nodes_UM[2*ri];
+            interp_in_nodes[M_nb_var_node*i+3] = interp_in_nodes_UM[2*ri+1];
+            interp_in_nodes[M_nb_var_node*i+4] = interp_in_nodes_UT[2*ri];
+            interp_in_nodes[M_nb_var_node*i+5] = interp_in_nodes_UT[2*ri+1];
         }
     }
 
@@ -3211,58 +3223,74 @@ FiniteElement::scatterFieldsNode(double* interp_nd_out)
 
     LOG(DEBUG) <<"----------SCATTER NODE starts\n";
 
-    std::vector<double> in_nd_values;
+    std::vector<double> in_nd_values_VT;
+    std::vector<double> in_nd_values_UM;
+    std::vector<double> in_nd_values_UT;
 
     if (M_rank == 0)
     {
-        in_nd_values.resize(M_nb_var_node*M_id_nodes.size());
+        in_nd_values_VT.resize(2*M_id_nodes.size());
+        in_nd_values_UM.resize(2*M_id_nodes.size());
+        in_nd_values_UT.resize(2*M_id_nodes.size());
 
         for (int i=0; i<M_id_nodes.size(); ++i)
         {
             //int ri = rmap_nodes.right.find(id_nodes[i])->second-1;
             int ri = M_id_nodes[i]-1;
 
-            for (int j=0; j<M_nb_var_node; ++j)
-            {
-                in_nd_values[M_nb_var_node*i+j] = interp_nd_out[M_nb_var_node*ri+j];
-            }
+            in_nd_values_VT[2*i] = interp_nd_out[M_nb_var_node*ri];
+            in_nd_values_VT[2*i+1] = interp_nd_out[M_nb_var_node*ri+1];
+            in_nd_values_UM[2*i] = interp_nd_out[M_nb_var_node*ri+2];
+            in_nd_values_UM[2*i+1] = interp_nd_out[M_nb_var_node*ri+3];
+            in_nd_values_UT[2*i] = interp_nd_out[M_nb_var_node*ri+4];
+            in_nd_values_UT[2*i+1] = interp_nd_out[M_nb_var_node*ri+5];
         }
     }
 
-    std::vector<double> out_nd_values(M_nb_var_node*M_num_nodes);
+    std::vector<double> out_nd_values_VT(2*M_num_nodes);
+    std::vector<double> out_nd_values_UM(2*M_num_nodes);
+    std::vector<double> out_nd_values_UT(2*M_num_nodes);
     std::vector<int> sizes_nodes = M_sizes_nodes_with_ghost;
 
     if (M_rank == 0)
     {
-        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = M_nb_var_node*f; });
-        boost::mpi::scatterv(M_comm, in_nd_values, sizes_nodes, &out_nd_values[0], 0);
+        std::for_each(sizes_nodes.begin(), sizes_nodes.end(), [&](int& f){ f = 2*f; });
+        boost::mpi::scatterv(M_comm, in_nd_values_VT, sizes_nodes, &out_nd_values_VT[0], 0);
+        boost::mpi::scatterv(M_comm, in_nd_values_UM, sizes_nodes, &out_nd_values_UM[0], 0);
+        boost::mpi::scatterv(M_comm, in_nd_values_UT, sizes_nodes, &out_nd_values_UT[0], 0);
     }
     else
     {
-        boost::mpi::scatterv(M_comm, &out_nd_values[0], M_nb_var_node*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values_VT[0], 2*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values_UM[0], 2*M_num_nodes, 0);
+        boost::mpi::scatterv(M_comm, &out_nd_values_UT[0], 2*M_num_nodes, 0);
     }
-
 
     M_VT.resize(2*M_num_nodes);
     M_UM.resize(2*M_num_nodes);
     M_UT.resize(2*M_num_nodes);
+    M_VT.shrink_to_fit();
+    M_UM.shrink_to_fit();
+    M_UT.shrink_to_fit();
 
     D_tau_w.assign(2*M_num_nodes,0.);
     D_tau_a.assign(2*M_num_nodes,0.);
+    D_tau_w.shrink_to_fit();
+    D_tau_a.shrink_to_fit();
 
     for (int i=0; i<M_num_nodes; ++i)
     {
         // VT
-        M_VT[i] = out_nd_values[M_nb_var_node*i];
-        M_VT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+1];
+        M_VT[i] = out_nd_values_VT[2*i];
+        M_VT[i+M_num_nodes] = out_nd_values_VT[2*i+1];
 
         // UM
-        M_UM[i] = out_nd_values[M_nb_var_node*i+2];
-        M_UM[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+3];
+        M_UM[i] = out_nd_values_UM[2*i];
+        M_UM[i+M_num_nodes] = out_nd_values_UM[2*i+1];
 
         // UT
-        M_UT[i] = out_nd_values[M_nb_var_node*i+4];
-        M_UT[i+M_num_nodes] = out_nd_values[M_nb_var_node*i+5];
+        M_UT[i] = out_nd_values_UT[2*i];
+        M_UT[i+M_num_nodes] = out_nd_values_UT[2*i+1];
     }
 
 
@@ -9442,15 +9470,29 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
         //gather fields to root processor if not using parallel output
         for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
         {
-            std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
-            if (M_rank==0) it->data_grid = result;
+            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
+            if (M_rank == 0)
+            {
+                for (int proc = 1; proc < M_comm.size(); proc++)
+                {
+                    std::vector<double> result;
+                    M_comm.recv(proc, proc, result);
+                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
+                }
+            }
         }
         for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
         {
-            std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
-            if (M_rank==0) it->data_grid = result;
+            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
+            if (M_rank == 0)
+            {
+                for (int proc = 1; proc < M_comm.size(); proc++)
+                {
+                    std::vector<double> result;
+                    M_comm.recv(proc, proc, result);
+                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
+                }
+            }
         }
     }
 
@@ -9498,90 +9540,50 @@ FiniteElement::writeRestart(std::string const& name_str)
     LOG(DEBUG) <<"M_prv_global_num_elements = "<< M_prv_global_num_elements <<"\n";
     LOG(DEBUG) <<"M_ndof                    = "<< M_ndof <<"\n";
 
-    // get names of the variables in the restart file,
-    // and set pointers to the data (pointers to the corresponding vectors)
-    // NB needs to be done on all processors
-    std::vector<double> elt_values_root;
-    this->gatherFieldsElementIO(elt_values_root, M_prognostic_variables_elt);
+    Exporter exporter;
+    std::string const precision = "double";
+    std::string filename;
 
-    // fields defined on mesh nodes
-    std::vector<double> interp_in_nodes;
-    this->gatherFieldsNode(interp_in_nodes, M_rmap_nodes, M_sizes_nodes);
+    // === Start with the mesh ===
+    // First the data
+    // NB directory is never empty, due to the default of output.exporter_path
+    std::string directory = vm["output.exporter_path"].as<std::string>() + "/restart";
 
-    std::vector<double> M_VT_root;
-    std::vector<double> M_UM_root;
-    std::vector<double> M_UT_root;
+    // create the output directory if it does not exist
+    fs::path output_path(directory);
+    if ( !fs::exists(output_path) )
+        fs::create_directories(output_path);
 
-    int tmp_nb_var=0;
+    filename = (boost::format( "%1%/mesh_%2%.bin" )
+                % directory
+                % name_str ).str();
 
+    // Write the file in parallel
+    MPI_File meshbin;
+    MPI_File_open(MPI_Comm(M_comm), filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY,
+                  MPI_INFO_NULL, &meshbin);
+
+    // Write the mesh and close the file
+    std::vector<int> rmap_nodes, rmap_elements;
+    int size_nodes = M_rmap_nodes.size();
+    boost::mpi::broadcast(M_comm, &size_nodes, 1, 0);
+    int size_elements = M_rmap_elements.size();
+    boost::mpi::broadcast(M_comm, &size_elements, 1, 0);
+    rmap_nodes.resize(size_nodes);
+    rmap_elements.resize(size_elements);
     if (M_rank == 0)
     {
-        M_VT_root.resize(2*M_ndof);
-        M_UM_root.resize(2*M_ndof);
-        M_UT_root.resize(2*M_ndof);
-
-        for (int i=0; i<M_ndof; ++i)
-        {
-            tmp_nb_var = 0;
-
-            // VT_X
-            M_VT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // VT_Y
-            M_VT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UM_X
-            M_UM_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UM_Y
-            M_UM_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UT_X
-            M_UT_root[i] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            // UT_Y
-            M_UT_root[i+M_ndof] = interp_in_nodes[M_nb_var_node*i+tmp_nb_var];
-            tmp_nb_var++;
-
-            if(tmp_nb_var>M_nb_var_node)
-            {
-                throw std::logic_error("tmp_nb_var not equal to nb_var");
-            }
-        }
+        rmap_nodes = M_rmap_nodes;
+        rmap_elements = M_rmap_elements;
     }
+    boost::mpi::broadcast(M_comm, &rmap_nodes[0], size_nodes, 0);
+    boost::mpi::broadcast(M_comm, &rmap_elements[0], size_elements, 0);
 
-    M_comm.barrier();
+    exporter.writeMesh(meshbin, M_mesh, rmap_nodes, rmap_elements);
+    MPI_File_close(&meshbin);
 
-    if (M_rank == 0)
+    if (M_rank == 0) 
     {
-        Exporter exporter("double");
-        std::string filename;
-
-        // === Start with the mesh ===
-        // First the data
-        // NB directory is never empty, due to the default of output.exporter_path
-        std::string directory = vm["output.exporter_path"].as<std::string>() + "/restart";
-
-        // create the output directory if it does not exist
-        fs::path output_path(directory);
-        if ( !fs::exists(output_path) )
-            fs::create_directories(output_path);
-
-        filename = (boost::format( "%1%/mesh_%2%.bin" )
-                    % directory
-                    % name_str ).str();
-
-        std::fstream meshbin(filename, std::ios::binary | std::ios::out | std::ios::trunc);
-        if ( ! meshbin.good() )
-            throw std::runtime_error("Cannot write to file: " + filename);
-        exporter.writeMesh(meshbin, M_mesh_root);
-        meshbin.close();
-
         // Then the record
         filename = (boost::format( "%1%/mesh_%2%.dat" )
                     % directory
@@ -9592,61 +9594,71 @@ FiniteElement::writeRestart(std::string const& name_str)
             throw std::runtime_error("Cannot write to file: " + filename);
         exporter.writeRecord(meshrecord,"mesh");
         meshrecord.close();
+    }
 
-        // === Write the prognostic variables ===
-        // First the data
-        filename = (boost::format( "%1%/field_%2%.bin" )
-                    % directory
-                    % name_str ).str();
-        std::fstream outbin(filename, std::ios::binary | std::ios::out | std::ios::trunc );
-        if ( ! outbin.good() )
-            throw std::runtime_error("Cannot write to file: " + filename);
+    // === Write the prognostic variables ===
+    // First the data
+    filename = (boost::format( "%1%/field_%2%.bin" )
+                % directory
+                % name_str ).str();
 
-        std::vector<int> misc_int(4);
-        misc_int[0] = pcpt;
-        misc_int[1] = M_flag_fix;
-        misc_int[2] = mesh_adapt_step;
-        misc_int[3] = M_nb_regrid;
+    MPI_Offset base_offset = 0;
+    MPI_File outbin;
+    MPI_File_open(MPI_Comm(M_comm), filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY,
+                  MPI_INFO_NULL, &outbin);
 
-        exporter.writeField(outbin, misc_int, "Misc_int");
-        exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+    std::vector<int> misc_int(4);
+    misc_int[0] = pcpt;
+    misc_int[1] = M_flag_fix;
+    misc_int[2] = mesh_adapt_step;
+    misc_int[3] = M_nb_regrid;
 
+    exporter.writeField(outbin, misc_int, "Misc_int", "int", M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
+    exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags", "int", M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
-        std::vector<double> timevec(1);
-        timevec[0] = M_current_time;
-        exporter.writeField(outbin, timevec, "Time");
+    std::vector<double> timevec(1);// time always written as double
+    timevec[0] = M_current_time;
+    exporter.writeField(outbin, timevec, "Time", "double", M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
-        // loop over the elemental variables that have been
-        // gathered to elt_values_root
-        int const nb_var_element = M_restart_names_elt.size();
-        for(int j=0; j<nb_var_element; j++)
+    // loop over the elemental variables
+    int const nb_var_element = M_restart_names_elt.size();
+    for(int j = 0; j < nb_var_element; j++)
+    {
+        auto ptr = M_prognostic_variables_elt[j];
+        std::vector<double> tmp(M_local_nelements);
+        for (int i = 0; i < M_local_nelements; ++i)
         {
-            std::vector<double> tmp(M_mesh_root.numTriangles());
-            for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-            {
-                int ri = M_rmap_elements[i];
-                tmp[i] = elt_values_root[nb_var_element*ri+j];
-            }
-            exporter.writeField(outbin, tmp, M_restart_names_elt[j]);
+            tmp[i] = (*ptr)[i];
         }
+        exporter.writeField(outbin, tmp, M_restart_names_elt[j], precision, M_comm, base_offset,
+                            rmap_elements, M_local_nelements, 0, 0);
+    }
 
-        exporter.writeField(outbin, M_VT_root, "M_VT");
-        exporter.writeField(outbin, M_UM_root, "M_UM");
-        exporter.writeField(outbin, M_UT_root, "M_UT");
+    exporter.writeField(outbin, M_VT, "M_VT", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+    exporter.writeField(outbin, M_UM, "M_UM", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+    exporter.writeField(outbin, M_UT, "M_UT", precision, M_comm, base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
 
-        // Add the drifters if they are initialised
-        for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
-            it->addToRestart(exporter, outbin);
+    // Add the drifters if they are initialised
+    for (auto it=M_drifters.begin(); it!=M_drifters.end(); it++)
+        it->addToRestart(exporter, outbin, M_comm, base_offset);
 
-        // Add the previous numbering to the restart file
-        // - used in adaptMesh (updateNodeIds)
-        std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+    // Add the previous numbering to the restart file
+    // - used in adaptMesh (updateNodeIds)
+    std::vector<double> PreviousNumbering(M_mesh_root.numNodes());
+    if (M_rank == 0)
         for ( int i=0; i<M_mesh_root.numNodes(); ++i )
             PreviousNumbering[i] = bamgmesh_root->PreviousNumbering[i];
-        exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering");
 
-        outbin.close();
+    exporter.writeField(outbin, PreviousNumbering, "PreviousNumbering", precision, M_comm, base_offset,
+                        rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
+    MPI_File_close(&outbin);
+
+    if (M_rank == 0)
+    {
         // Then the record
         filename = (boost::format( "%1%/field_%2%.dat" )
                     % directory
@@ -9667,7 +9679,7 @@ FiniteElement::writeRestart(std::string const& name_str)
 void
 FiniteElement::readRestart(std::string const& name_str)
 {
-    Exporter exp_field("double"), exp_mesh("double");
+    Exporter exp_field, exp_mesh;
     std::string filename;
     boost::unordered_map<std::string, std::vector<int>>    field_map_int;
     boost::unordered_map<std::string, std::vector<double>> field_map_dbl;
@@ -13935,11 +13947,15 @@ FiniteElement::updateGhosts(std::vector<double>& mesh_nodal_vec)
 
     std::vector<std::vector<double>> ghost_update_values(M_comm.size());
 
-    for (int const& proc : M_recipients_proc_id)
-        M_comm.send(proc, M_rank, extract_local_values[proc]);
+    std::vector<boost::mpi::request> request;
+    for (int const& proc : M_recipients_proc_id) {
+        request.push_back(M_comm.isend(proc, M_rank, extract_local_values[proc]));
+    }
 
     for (int const& proc : M_local_ghosts_proc_id)
-        M_comm.recv(proc, proc, ghost_update_values[proc]);
+        request.push_back(M_comm.irecv(proc, proc, ghost_update_values[proc]));
+
+    boost::mpi::wait_all(request.begin(), request.end());
 
     for (int i=0; i<M_local_ghosts_local_index.size(); i++)
     {
@@ -14117,9 +14133,6 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         bool const& export_fields, bool const& apply_displacement)
 {
 
-    std::vector<double> M_UM_root;
-    this->gatherNodalField(M_UM, M_UM_root);
-
     // fields defined on mesh elements
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
@@ -14127,77 +14140,53 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
     M_prv_global_num_nodes = M_mesh.numGlobalNodes();
     M_prv_global_num_elements = M_mesh.numGlobalElements();
 
-    // get names of the variables in the output file,
-    // and set pointers to the data (pointers to the corresponding vectors)
-    // NB needs to be done on all processors
-    std::vector<double> M_surface_root;
-    auto names_elements = M_export_names_elt;
-    std::vector<ExternalData*> ext_data_elements;
-    std::vector<double> elt_values_root;
-    std::vector<double> M_VT_root;
-#if defined (OASIS)
-    std::vector<double> M_tau_wi_root;
-#endif
-    std::vector<double> M_wind_root;
-    std::vector<double> M_ocean_root;
-    std::vector<double> M_ssh_root;
-    if(export_fields)
+    // Need of the rmaps on each partition
+    std::vector<int> rmap_nodes, rmap_elements;
+    if (export_mesh || export_fields)
     {
-        M_surface_root = this->surface(M_mesh_root, M_UM_root);
-
-        if(vm["output.save_forcing_fields"].as<bool>())
+        int size_nodes = M_rmap_nodes.size();
+        boost::mpi::broadcast(M_comm, &size_nodes, 1, 0);
+        int size_elements = M_rmap_elements.size();
+        boost::mpi::broadcast(M_comm, &size_elements, 1, 0);
+        rmap_nodes.resize(size_nodes);
+        rmap_elements.resize(size_elements);
+        if (M_rank == 0)
         {
-            ext_data_elements = M_external_data_elements;
-            for(auto name : M_external_data_elements_names)
-                names_elements.push_back(name);
+            rmap_nodes = M_rmap_nodes;
+            rmap_elements = M_rmap_elements;
         }
-        this->gatherFieldsElementIO(elt_values_root, M_export_variables_elt, ext_data_elements);
-
-        // manually export some vectors defined on the nodes
-        this->gatherNodalField(M_VT, M_VT_root);
-#if defined (OASIS)
-        if (M_couple_waves && M_recv_wave_stress)
-            this->gatherNodalField(M_tau_wi.getVector(), M_tau_wi_root);
-#endif
-        if (vm["output.save_forcing_fields"].as<bool>())
-        {
-            this->gatherNodalField(M_wind.getVector(), M_wind_root);
-            this->gatherNodalField(M_ocean.getVector(), M_ocean_root);
-            this->gatherNodalField(M_ssh.getVector(), M_ssh_root);
-        }
-        this->gatherNodalField(M_wind.getVector(),M_wind_root);
+        boost::mpi::broadcast(M_comm, &rmap_nodes[0], size_nodes, 0);
+        boost::mpi::broadcast(M_comm, &rmap_elements[0], size_elements, 0);
     }
-    M_comm.barrier();
-    if (M_rank == 0)
+
+    Exporter exporter;
+    std::string fileout;
+
+    if (export_mesh)
     {
+        fileout = filenames[0]+".bin";
+        LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
 
-        Exporter exporter(vm["output.exporter_precision"].as<std::string>());
-        std::string fileout;
+        // Make a copy of the mesh to avoid introduction of random modifications
+        // in the next timesteps introduced by two mesh moves (1 and -1) on M_mesh
+        mesh_type M_mesh_cpy = mesh_type();
+        M_mesh_cpy = M_mesh;
 
-        if (export_mesh)
+        // move the mesh for the export
+        if(apply_displacement) M_mesh_cpy.move(M_UM,1.);
+
+        // Write the file in parallel
+        MPI_File meshbin;
+        MPI_File_open(MPI_Comm(M_comm), fileout.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, 
+                      MPI_INFO_NULL, &meshbin);
+
+        // Write the mesh and close the file
+        exporter.writeMesh(meshbin, M_mesh_cpy, rmap_nodes, rmap_elements);
+        MPI_File_close(&meshbin);
+
+        // Write the ascii file sequentially
+        if (M_rank == 0)
         {
-            fileout = filenames[0]+".bin";
-            LOG(VERBOSE) <<"MESH BINARY: Exporter Filename= "<< fileout <<"\n";
-
-            if(apply_displacement)
-            {
-                // move the mesh for the export
-                M_mesh_root.move(M_UM_root,1.);
-            }
-
-            std::fstream meshbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-            if ( !meshbin.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
-
-            exporter.writeMesh(meshbin, M_mesh_root);
-            meshbin.close();
-
-            if(apply_displacement)
-            {
-                // move it back after the export
-                M_mesh_root.move(M_UM_root,-1.);
-            }
-
             fileout = filenames[0]+".dat";
 
             LOG(VERBOSE) <<"RECORD MESH: Exporter Filename= "<< fileout <<"\n";
@@ -14209,67 +14198,86 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
             exporter.writeRecord(outrecord,"mesh");
             outrecord.close();
         }
+    }
 
-        if (export_fields)
-        {
-            fileout = filenames[1]+".bin";
-            LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
+    if (export_fields)
+    {
+        std::string const precision = vm["output.exporter_precision"].as<std::string>();
+        MPI_Offset base_offset = 0;
 
-            std::fstream outbin(fileout, std::ios::binary | std::ios::out | std::ios::trunc);
-            if ( !outbin.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
+        fileout = filenames[1]+".bin";
+        LOG(VERBOSE) <<"BINARY: Exporter Filename= "<< fileout <<"\n";
 
-            std::vector<double> timevec = {M_current_time};
-            std::vector<int> regridvec = {M_nb_regrid};
+        MPI_File outbin;
+        MPI_File_open(MPI_Comm(M_comm), fileout.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, 
+                      MPI_INFO_NULL, &outbin);
 
-            exporter.writeField(outbin, timevec, "Time");
-            // exporter.writeField(outbin, regridvec, "M_nb_regrid");
-            // exporter.writeField(outbin, M_surface_root, "Element_area");
-            // exporter.writeField(outbin, M_dirichlet_flags_root, "M_dirichlet_flags");
+        // Nodes
+        std::vector<double> timevec = {M_current_time};// time always written as double
+        exporter.writeField(outbin, timevec, "Time", "double", M_comm, base_offset,
+                            rmap_nodes, M_local_ndof, M_num_nodes, 1);
 
-            //manually export some vectors defined on the nodes
-            std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
-            if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
-                exporter.writeField(outbin, M_VT_root, "M_VT");
+        //manually export some vectors defined on the nodes
+        std::vector<std::string> names = vm["output.variables"].as<std::vector<std::string>>();
+        if ( std::find(names.begin(), names.end(), "M_VT") != names.end() )
+            exporter.writeField(outbin, M_VT, "M_VT", precision, M_comm, base_offset,
+                                rmap_nodes, M_local_ndof, M_num_nodes, 0);
 #if defined (OASIS)
-            if (M_couple_waves && M_recv_wave_stress)
-                exporter.writeField(outbin, M_tau_wi_root, "M_tau_wi");
+        if (M_couple_waves && M_recv_wave_stress)
+            exporter.writeField(outbin, M_tau_wi.getVector(), "M_tau_wi", precision, M_comm,
+                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
 #endif
-            if (vm["output.save_forcing_fields"].as<bool>())
-            {
-                exporter.writeField(outbin, M_wind_root, "M_wind");
-                exporter.writeField(outbin, M_ocean_root, "M_ocean");
-                exporter.writeField(outbin, M_ssh_root, "M_ssh");
-            }
-
-
-            // loop over the elemental variables that have been
-            // gathered to elt_values_root
-            int const nb_var_element = names_elements.size();
-            for(int j=0; j<nb_var_element; j++)
-            {
-                std::vector<double> tmp(M_mesh_root.numTriangles());
-                for (int i=0; i<M_mesh_root.numTriangles(); ++i)
-                {
-                    int ri = M_rmap_elements[i];
-                    tmp[i] = elt_values_root[nb_var_element*ri+j];
-                }
-                exporter.writeField(outbin, tmp, names_elements[j]);
-
-            }
-
-            outbin.close();
-
-            fileout = filenames[1]+".dat";
-            LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
-
-            std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
-            if ( !outrecord.good() )
-                throw std::runtime_error("Cannot write to file: " + fileout);
-
-            exporter.writeRecord(outrecord);
-            outrecord.close();
+        if (vm["output.save_forcing_fields"].as<bool>())
+        {
+            exporter.writeField(outbin, M_wind.getVector(), "M_wind", precision, M_comm,
+                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+            exporter.writeField(outbin, M_ocean.getVector(), "M_ocean", precision, M_comm,
+                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
+            exporter.writeField(outbin, M_ssh.getVector(), "M_ssh", precision, M_comm,
+                                base_offset, rmap_nodes, M_local_ndof, M_num_nodes, 0);
         }
+
+        // Elements
+        int unused_int = 0;
+        auto names_elements = M_export_names_elt;
+        std::vector<double> elt_values_local(M_local_nelements);
+        for(int j = 0; j < M_export_variables_elt.size(); j++)
+        {
+            auto ptr = M_export_variables_elt[j];
+            for (int i = 0; i < M_local_nelements; ++i)
+            {       
+                elt_values_local[i] = (*ptr)[i];
+            }
+            exporter.writeField(outbin, elt_values_local, names_elements[j], precision, M_comm,
+                                base_offset, rmap_elements, M_local_nelements, unused_int, 0);
+        }
+        if(vm["output.save_forcing_fields"].as<bool>())
+        {
+            for(auto name : M_external_data_elements_names) names_elements.push_back(name);
+
+        	for(int j = 0; j < M_external_data_elements.size(); j++)
+        	{
+        	    auto ptr = M_external_data_elements[j];
+        	    for (int i = 0; i<M_local_nelements; ++i)
+                {
+                	elt_values_local[i] = (*ptr)[i];
+                }
+                exporter.writeField(outbin, elt_values_local, names_elements[j+M_export_variables_elt.size()], precision,
+                                    M_comm, base_offset, rmap_elements, M_local_nelements, unused_int, 0);
+        	}
+        }
+
+        MPI_File_close(&outbin);
+
+        fileout = filenames[1]+".dat";
+        LOG(VERBOSE) <<"RECORD FIELD: Exporter Filename= "<< fileout <<"\n";
+
+        std::fstream outrecord(fileout, std::ios::out | std::ios::trunc);
+        if ( !outrecord.good() )
+            throw std::runtime_error("Cannot write to file: " + fileout);
+
+        exporter.writeRecord(outrecord);
+        outrecord.close();
     }
 
 }// exportResults()
@@ -14624,86 +14632,109 @@ FiniteElement::checkFields()
     std::stringstream crash_msg;
     bool crash_els = false;
 
-    for(int i=0; i<M_num_elements; i++)
+    std::vector<int> indices;
+    auto names = M_external_data_elements_names;
+
+    // common sense maxima (not absolute maxima)
+    boost::unordered_map<std::string, double>
+        too_high_values = boost::assign::map_list_of
+            ("M_thick", 35.)
+            ;
+
+    // check the forcings 1st
+    for (int j = 0; j < M_external_data_elements.size(); j++)
     {
+        auto ptr = M_external_data_elements[j];
+        auto name = names[j];
+
         std::vector<double> values;
-        auto names = M_external_data_elements_names;
+        for(int i = 0; i < M_num_elements; i++) values.push_back(ptr->get(i));
 
-        // common sense maxima (not absolute maxima)
-        boost::unordered_map<std::string, double>
-            too_high_values = boost::assign::map_list_of
-                ("M_thick", 35.)
-                ;
-
-        // check the forcings 1st
-        for (int j=0; j<M_external_data_elements.size(); j++)
+        if (std::any_of(values.begin(), values.end(), [](double x) { return std::isnan(x); }))
         {
-            auto ptr = M_external_data_elements[j];
-            auto name = names[j];
-            double val = ptr->get(i);
-            values.push_back(val);
-            if(std::isnan(val))
+            crash_els = true;
+            crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+            for (int i = 0; i < M_num_elements; i++)
             {
-                crash_els = true;
-                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+                if (std::isnan(values[i])) indices.push_back(i);
+            }
+        }
+    }
+
+    // check the variables 2nd
+    for (auto ptr: M_variables_elt)
+    {
+        std::string name = ptr->name();
+        names.push_back(name);
+
+        // is it nan?
+        if (std::any_of(ptr->begin(), ptr->end(), [](double x) { return std::isnan(x); }))
+        {
+            crash_els = true;
+            crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
+            for (int i = 0; i < M_num_elements; i++)
+            {
+                if (std::isnan((*ptr)[i])) indices.push_back(i);
             }
         }
 
-        // check the variables 2nd
-        for (auto ptr: M_variables_elt)
+        // is it < min allowed value?
+        double val = *std::min_element(ptr->begin(), ptr->end());
+        if(ptr->hasMinVal())
         {
-            double val = (*ptr)[i];//vecs_to_check[j] is a pointer, so dereference
-            std::string name = ptr->name();
-            values.push_back(val);
-            names.push_back(name);
-
-            // is it nan?
-            if(std::isnan(val))
+            double thresh = ptr->minVal() - 1.e-8;
+            if(val < thresh)
             {
                 crash_els = true;
-                crash_msg << "[" << M_rank << "] Found nan in VARIABLE " << name << "\n";
-            }
-
-            // is it < min allowed value?
-            if(ptr->hasMinVal())
-            {
-                double thresh = ptr->minVal() - 1.e-8;
-                if(val<thresh)
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
+                    << val << " < " << thresh
+                    << ", |diff|=" << thresh - val << "\n";
+                for (int i = 0; i < M_num_elements; i++)
                 {
-                    crash_els = true;
-                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too low: "
-                        << val << " < " << thresh
-                        << ", |diff|=" << thresh - val << "\n";
-                }
-            }
-
-            // is it > max allowed value?
-            if(ptr->hasMaxVal())
-            {
-                double thresh = ptr->maxVal() + 1.e-8;
-                if(val>thresh)
-                {
-                    crash_els = true;
-                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
-                        << val << " > " << thresh
-                        << ", |diff|=" << val-thresh << "\n";
-                }
-            }
-
-            // check if it is too high for common sense
-            if(too_high_values.count(name)>0)
-            {
-                double thresh = too_high_values[name];
-                if(val > thresh)
-                {
-                    crash_els = true;
-                    crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
-                        << val << " > " << thresh << "\n";
+                    if ((*ptr)[i] < thresh) indices.push_back(i);
                 }
             }
         }
+
+        // is it > max allowed value?
+        val = *std::max_element(ptr->begin(), ptr->end());
+        if(ptr->hasMaxVal())
+        {
+            double thresh = ptr->maxVal() + 1.e-8;
+            if(val > thresh)
+            {
+                crash_els = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is too high: "
+                    << val << " > " << thresh
+                    << ", |diff|=" << val-thresh << "\n";
+                for (int i = 0; i < M_num_elements; i++)
+                {
+                    if ((*ptr)[i] > thresh) indices.push_back(i);
+                }
+            }
+        }
+
+        // check if it is too high for common sense
+        if(too_high_values.count(name) > 0)
+        {
+            double thresh = too_high_values[name];
+            val = *std::max_element(ptr->begin(), ptr->end());
+            if(val > thresh)
+            {
+                crash_els = true;
+                crash_msg << "[" <<M_rank << "] VARIABLE " << name << " is higher than it should be: "
+                    << val << " > " << thresh << "\n";
+                for (int i = 0; i < M_num_elements; i++)
+                {
+                    if ((*ptr)[i] > thresh) indices.push_back(i);
+                }
+            }
+        }
+    }
 
 #ifdef OASIS
+    for (int i = 0; i < M_num_elements; i++)
+    {
         if(M_num_fsd_bins>0)
         {
             double ctot = M_conc[i];
@@ -14723,73 +14754,67 @@ FiniteElement::checkFields()
                     crash_msg << " M_conc_young ="<< M_conc_young[i]<< " \n";
             }
         }
+    }
 #endif
 
-        if((printout && i==itest) || crash_els)
-        {
-            // printout all the variables' values
+    if((printout && std::find(indices.begin(), indices.end(), itest) != indices.end()) || crash_els)
+    {
+        // printout all the variables' values
+        int i = indices[0];
+        if (std::find(indices.begin(), indices.end(), itest) != indices.end()) i = itest;
 
-            // get x,y and lon, lat at current position
-            double xtest = 0.;
-            double ytest = 0.;
-            double lat_test = 0.;
-            double lon_test = 0.;
+        // get x,y and lon, lat at current position
+        double xtest = 0.;
+        double ytest = 0.;
+        double lat_test = 0.;
+        double lon_test = 0.;
 
-            auto movedmesh = M_mesh;
-            movedmesh.move(M_UM, 1.);
-            xtest = movedmesh.bCoordX()[i];
-            ytest = movedmesh.bCoordY()[i];
+        auto movedmesh = M_mesh;
+        movedmesh.move(M_UM, 1.);
+        xtest = movedmesh.bCoordX()[i];
+        ytest = movedmesh.bCoordY()[i];
 
-            // get lon, lat at test position
-            mapx_class *map;
-            std::string mppfile = Environment::nextsimMppfile();
-            std::vector<char> str(mppfile.begin(), mppfile.end());
-            str.push_back('\0');
-            map = init_mapx(&str[0]);
-            inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
-            close_mapx(map);
+        // get lon, lat at test position
+        mapx_class *map;
+        std::string mppfile = Environment::nextsimMppfile();
+        std::vector<char> str(mppfile.begin(), mppfile.end());
+        str.push_back('\0');
+        map = init_mapx(&str[0]);
+        inverse_mapx(map, xtest, ytest, &lat_test, &lon_test);
+        close_mapx(map);
 
-            LOG(INFO)<<pcpt<<"\n";
-            LOG(INFO)<<datenumToString(M_current_time)<<"\n";
-            LOG(INFO)<<M_nb_regrid<<"\n";
-            LOG(INFO)<<i<<"\n";
-            LOG(INFO)<<xtest <<"," <<ytest <<"\n";
-            LOG(INFO)<<lon_test <<"," <<lat_test <<"\n";
+        LOG(INFO)<<pcpt<<"\n";
+        LOG(INFO)<<datenumToString(M_current_time)<<"\n";
+        LOG(INFO)<<M_nb_regrid<<"\n";
+        LOG(INFO)<<i<<"\n";
+        LOG(INFO)<<xtest <<"," <<ytest <<"\n";
+        LOG(INFO)<<lon_test <<"," <<lat_test <<"\n";
 
-            for(int j=0; j<names.size(); j++)
-            {
-                if(j<M_external_data_elements_names.size())
-                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
-                else
-                    LOG(INFO)<<names[j] <<" = "<< values[j] <<"\n";
-            }
-            std::cout<<"\n";
-        }
-        if(crash_els) break;
-    }// loop over elements
+        std::cout<<"\n";
+    }
 
     bool crash_nd = false;
-    for (int i=0; i<M_num_nodes; i++)
-    {
-        std::vector<double> values;
-        auto names = M_external_data_nodes_names;
+    names = M_external_data_nodes_names;
 
-        for (int j=0; j<M_external_data_nodes.size(); j++)
+    for (int j = 0; j < M_external_data_nodes.size(); j++)
+    {
+        auto ptr = M_external_data_nodes[j];
+        auto name = names[j];
+
+        std::vector<double> values;
+        for(int i = 0; i < M_num_nodes; i++) values.push_back(ptr->get(i));
+
+        if (ptr->isVector())
         {
-            auto ptr = M_external_data_nodes[j];
-            auto name = names[j];
-            double val = ptr->get(i);
-            if (ptr->isVector())
-                val = std::hypot(val, ptr->get(i + M_num_nodes));
-            values.push_back(val);
-            if(std::isnan(val))
-            {
-                crash_nd = true;
-                crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
-            }
+            for(int i = 0; i < M_num_nodes; i++) values.push_back(ptr->get(i + M_num_nodes));
         }
-        if(crash_nd) break;
-    }//loop over nodes
+
+        if (std::any_of(values.begin(), values.end(), [](double x) { return std::isnan(x); }))
+        {
+            crash_nd = true;
+            crash_msg << "[" << M_rank << "] Found nan in FORCING " << name << "\n";
+        }
+    }
 
     bool const crash = (crash_els || crash_nd);
     // Export everything and crash
