@@ -9471,7 +9471,9 @@ FiniteElement::updateMoorings()
 
         // get data on grid and write to netcdf
         // (gathering to master if necessary)
+	M_timer.tick("appendNetcdf");
         this->mooringsAppendNetcdf(output_time);
+	M_timer.tock("appendNetcdf");
 
     }//outputting
 }//updateMoorings
@@ -9547,6 +9549,7 @@ FiniteElement::writeRestart()
 void
 FiniteElement::writeRestart(std::string const& name_str)
 {
+    M_timer.tick("writeRestart");
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
     M_prv_num_elements = M_local_nelements;
@@ -9721,6 +9724,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeRecord(field_dat);
         field_dat.close();
     }
+    M_timer.tock("writeRestart");
 }//writeRestart
 
 
