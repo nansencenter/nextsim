@@ -9471,9 +9471,9 @@ FiniteElement::updateMoorings()
 
         // get data on grid and write to netcdf
         // (gathering to master if necessary)
-	M_timer.tick("appendNetcdf");
+        M_timer.tick("appendNetcdf");
         this->mooringsAppendNetcdf(output_time);
-	M_timer.tock("appendNetcdf");
+        M_timer.tock("appendNetcdf");
 
     }//outputting
 }//updateMoorings
