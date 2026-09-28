@@ -9523,18 +9523,24 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
     if ( ! M_moorings_parallel_output )
     {
         //gather fields to root processor if not using parallel output
+        auto reduceToRoot = [&](std::vector<double>& v)
+        {
+            if (M_rank == 0)
+            {
+                std::vector<double> result(v.size());
+                boost::mpi::reduce(M_comm, v.data(), (int)v.size(), result.data(),
+                                   std::plus<double>(), 0);
+                v.swap(result);
+            }
+            else
+                boost::mpi::reduce(M_comm, v.data(), (int)v.size(), std::plus<double>(), 0);
+        };
+
         for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
-        {
-            std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
-            if (M_rank==0) it->data_grid = result;
-        }
+            reduceToRoot(it->data_grid);
+
         for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
-        {
-            std::vector<double> result;
-            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
-            if (M_rank==0) it->data_grid = result;
-        }
+            reduceToRoot(it->data_grid);
     }
     M_timer.tock("mooringsAppendNetcdf_gathering");
 
