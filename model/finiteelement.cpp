@@ -9525,29 +9525,15 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
         //gather fields to root processor if not using parallel output
         for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
         {
-            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
-            if (M_rank == 0)
-            {
-                for (int proc = 1; proc < M_comm.size(); proc++)
-                {
-                    std::vector<double> result;
-                    M_comm.recv(proc, proc, result);
-                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
-                }
-            }
+            std::vector<double> result;
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
+            if (M_rank==0) it->data_grid = result;
         }
         for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
         {
-            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
-            if (M_rank == 0)
-            {
-                for (int proc = 1; proc < M_comm.size(); proc++)
-                {
-                    std::vector<double> result;
-                    M_comm.recv(proc, proc, result);
-                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
-                }
-            }
+            std::vector<double> result;
+            boost::mpi::reduce(M_comm, it->data_grid, result, std::plus<double>(), 0);
+            if (M_rank==0) it->data_grid = result;
         }
     }
     M_timer.tock("mooringsAppendNetcdf_gathering");
