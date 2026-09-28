@@ -9516,6 +9516,7 @@ FiniteElement::updateMoorings()
 void
 FiniteElement::mooringsAppendNetcdf(double const &output_time)
 {
+    M_timer.tick("mooringsAppendNetcdf_gathering");
     // update data on grid
     M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
 
@@ -9549,15 +9550,19 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
             }
         }
     }
+    M_timer.tock("mooringsAppendNetcdf_gathering");
 
+    M_timer.tick("mooringsAppendNetcdf_writing");
     //append to netcdf
     if ( (M_rank==0) || M_moorings_parallel_output )
         M_moorings.appendNetCDF(M_moorings_file, output_time);
+    M_timer.tock("mooringsAppendNetcdf_writing");
 
     //reset means on mesh and grid
     M_moorings.resetMeshMean(M_mesh);
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
+
 
 //------------------------------------------------------------------------------------------------------
 //! Writes restart files.
