@@ -8540,7 +8540,8 @@ FiniteElement::run()
     // Exporting results
     // **********************************************************************
     this->updateIceDiagnostics();
-    this->exportResults("final", true, vm["output.export_fields"].as<bool>(), true);
+    if (output_time_step != 0)
+       this->exportResults("final", true, vm["output.export_fields"].as<bool>(), true);
     if (M_write_restart_end)
         this->writeRestart("final");
 
