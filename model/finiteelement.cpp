@@ -1451,6 +1451,7 @@ FiniteElement::initOptAndParam()
     M_use_moorings =  vm["moorings.use_moorings"].as<bool>(); //! \param M_use_moorings (boolean) Option on the use of moorings
     M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>(); //! \param M_moorings_snapshot (boolean) Option on outputting snapshots of mooring records
     M_moorings_parallel_output =  vm["moorings.parallel_output"].as<bool>(); //! \param M_moorings_parallel_output (boolean) Option on parallel outputs
+    M_fast_gather =  vm["moorings.fast_gather"].as<bool>(); //! \param M_fast_gather (boolean) Option to gather faster but with higher memory requirements
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
         ("daily", GridOutput::fileLength::daily)
@@ -9516,24 +9517,43 @@ FiniteElement::updateMoorings()
 void
 FiniteElement::mooringsAppendNetcdf(double const &output_time)
 {
-    M_timer.tick("mooringsAppendNetcdf_gathering");
+    M_timer.tick("mooringsAppendNetcdf_update");
     // update data on grid
     M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
+    M_timer.tock("mooringsAppendNetcdf_update");
 
+    M_timer.tick("mooringsAppendNetcdf_gathering");
     if ( ! M_moorings_parallel_output )
     {
         //gather fields to root processor if not using parallel output
         auto reduceToRoot = [&](std::vector<double>& v)
         {
-            if (M_rank == 0)
+            if (M_fast_gather)
             {
-                std::vector<double> result(v.size());
-                boost::mpi::reduce(M_comm, v.data(), (int)v.size(), result.data(),
-                                   std::plus<double>(), 0);
-                v.swap(result);
+                // reduce-based path: faster, higher (double) peak memory
+                if (M_rank == 0)
+                {
+                    std::vector<double> result;
+                    boost::mpi::reduce(M_comm, v, result, std::plus<double>(), 0);
+                    v.swap(result);
+                }
+                else
+                    boost::mpi::reduce(M_comm, v, std::plus<double>(), 0);
             }
             else
-                boost::mpi::reduce(M_comm, v.data(), (int)v.size(), std::plus<double>(), 0);
+            {
+                // send/recv path: slower, lower (half) peak memory
+                if (M_rank != 0)
+                    M_comm.send(0, M_rank, v);
+                if (M_rank == 0)
+                    for (int proc = 1; proc < M_comm.size(); proc++)
+                    {
+                        std::vector<double> result;
+                        M_comm.recv(proc, proc, result);
+                        for (int i = 0; i < v.size(); i++)
+                            v[i] += result[i];
+                    }
+            }
         };
 
         for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
