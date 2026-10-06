@@ -158,7 +158,7 @@ namespace Nextsim
             ("moorings.false_easting", po::value<bool>()->default_value( true ),
                 "true: we output vectors relative to the output grid; false: we give their north-south components. NB only implemented for grid_type=regular")
             ("moorings.parallel_output", po::value<bool>()->default_value( false ), "")
-
+            ("moorings.compress_netcdf", po::value<bool>()->default_value( true ), "True: compress moorings netcdf outputs (slightly slower)")
 
             // -- drifters
             ("drifters.concentration_limit", po::value<double>()->default_value( 0.15 ), "lower concentration limit for ignoring a drifter")

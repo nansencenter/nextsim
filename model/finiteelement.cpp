@@ -9059,6 +9059,7 @@ FiniteElement::initMoorings()
         M_moorings.setLSM(bamgmesh_root);
 
     // Initialise netCDF output
+    M_moorings.setCompression(vm["moorings.compress_netcdf"].as<bool>());
     if ( (M_rank==0) || M_moorings_parallel_output )
     {
         double output_time;
