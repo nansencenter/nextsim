@@ -9599,6 +9599,7 @@ FiniteElement::writeRestart()
 void
 FiniteElement::writeRestart(std::string const& name_str)
 {
+    M_timer.tick("writeRestart");
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
     M_prv_num_elements = M_local_nelements;
@@ -9773,6 +9774,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeRecord(field_dat);
         field_dat.close();
     }
+    M_timer.tock("writeRestart");
 }//writeRestart
 
 
@@ -14249,6 +14251,7 @@ void
 FiniteElement::exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
         bool const& export_fields, bool const& apply_displacement)
 {
+    M_timer.tick("exportResults");
 
     std::vector<double> M_UM_root;
     this->gatherNodalField(M_UM, M_UM_root);
@@ -14398,6 +14401,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         }
     }
 
+    M_timer.tock("exportResults");
 }// exportResults()
 
 
