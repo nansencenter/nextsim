@@ -1093,6 +1093,10 @@ public:
     std::vector<std::vector<double>> const &getWeights() const { return M_weights; }
 
     void info();
+    void setCompression(const bool compress_netcdf)
+    {
+        deflate = compress_netcdf;
+    }
 
 private:
 
@@ -1149,8 +1153,8 @@ private:
         std::vector<double>& ps_x, std::vector<double>& ps_y);
 
     // Compression options
+    bool deflate = true;
     static constexpr bool shuffle = false;
-    static constexpr bool deflate = true;
     static constexpr int compression = 4;
 
 };
