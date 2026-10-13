@@ -1444,7 +1444,7 @@ FiniteElement::initOptAndParam()
 #else
     M_moorings_parallel_output = false;
 #endif
-
+    M_fast_gather =  vm["moorings.fast_gather"].as<bool>(); //! \param M_fast_gather (boolean) Option to gather faster but with higher memory requirements. Not active if outputting in parallel
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
         ("daily", GridOutput::fileLength::daily)
@@ -8520,7 +8520,8 @@ FiniteElement::run()
     // Exporting results
     // **********************************************************************
     this->updateIceDiagnostics();
-    this->exportResults("final", true, vm["output.export_fields"].as<bool>(), true);
+    if (output_time_step != 0)
+       this->exportResults("final", true, vm["output.export_fields"].as<bool>(), true);
     if (M_write_restart_end)
         this->writeRestart("final");
 
@@ -9404,6 +9405,7 @@ FiniteElement::initMoorings()
     M_moorings.setLSM(M_mesh);
 
     // Initialise netCDF output
+    M_moorings.setCompression(vm["moorings.compress_netcdf"].as<bool>());
     if ( (M_rank==0) || M_moorings_parallel_output )
     {
         double output_time;
@@ -9489,40 +9491,56 @@ FiniteElement::updateMoorings()
 void
 FiniteElement::mooringsAppendNetcdf(double const &output_time)
 {
+    M_timer.tick("mooringsAppendNetcdf_update");
     // update data on grid
     M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
+    M_timer.tock("mooringsAppendNetcdf_update");
 
     if ( ! M_moorings_parallel_output )
     {
+        M_timer.tick("mooringsAppendNetcdf_gathering");
+
         //gather fields to root processor if not using parallel output
+        auto reduceToRoot = [&](std::vector<double>& v)
+        {
+            if (M_fast_gather)
+            {
+                // reduce-based path: faster, higher (double) peak memory
+                if (M_rank == 0)
+                {
+                    std::vector<double> result;
+                    boost::mpi::reduce(M_comm, v, result, std::plus<double>(), 0);
+                    v.swap(result);
+                }
+                else
+                    boost::mpi::reduce(M_comm, v, std::plus<double>(), 0);
+            }
+            else
+            {
+                // send/recv path: slower, lower (half) peak memory
+                if (M_rank != 0)
+                    M_comm.send(0, M_rank, v);
+                if (M_rank == 0)
+                    for (int proc = 1; proc < M_comm.size(); proc++)
+                    {
+                        std::vector<double> result;
+                        M_comm.recv(proc, proc, result);
+                        for (int i = 0; i < v.size(); i++)
+                            v[i] += result[i];
+                    }
+            }
+        };
+
         for (auto it=M_moorings.M_nodal_variables.begin(); it!=M_moorings.M_nodal_variables.end(); ++it)
-        {
-            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
-            if (M_rank == 0)
-            {
-                for (int proc = 1; proc < M_comm.size(); proc++)
-                {
-                    std::vector<double> result;
-                    M_comm.recv(proc, proc, result);
-                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
-                }
-            }
-        }
+            reduceToRoot(it->data_grid);
+
         for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
-        {
-            if (M_rank != 0) M_comm.send(0, M_rank, it->data_grid);
-            if (M_rank == 0)
-            {
-                for (int proc = 1; proc < M_comm.size(); proc++)
-                {
-                    std::vector<double> result;
-                    M_comm.recv(proc, proc, result);
-                    for (int i = 0; i < it->data_grid.size(); i++) it->data_grid[i] += result[i];
-                }
-            }
-        }
+            reduceToRoot(it->data_grid);
+
+        M_timer.tock("mooringsAppendNetcdf_gathering");
     }
 
+    M_timer.tick("mooringsAppendNetcdf_writing");
     //append to netcdf
     if (M_moorings_parallel_output) 
     {
@@ -9534,12 +9552,16 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
         double ymax = *std::max_element(coord.begin(), coord.end());
         M_moorings.appendNetCDFParallel(M_moorings_file, output_time, {xmin, ymin, xmax, ymax});
     }
-    else if (M_rank == 0) M_moorings.appendNetCDF(M_moorings_file, output_time);
+    else if (M_rank == 0)
+        M_moorings.appendNetCDF(M_moorings_file, output_time);
+    M_timer.tock("mooringsAppendNetcdf_writing");
 
     //reset means on mesh and grid
     M_moorings.resetMeshMean(M_mesh);
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
+
+
 
 //------------------------------------------------------------------------------------------------------
 //! Writes restart files.
@@ -9563,6 +9585,7 @@ FiniteElement::writeRestart()
 void
 FiniteElement::writeRestart(std::string const& name_str)
 {
+    M_timer.tick("writeRestart");
     M_prv_local_ndof = M_local_ndof;
     M_prv_num_nodes = M_num_nodes;
     M_prv_num_elements = M_local_nelements;
@@ -9737,6 +9760,7 @@ FiniteElement::writeRestart(std::string const& name_str)
         exporter.writeRecord(field_dat);
         field_dat.close();
     }
+    M_timer.tock("writeRestart");
 }//writeRestart
 
 
@@ -14203,6 +14227,7 @@ void
 FiniteElement::exportResults(std::vector<std::string> const& filenames, bool const& export_mesh,
         bool const& export_fields, bool const& apply_displacement)
 {
+    M_timer.tick("exportResults");
 
     std::vector<double> M_UM_root;
     this->gatherNodalField(M_UM, M_UM_root);
@@ -14352,6 +14377,7 @@ FiniteElement::exportResults(std::vector<std::string> const& filenames, bool con
         }
     }
 
+    M_timer.tock("exportResults");
 }// exportResults()
 
 

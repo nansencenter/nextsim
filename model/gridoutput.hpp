@@ -279,7 +279,7 @@ public:
                     break;
                 case (variableID::thick):
                     name     = "sit";
-                    longName = "Sea Ice Thickness";
+                    longName = "Effective Sea Ice Thickness";
                     stdName  = "sea_ice_thickness";
                     Units    = "m";
                     cell_methods = "area: mean";
@@ -300,7 +300,7 @@ public:
                     break;
                 case (variableID::snow):
                     name     = "snt";
-                    longName = "Surface Snow Thickness";
+                    longName = "Effective Surface Snow Thickness";
                     stdName  = "surface_snow_thickness";
                     Units    = "m";
                     cell_methods = "area: mean";
@@ -382,14 +382,14 @@ public:
                     break;
                 case (variableID::h_young):
                     name     = "sit_young";
-                    longName = "Young Ice Thickness";
+                    longName = "Effective Young Ice Thickness";
                     stdName  = "young_ice_thickness";
                     Units    = "m";
                     cell_methods = "area: mean";
                     break;
                 case (variableID::hs_young):
                     name     = "snt_young";
-                    longName = "Surface Snow Thickness on young ice";
+                    longName = "Effective Surface Snow Thickness on young ice";
                     stdName  = "surface_snow_thickness_on_young_ice";
                     Units    = "m";
                     cell_methods = "area: mean";
@@ -448,14 +448,14 @@ public:
                     longName = "Meltpond volume";
                     stdName  = "meltpond_volume";
                     Units    = "m";
-                    cell_methods = "area: mean where ice";
+                    cell_methods = "area: mean where sea_ice";
                     break;
                 case (variableID::meltpond_lid_volume):
                     name     = "meltpond_lid_volume";
                     longName = "Meltpond lid volume";
                     stdName  = "meltpond_lid_volume";
                     Units    = "m";
-                    cell_methods = "area: mean where ice";
+                    cell_methods = "area: mean where sea_ice";
                     break;
 
                 // MYI variables
@@ -468,7 +468,7 @@ public:
                     break;
                 case (variableID::thick_myi):
                     name     = "thick_myi";
-                    longName = "Cell-average thickness of Multiyear Ice";
+                    longName = "Effective Thickness of Multiyear Ice";
                     stdName  = "thick_myi";
                     Units    = "m";
                     cell_methods = "area: mean";
@@ -482,7 +482,7 @@ public:
                     break;
                 case (variableID::thick_summer):
                     name     = "thick_summer";
-                    longName = "Cell-average thickness of ice at end of summer";
+                    longName = "Effective Sea Ice Thickness at End of Summer";
                     stdName  = "thick_summer";
                     Units    = "m";
                     cell_methods = "area: mean";
@@ -596,8 +596,8 @@ public:
                     break;
                 case (variableID::del_hi):
                     name     = "del_hi";
-                    longName = "Growth-melt rate of (thick) ice";
-                    stdName  = "growth_melt_rate_of_thick_ice";
+                    longName = "Growth-melt rate of old ice";
+                    stdName  = "growth_melt_rate_of_old_ice";
                     Units    = " m/day";
                     cell_methods = "area: mean";
                     break;
@@ -737,7 +737,7 @@ public:
                     longName = "Meltpond area fraction";
                     stdName  = "meltpond_area_fraction";
                     Units    = "1";
-                    cell_methods = "area: mean where ice";
+                    cell_methods = "area: mean where sea_ice";
                     break;
 
                 // Coupling variables
@@ -1124,6 +1124,10 @@ public:
     std::vector<std::vector<double>> const &getWeights() const { return M_weights; }
 
     void info();
+    void setCompression(const bool compress_netcdf)
+    {
+        deflate = compress_netcdf;
+    }
 
 private:
 
@@ -1180,8 +1184,8 @@ private:
         std::vector<double>& ps_x, std::vector<double>& ps_y);
 
     // Compression options
+    bool deflate = true;
     static constexpr bool shuffle = false;
-    static constexpr bool deflate = true;
     static constexpr int compression = 4;
 
 };

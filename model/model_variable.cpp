@@ -23,6 +23,7 @@ bool
 ModelVariable::initElemental()
 {
     bool elemental = true;
+    bool const use_meltponds = Environment::vm()["thermo.use_meltponds"].as<bool>();
     switch (M_varID)
     {
 
@@ -411,7 +412,7 @@ ModelVariable::initElemental()
         case (variableID::M_pond_volume):
             M_name = "M_pond_volume";
             M_export_name = "Meltpond_volume";
-            M_prognostic = true;
+            M_prognostic = use_meltponds;
             M_exporting = false;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;
@@ -420,7 +421,7 @@ ModelVariable::initElemental()
         case (variableID::M_lid_volume):
             M_name = "M_lid_volume";
             M_export_name = "Meltpond_lid_volume";
-            M_prognostic = true;
+            M_prognostic = use_meltponds;
             M_exporting = false;
             M_interp_transformation = interpTransformation::none;
             M_diffusivity = 0.;

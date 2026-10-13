@@ -871,6 +871,7 @@ private:
     bool M_use_moorings;
     bool M_moorings_snapshot;
     bool M_moorings_parallel_output;
+    bool M_fast_gather;
     std::string M_moorings_file;
     GridOutput::fileLength M_moorings_file_length;
     GridOutput M_moorings;
