@@ -732,6 +732,8 @@ public:
                     longName = "Ice-atmosphere thermodynamic drag";
                     stdName  = "ice-atmosphere_thermodynamic_drag";
                     Units    = "1/s";
+                    cell_methods = "area: mean";
+                    break;
                 case (variableID::meltpond_fraction):
                     name     = "meltpond_fraction";
                     longName = "Meltpond area fraction";

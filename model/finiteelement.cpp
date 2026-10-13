@@ -9459,23 +9459,24 @@ FiniteElement::updateMoorings()
             filename = M_export_path + "/Moorings";
 
             boost::gregorian::date now = Nextsim::parse_date(output_time);
+            bool new_file = false;
             switch (M_moorings_file_length)
             {
-            case GridOutput::fileLength::daily:
-                M_moorings_file = M_moorings.initNetCDF(filename, M_moorings_file_length, output_time, M_moorings_parallel_output);
-                break;
-            case GridOutput::fileLength::weekly:
-                if ( now.day_of_week().as_number() == 1 )
-                    M_moorings_file = M_moorings.initNetCDF(filename, M_moorings_file_length, output_time, M_moorings_parallel_output);
-                break;
-            case GridOutput::fileLength::monthly:
-                if ( now.day().as_number() == 1 )
-                    M_moorings_file = M_moorings.initNetCDF(filename, M_moorings_file_length, output_time, M_moorings_parallel_output);
-                break;
-            case GridOutput::fileLength::yearly:
-                if ( now.day_of_year() == 1 )
-                    M_moorings_file = M_moorings.initNetCDF(filename, M_moorings_file_length, output_time, M_moorings_parallel_output);
+                case GridOutput::fileLength::daily:
+                    new_file = true;
+                    break;
+                case GridOutput::fileLength::weekly:
+                    new_file = ( now.day_of_week().as_number() == 1 );
+                    break;
+                case GridOutput::fileLength::monthly:
+                    new_file = ( now.day().as_number() == 1 );
+                    break;
+                case GridOutput::fileLength::yearly:
+                    new_file = ( now.day_of_year() == 1 );
+                    break;
             }
+            if(new_file)
+                M_moorings_file = M_moorings.initNetCDF(filename, M_moorings_file_length, output_time, false, M_moorings_parallel_output);
         }
 
         // get data on grid and write to netcdf

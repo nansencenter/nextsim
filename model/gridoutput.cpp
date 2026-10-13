@@ -45,6 +45,7 @@ GridOutput::GridOutput(std::vector<Variable> variables, variableKind kind, doubl
         case variableKind::elemental:
             M_elemental_variables = variables;
             M_nodal_variables.resize(0);
+            break;
 
         default:
             std::logic_error("Incorrect variable kind in GridOutput::GridOutput");
