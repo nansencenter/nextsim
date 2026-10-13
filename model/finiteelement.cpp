@@ -9455,20 +9455,21 @@ FiniteElement::updateMoorings()
             boost::gregorian::date now = Nextsim::parse_date(output_time);
             switch (M_moorings_file_length)
             {
-            case GridOutput::fileLength::daily:
-                M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
-                break;
-            case GridOutput::fileLength::weekly:
-                if ( now.day_of_week().as_number() == 1 )
+                case GridOutput::fileLength::daily:
                     M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
-                break;
-            case GridOutput::fileLength::monthly:
-                if ( now.day().as_number() == 1 )
-                    M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
-                break;
-            case GridOutput::fileLength::yearly:
-                if ( now.day_of_year() == 1 )
-                    M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+                    break;
+                case GridOutput::fileLength::weekly:
+                    if ( now.day_of_week().as_number() == 1 )
+                        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+                    break;
+                case GridOutput::fileLength::monthly:
+                    if ( now.day().as_number() == 1 )
+                        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+                    break;
+                case GridOutput::fileLength::yearly:
+                    if ( now.day_of_year() == 1 )
+                        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+                    break;
             }
         }
 
