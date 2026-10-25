@@ -1439,8 +1439,12 @@ FiniteElement::initOptAndParam()
     //! Sets options on the use of moorings
     M_use_moorings =  vm["moorings.use_moorings"].as<bool>(); //! \param M_use_moorings (boolean) Option on the use of moorings
     M_moorings_snapshot =  vm["moorings.snapshot"].as<bool>(); //! \param M_moorings_snapshot (boolean) Option on outputting snapshots of mooring records
+#ifdef NETCDF_PARALLEL
     M_moorings_parallel_output =  vm["moorings.parallel_output"].as<bool>(); //! \param M_moorings_parallel_output (boolean) Option on parallel outputs
-    M_fast_gather =  vm["moorings.fast_gather"].as<bool>(); //! \param M_fast_gather (boolean) Option to gather faster but with higher memory requirements
+#else
+    M_moorings_parallel_output = false;
+#endif
+    M_fast_gather =  vm["moorings.fast_gather"].as<bool>(); //! \param M_fast_gather (boolean) Option to gather faster but with higher memory requirements. Not active if outputting in parallel
     const boost::unordered_map<const std::string, GridOutput::fileLength> str2mooringsfl = boost::assign::map_list_of
         ("inf", GridOutput::fileLength::inf)
         ("daily", GridOutput::fileLength::daily)
@@ -8335,13 +8339,16 @@ void
 FiniteElement::checkOutputs(bool const& at_init_time)
 {
     //! 1) update the diagnostic variables before output
+    M_timer.tick("update ice diagnostics");
     this->updateIceDiagnostics();
+    M_timer.tock("update ice diagnostics");
 
     //! 2) moorings:
     //! - update fields on grid if outputting mean fields
     //! - check if we are adding records to netcdf file
     if(M_use_moorings)
     {
+        M_timer.tick("moorings output");
         if(!at_init_time)
             this->updateMoorings();
         else if(    M_moorings_snapshot
@@ -8355,6 +8362,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
             // - interpolate to the grid and write them to the netcdf file
             this->mooringsAppendNetcdf(M_current_time);
         }
+        M_timer.tock("moorings output");
     }
 
     //! 3) update drifters if necessary
@@ -8368,13 +8376,16 @@ FiniteElement::checkOutputs(bool const& at_init_time)
         exporting = (pcpt*time_step % output_time_step == 0);
     if(exporting)
     {
+        M_timer.tick("export");
         chrono.restart();
         LOG(DEBUG) <<"export starts\n";
         this->exportResults(true, vm["output.export_fields"].as<bool>(), true);
         LOG(DEBUG) <<"export done in " << chrono.elapsed() <<"s\n";
+        M_timer.tock("export");
     }
 
     //! 5) check if writing restart
+    M_timer.tick("write restart");
     if(at_init_time)
     {
         if (M_write_restart_start)
@@ -8384,6 +8395,7 @@ FiniteElement::checkOutputs(bool const& at_init_time)
     {
         this->writeRestart();
     }
+    M_timer.tock("write restart");
 
 }//checkOutputs
 
@@ -9389,9 +9401,8 @@ FiniteElement::initMoorings()
                 + ". It must be either 'regular' or 'from_file'.");
     }
 
-    // As only the root processor knows the entire grid we set the land mask using it
-    if ( M_rank == 0 )
-        M_moorings.setLSM(M_mesh_root);
+    // Set the land mask
+    M_moorings.setLSM(M_mesh);
 
     // Initialise netCDF output
     M_moorings.setCompression(vm["moorings.compress_netcdf"].as<bool>());
@@ -9404,14 +9415,12 @@ FiniteElement::initMoorings()
             // shift the timestamp in the file to the centre of the output interval
             output_time = M_current_time + mooring_output_time_step/days_in_sec/2.;
 
-        std::string filename_root;
-        if ( M_moorings_parallel_output )
-            filename_root = M_export_path + "/Moorings_" + std::to_string(M_rank);
-        else
-            filename_root = M_export_path + "/Moorings";
+        std::string filename;
+        filename = M_export_path + "/Moorings";
 
-        M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time, M_use_restart);
+        M_moorings_file = M_moorings.initNetCDF(filename, M_moorings_file_length, output_time, M_use_restart, M_moorings_parallel_output);
     }
+
 }//initMoorings
 
 //------------------------------------------------------------------------------------------------------
@@ -9446,11 +9455,8 @@ FiniteElement::updateMoorings()
                 && (M_moorings_file_length != GridOutput::fileLength::inf)
                 && (modf(output_time, &not_used) < mooring_output_time_step/days_in_sec) )
         {
-            std::string filename_root;
-            if ( M_moorings_parallel_output )
-                filename_root = M_export_path + "/Moorings_" + std::to_string(M_rank);
-            else
-                filename_root = M_export_path + "/Moorings";
+            std::string filename;
+            filename = M_export_path + "/Moorings";
 
             boost::gregorian::date now = Nextsim::parse_date(output_time);
             bool new_file = false;
@@ -9470,7 +9476,7 @@ FiniteElement::updateMoorings()
                     break;
             }
             if(new_file)
-                M_moorings_file = M_moorings.initNetCDF(filename_root, M_moorings_file_length, output_time);
+                M_moorings_file = M_moorings.initNetCDF(filename, M_moorings_file_length, output_time, false, M_moorings_parallel_output);
         }
 
         // get data on grid and write to netcdf
@@ -9491,9 +9497,10 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
     M_moorings.updateGridMean(M_mesh, M_local_nelements, M_UM);
     M_timer.tock("mooringsAppendNetcdf_update");
 
-    M_timer.tick("mooringsAppendNetcdf_gathering");
     if ( ! M_moorings_parallel_output )
     {
+        M_timer.tick("mooringsAppendNetcdf_gathering");
+
         //gather fields to root processor if not using parallel output
         auto reduceToRoot = [&](std::vector<double>& v)
         {
@@ -9530,12 +9537,23 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
 
         for (auto it=M_moorings.M_elemental_variables.begin(); it!=M_moorings.M_elemental_variables.end(); ++it)
             reduceToRoot(it->data_grid);
+
+        M_timer.tock("mooringsAppendNetcdf_gathering");
     }
-    M_timer.tock("mooringsAppendNetcdf_gathering");
 
     M_timer.tick("mooringsAppendNetcdf_writing");
     //append to netcdf
-    if ( (M_rank==0) || M_moorings_parallel_output )
+    if (M_moorings_parallel_output) 
+    {
+        std::vector<double> coord = M_mesh.coordX();
+        double xmin = *std::min_element(coord.begin(), coord.end());
+        double xmax = *std::max_element(coord.begin(), coord.end());
+        coord = M_mesh.coordY();
+        double ymin = *std::min_element(coord.begin(), coord.end());
+        double ymax = *std::max_element(coord.begin(), coord.end());
+        M_moorings.appendNetCDFParallel(M_moorings_file, output_time, {xmin, ymin, xmax, ymax});
+    }
+    else if (M_rank == 0)
         M_moorings.appendNetCDF(M_moorings_file, output_time);
     M_timer.tock("mooringsAppendNetcdf_writing");
 
@@ -9543,6 +9561,7 @@ FiniteElement::mooringsAppendNetcdf(double const &output_time)
     M_moorings.resetMeshMean(M_mesh);
     M_moorings.resetGridMean();
 }//mooringsAppendNetcdf
+
 
 
 //------------------------------------------------------------------------------------------------------
