@@ -110,7 +110,7 @@ typedef struct
  * class definition
  */
 
-typedef struct
+typedef struct cdb_class_s
 {
   char *filename;
   FILE *fp;
@@ -124,7 +124,7 @@ typedef struct
   cdb_seg_data *data_ptr;	/* current segment data */
   int npoints;			/* number of data points in current segment */
   int is_loaded;		/* if TRUE all data is loaded in memory */
-  cdb_seg_data *(*get_data)();	/* read segment data function */
+  cdb_seg_data *(*get_data)(struct cdb_class_s *);  /* read segment data function */
 } cdb_class;
 
 /*
