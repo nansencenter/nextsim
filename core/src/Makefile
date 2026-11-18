@@ -69,7 +69,7 @@ LDFLAGS += -ldl -lstdc++ #-lpthread #-lm -lrt
 
 #boost
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
-LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_system -lboost_serialization -lboost_mpi
+LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_serialization -lboost_mpi
 
 # gmsh
 LDFLAGS += -Wl,-rpath,$(GMSH_LIB_DIR)

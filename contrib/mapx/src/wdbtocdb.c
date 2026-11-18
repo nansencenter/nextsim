@@ -47,6 +47,9 @@ static int very_very_verbose = FALSE;
 void move_pu(float, float);
 void draw_pd(float, float);
 void write_segment_data(int);
+void wdbplt(char file[], double slatd, double slatm, double nlatd,
+            double nlatm, double wlond, double wlonm, double elond,
+            double elonm, double scale, char ranks[], int gapin);
 
 /*------------------------------------------------------------------------
  * usage
