@@ -112,6 +112,7 @@
 
 *****************************************************************************
 */
+#include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -124,14 +125,27 @@
 
 #define SIGN_OF(x) ((x)<0.0 ? -1 : 1)
 
-float *ufmatrix(); /* allocates memory for float matrix */
-unsigned char *ucmatrix(); /* allocates memory for character matrix */
-void wdbpltc_free(); /* frees all buffers */
+float *ufmatrix(int a, int b); /* allocates memory for float matrix */
+unsigned char *ucmatrix(int a, int b); /* allocates memory for character matrix */
+void wdbpltc_free(void); /* frees all buffers */
+int ufree(void *m);
+int uabort(void);
+int gstat(const char *error_msg);
+unsigned char celchk(short *first);
+unsigned char test_bit(unsigned char byte, short bitpos);
+void movpos(void);
+void nxtrec(void);
+void pltpro(float lat, float lon, short rank, short *cont,
+            char penclr, short gap);
+void simple(short *count, short gap);
+void curve(float *lon, float *lat, short count, char color);
+
 #ifdef DEBUG
 int debug=1;
 #else
 int debug=0;
 #endif
+
 unsigned char *g_bytbuf,*g_celbuf;
 short g_lunfil,g_logrec,g_lperp,g_offset,g_level;
 char g_proj[6+1], g_stflag;
@@ -139,18 +153,14 @@ long g_index,g_addr,g_paddr,g_lstat,g_curpos,g_fulrec;
 float g_slatdd,g_nlatdd,g_wlondd,g_elondd,g_scal,g_height,g_width;
 float *latray,*lonray;
 
-void wdbplt(file, slatd, slatm, nlatd, nlatm, wlond, wlonm, elond, elonm,
-	  scale, ranks, gapin)
-char file[], ranks[], gapin;
-float slatd, slatm, nlatd, nlatm, wlond, wlonm, elond, elonm, scale;
+void wdbplt(char file[], double slatd, double slatm, double nlatd,
+            double nlatm, double wlond, double wlonm, double elond,
+            double elonm, double scale, char ranks[], int gapin)
 {
-  unsigned char celchk();
-  void nxtrec(), movpos(), pltpro();
-
   short ioff, i, j, col, go, stop, inc, slat, nlat, wlon, elon, segcnt,
-    rank, cont, cnt, gap, latsec, lonsec;
-    long latoff, lonoff, conbyt;
-  char eflag, first, *dirfil;
+    rank, cont, cnt, gap, latsec, lonsec, first;
+  long latoff, lonoff, conbyt;
+  char eflag, *dirfil;
   float todeg, lat=0., lon=0.;
   double dummy;
   int ii,jj;
@@ -412,11 +422,8 @@ void wdbpltc_free()
 		 is accessed.
 
 */
-unsigned char celchk(first)
-short *first;
+unsigned char celchk(short *first)
 {
-  unsigned char test_bit();
-
   static long caddr, pcaddr = 0;
   long ndxpos;
   short bytpos, bitpos;
@@ -454,9 +461,7 @@ the last access, read a new physical record.*/
 	mask  - char array of bit masks
 
 */
-unsigned char test_bit(byte, bitpos)
-unsigned char byte;
-short bitpos;
+unsigned char test_bit(unsigned char byte, short bitpos)
 {
   static unsigned char mask[9] = {0x1,0x2,0x4,0x8,0x10,0x20,0x40,0x80};
   return (byte&mask[bitpos]);
@@ -471,7 +476,6 @@ short bitpos;
 */
 void movpos(void)
 {
-  void nxtrec();
   g_curpos += 2;
   if (g_curpos%g_logrec==g_fulrec) nxtrec();
   return ;
@@ -538,13 +542,9 @@ current byte position for the new record.*/
 		 value for gap is 45
 
 */
-void pltpro(lat, lon, rank, cont, penclr, gap)
-float lat, lon;
-short rank, *cont, gap;
-char penclr;
+void pltpro(float lat, float lon, short rank, short *cont,
+            char penclr, short gap)
 {
-  void simple(), projct(), curve();
-
   static char color, flag = 1;
   static short npts = -1, prank = 0, count;
   static float savlat, savlon;
@@ -625,8 +625,7 @@ initialization flag.*/
 
 *****************************************************************************
 */
-void simple(count, gap)
-short *count, gap;
+void simple(short *count, short gap)
 {
   register short i, ndx;
 /*If the increment is not 1 and the number of points in the arrays
@@ -675,7 +674,7 @@ float *ufmatrix(int a, int b)
 /**************************************************************************/
 /* UFREE- frees up memory                                                 */
 /**************************************************************************/
-int ufree(char *m)
+int ufree(void *m)
 {
 
   free(m);
@@ -684,14 +683,14 @@ int ufree(char *m)
 /**************************************************************************/
 /* UABORT- tests for operator abort                                       */
 /***************************************************************************/
-int uabort()
+int uabort(void)
 {
     return (0);
 }
 /**************************************************************************/
 /* GSTAT - posts error messages
 /***************************************************************************/
-int gstat(char *error_msg)
+int gstat(const char *error_msg)
 {
     fprintf(stderr,"wdbpltc: %s\n", error_msg);
     return (0);

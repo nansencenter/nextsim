@@ -575,40 +575,45 @@ void list_cdb(cdb_class *this, int verbose)
  *	compare function to sort index by decreasing ilat_max
  *	see qsort(3C)
  */
-static int cdb_sort_lat_max(cdb_index_entry *seg1, cdb_index_entry *seg2)
+static int cdb_sort_lat_max(const void *a, const void *b)
 {
+    const cdb_index_entry *seg1 = a, *seg2 = b;
     return seg2->ilat_max - seg1->ilat_max;
 }
 
 /*
  *	compare function to sort index by decreasing ilon_max
  */
-static int cdb_sort_lon_max(cdb_index_entry *seg1, cdb_index_entry *seg2)
+static int cdb_sort_lon_max(const void *a, const void *b)
 {
+    const cdb_index_entry *seg1 = a, *seg2 = b;
     return seg2->ilon_max - seg1->ilon_max;
 }
 
 /*
  *	compare function to sort index by increasing ilat_min
  */
-static int cdb_sort_lat_min(cdb_index_entry *seg1, cdb_index_entry *seg2)
+static int cdb_sort_lat_min(const void *a, const void *b)
 {
+    const cdb_index_entry *seg1 = a, *seg2 = b;
     return seg1->ilat_min - seg2->ilat_min;
 }
 
 /*
  *	compare function to sort index by increasing ilon_min
  */
-static int cdb_sort_lon_min(cdb_index_entry *seg1, cdb_index_entry *seg2)
+static int cdb_sort_lon_min(const void *a, const void *b)
 {
+    const cdb_index_entry *seg1 = a, *seg2 = b;
     return seg1->ilon_min - seg2->ilon_min;
 }
 
 /*
  *	compare function to sort index by increasing segment ID
  */
-static int cdb_sort_seg_ID(cdb_index_entry *seg1, cdb_index_entry *seg2)
+static int cdb_sort_seg_ID(const void *a, const void *b)
 {
+    const cdb_index_entry *seg1 = a, *seg2 = b;
     return seg1->ID - seg2->ID;
 }
 
@@ -617,7 +622,7 @@ static int cdb_sort_seg_ID(cdb_index_entry *seg1, cdb_index_entry *seg2)
  */
 void sort_index_cdb(cdb_class *this, cdb_index_sort order)
 {
-  int (*compare)();
+  int (*compare)(const void *, const void *);
 
   if (order == this->index_order) return;
 
@@ -670,8 +675,9 @@ static cdb_index_entry *first_seg, *last_seg;
  *	compare function for index sorted by decreasing ilat_max
  *	see bsearch(3C)
  */
-static int cdb_find_lat_max(cdb_index_entry *key, cdb_index_entry *seg)
+static int cdb_find_lat_max(const void *k, const void *s)
 {
+  const cdb_index_entry *key = k, *seg = s;
   if (seg == first_seg && key->ilat_max >= seg->ilat_max)
     return 0;
   else if (seg == last_seg && key->ilat_max <= seg->ilat_max)
@@ -686,8 +692,9 @@ static int cdb_find_lat_max(cdb_index_entry *key, cdb_index_entry *seg)
 /*
  *	compare function for index sorted by decreasing ilon_max
  */
-static int cdb_find_lon_max(cdb_index_entry *key, cdb_index_entry *seg)
+static int cdb_find_lon_max(const void *k, const void *s)
 {
+  const cdb_index_entry *key = k, *seg = s;
   if (seg == first_seg && key->ilon_max >= seg->ilon_max)
     return 0;
   else if (seg == last_seg && key->ilon_max <= seg->ilon_max)
@@ -702,8 +709,9 @@ static int cdb_find_lon_max(cdb_index_entry *key, cdb_index_entry *seg)
 /*
  *	compare function for index sorted by increasing ilat_min
  */
-static int cdb_find_lat_min(cdb_index_entry *key, cdb_index_entry *seg)
+static int cdb_find_lat_min(const void *k, const void *s)
 {
+  const cdb_index_entry *key = k, *seg = s;
   if (seg == first_seg && key->ilat_min <= seg->ilat_min)
     return 0;
   else if (seg == last_seg && key->ilat_min >= seg->ilat_min)
@@ -718,8 +726,9 @@ static int cdb_find_lat_min(cdb_index_entry *key, cdb_index_entry *seg)
 /*
  *	compare function for index sorted by increasing ilon_min
  */
-static int cdb_find_lon_min(cdb_index_entry *key, cdb_index_entry *seg)
+static int cdb_find_lon_min(const void *k, const void *s)
 {
+  const cdb_index_entry *key = k, *seg = s;
   if (seg == first_seg && key->ilon_min <= seg->ilon_min)
     return 0;
   else if (seg == last_seg && key->ilon_min >= seg->ilon_min)
@@ -734,8 +743,9 @@ static int cdb_find_lon_min(cdb_index_entry *key, cdb_index_entry *seg)
 /*
  *	compare function for index sorted by increasing segment ID
  */
-static int cdb_find_seg_ID(cdb_index_entry *key, cdb_index_entry *seg)
+static int cdb_find_seg_ID(const void *k, const void *s)
 {
+  const cdb_index_entry *key = k, *seg = s;
   return key->ID - seg->ID;
 }
 
@@ -745,7 +755,7 @@ static int cdb_find_seg_ID(cdb_index_entry *key, cdb_index_entry *seg)
 cdb_index_entry *find_segment_cdb(cdb_class *this, double key_value)
 {
   cdb_index_entry key;
-  int (*compare)();
+  int (*compare)(const void *, const void *);
   register double bottom_value;
 
   switch (this->index_order)
@@ -789,10 +799,9 @@ cdb_index_entry *find_segment_cdb(cdb_class *this, double key_value)
   else
   { first_seg = this->index;
     last_seg = last_segment_cdb(this);
-
-    this->segment = bsearch((const void *)&key, (const void *)this->index,
-			    (size_t)this->seg_count, sizeof(cdb_index_entry),
-			    compare);
+    this->segment = bsearch((const void *)&key, this->index,
+                        (size_t)this->seg_count, sizeof(cdb_index_entry),
+                        compare);
   }
   return this->segment;
 }

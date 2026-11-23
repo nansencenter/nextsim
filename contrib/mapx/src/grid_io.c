@@ -7,6 +7,7 @@
  *======================================================================*/
 static const char grid_io_c_rcsid[]="$Id: grid_io.c 16072 2010-01-30 19:39:09Z brodzik $";
 
+#include <unistd.h>
 #include "define.h"
 #include "matrix.h"
 #define grid_io_c_
@@ -124,8 +125,8 @@ grid_io_class *init_grid_io(int width, int height, int datum_size,
 /*
  *	preload buffer
  */ 
-  fread(this->data[0], this->datum_size,
-	this->width*this->num_rows, this->fp);
+  (void)!fread(this->data[0], this->datum_size,
+	       this->width*this->num_rows, this->fp);
   if (ferror(this->fp)) { perror(filename); close_grid_io(this); return NULL; }
 
   return this;
