@@ -93,6 +93,8 @@ LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_
 LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lbamg
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
+
+LDFLAGS += -Wl,-rpath,$(GMSH_LIB_DIR)
 LDFLAGS += -L$(GMSH_LIB_DIR) -lgmsh
 
 ifdef USE_ENSEMBLE
