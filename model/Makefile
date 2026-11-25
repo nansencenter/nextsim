@@ -111,10 +111,9 @@ ifdef USE_AEROBULK
 	LDFLAGS += $(LD_EXTRA_AEROBULK)
 endif
 
-ifneq (,$(strip $(filter DEBUG Debug debug PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
-#ifeq ($(NEXTSIM_BUILD_TYPE),$(filter $(NEXTSIM_BUILD_TYPE),Debug debug))
+ifneq (,$(strip $(filter DEBUG PROFILE,$(NEXTSIM_BUILD_TYPE))))
 	LDFLAGS += -Wl,-rpath,/opt/local/lib
-ifneq (,$(strip $(filter PROFILE Profile profile,$(NEXTSIM_BUILD_TYPE))))
+ifneq (,$(strip $(filter PROFILE,$(NEXTSIM_BUILD_TYPE))))
 	LDFLAGS += -L/opt/local/lib -lprofiler
 endif
 endif
