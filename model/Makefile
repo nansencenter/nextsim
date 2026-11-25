@@ -60,12 +60,17 @@ endif
 ifeq ($(NETCDF_CXX_DIR),)
 	NETCDF_CXX_DIR=$(NETCDF_DIR)
 endif
+ifeq ($(NETCDF_CXX_LIB_DIR),)
+	NETCDF_CXX_LIB_DIR=$(NETCDF_LIB_DIR)
+endif
 ifeq ($(NETCDF_FOR_DIR),)
 	NETCDF_FOR_DIR=$(NETCDF_DIR)
 endif
-LDFLAGS += -L$(NETCDF_DIR)/lib -lnetcdf -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
+ifeq ($(NETCDF_FOR_LIB_DIR),)
+	NETCDF_FOR_LIB_DIR=$(NETCDF_LIB_DIR)
+endif
 ifdef USE_OASIS
-	LDFLAGS += -L$(NETCDF_FOR_DIR)/lib -lnetcdff
+	LDFLAGS += -L$(NETCDF_FOR_LIB_DIR) -lnetcdff
 endif
 
 # don't add /usr/include - it is already in  the default path and setting it with -isystem causes problems with stdlib.h
@@ -84,8 +89,8 @@ endif
 
 LDFLAGS += -ldl -lstdc++ #-lpthread #-lssl -luuid -lpthread -lrt
 
-LDFLAGS += -Wl,-rpath,$(NETCDF_DIR)/lib -L$(NETCDF_DIR)/lib -lnetcdf
-LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_DIR)/lib -L$(NETCDF_CXX_DIR)/lib -lnetcdf_c++4
+LDFLAGS += -Wl,-rpath,$(NETCDF_LIB_DIR) -L$(NETCDF_LIB_DIR) -lnetcdf
+LDFLAGS += -Wl,-rpath,$(NETCDF_CXX_LIB_DIR) -L$(NETCDF_CXX_LIB_DIR) -lnetcdf_c++4
 
 LDFLAGS += -Wl,-rpath,$(BOOST_LIBDIR)
 LDFLAGS += -L$(BOOST_LIBDIR) -lboost_program_options -lboost_filesystem -lboost_serialization -lboost_mpi -lboost_date_time

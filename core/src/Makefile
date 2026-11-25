@@ -76,6 +76,7 @@ LDFLAGS += -Wl,-rpath,$(GMSH_LIB_DIR)
 LDFLAGS += -L$(GMSH_LIB_DIR) -lgmsh
 
 # mapx
+LDFLAGS += -Wl,-rpath,$(NEXTSIMDIR)/lib
 LDFLAGS += -L$(NEXTSIMDIR)/lib -lmapx
 
 
